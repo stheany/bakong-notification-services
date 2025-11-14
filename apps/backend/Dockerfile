@@ -57,16 +57,15 @@ COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./app
 # Copy built backend dist
 COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
 
-# Copy node_modules from builder (has all dependencies installed)
-# In npm workspaces, dependencies are hoisted to root node_modules by default
-# Copy root node_modules which contains all workspace dependencies
-COPY --from=builder /opt/bk_notification_service/node_modules ./node_modules
+# Install production dependencies in runtime stage
+# This ensures all workspace dependencies are correctly installed and linked
+# Using npm ci with --omit=dev for production-only dependencies
+RUN npm ci --omit=dev
 
-# Verify critical dependencies exist (for debugging)
-RUN ls -la node_modules/@nestjs/core 2>/dev/null || (echo "ERROR: @nestjs/core not found in node_modules" && ls -la node_modules/ | head -20 && exit 1)
-
-# Note: We keep all dependencies (including dev) to ensure workspace structure works correctly
-# npm prune --production can break workspace symlinks and cause MODULE_NOT_FOUND errors
-# The image will be larger (~200-300MB more) but functional and reliable
+# Note: We reinstall dependencies here instead of copying node_modules because:
+# 1. npm workspaces may have dependencies in workspace-specific locations
+# 2. Copying node_modules can miss workspace symlinks and dependencies
+# 3. Reinstalling ensures the workspace structure is correctly set up
+# The --omit=dev flag installs only production dependencies for a smaller image
 
 CMD ["node", "dist/main.js"]
