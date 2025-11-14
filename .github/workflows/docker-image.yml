@@ -2,6 +2,14 @@ name: Docker Image (GHCR Test)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - init
+      - develop
+      - master
+      - release/**
+    tags:
+      - '*.*.*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
