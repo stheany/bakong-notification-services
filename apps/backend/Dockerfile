@@ -47,22 +47,21 @@ FROM node:20-alpine AS runtime
 WORKDIR /opt/bk_notification_service
 ENV NODE_ENV=production
 
-# Copy package files
+# Copy package files for workspace setup
 COPY package*.json ./
+COPY package-lock.json ./
 COPY apps/backend/package*.json ./apps/backend/
 COPY apps/packages/shared/package*.json ./apps/packages/shared/
 
-# Copy built code and dependencies
-COPY --from=builder /opt/bk_notification_service/node_modules ./node_modules
-COPY --from=builder /opt/bk_notification_service/apps/backend/node_modules ./apps/backend/node_modules
+# Copy built code
 COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
 COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./apps/packages/shared/dist
 
-# ✅ Ensure NestJS exists before starting
-RUN test -d node_modules/@nestjs/core || test -d apps/backend/node_modules/@nestjs/core \
-    || (echo "❌ Missing @nestjs/core in both root and backend node_modules" && exit 1)
+# Install production dependencies in runtime stage
+# This ensures all workspace dependencies are correctly installed and linked
+RUN npm ci --omit=dev --legacy-peer-deps
 
-# Healthcheck (optional)
-HEALTHCHECK CMD node -e "require('http').get('http://localhost:4005/health', r => process.exit(0)).on('error', e => process.exit(1))" || exit 1
+# Verify critical dependencies exist
+RUN test -d node_modules/@nestjs/core || (echo "❌ Missing @nestjs/core" && ls -la node_modules/ | head -20 && exit 1)
 
 CMD ["node", "dist/main.js"]
