@@ -62,6 +62,9 @@ COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
 # Copy root node_modules which contains all workspace dependencies
 COPY --from=builder /opt/bk_notification_service/node_modules ./node_modules
 
+# Verify critical dependencies exist (for debugging)
+RUN ls -la node_modules/@nestjs/core 2>/dev/null || (echo "ERROR: @nestjs/core not found in node_modules" && ls -la node_modules/ | head -20 && exit 1)
+
 # Note: We keep all dependencies (including dev) to ensure workspace structure works correctly
 # npm prune --production can break workspace symlinks and cause MODULE_NOT_FOUND errors
 # The image will be larger (~200-300MB more) but functional and reliable
