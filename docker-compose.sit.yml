@@ -70,6 +70,10 @@ services:
     build:
       context: .
       dockerfile: ./apps/frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: http://10.20.6.57:4002
+        VITE_FRONTEND_PORT: 3000
+        VITE_BASE_URL: /
     # Option 2: Use pre-built image from GHCR (faster, requires image to exist)
     # Get commit SHA from GitHub Actions build, then use:
     # image: ghcr.io/stheany/notification-services-frontend:YOUR_COMMIT_SHA

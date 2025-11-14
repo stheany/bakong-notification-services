@@ -37,6 +37,16 @@ WORKDIR /app
 RUN npm install --legacy-peer-deps
 
 # Build the application (ensure we're in the frontend directory)
+# Accept build args for environment variables
+ARG VITE_API_BASE_URL
+ARG VITE_FRONTEND_PORT=3000
+ARG VITE_BASE_URL=/
+
+# Set environment variables for build
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_FRONTEND_PORT=${VITE_FRONTEND_PORT}
+ENV VITE_BASE_URL=${VITE_BASE_URL}
+
 WORKDIR /app/apps/frontend
 RUN npm run build
 
