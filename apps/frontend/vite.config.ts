@@ -5,12 +5,24 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig(({ mode }) => {
   // Get the directory where this config file is located
   const root = fileURLToPath(new URL('.', import.meta.url))
+
   // Load env file based on `mode` - use root directory for env files
-  const env = loadEnv(mode, root, '')
+  // Only load if we're not in a Docker build (where env vars come from process.env)
+  let env = {}
+  try {
+    env = loadEnv(mode, root, '')
+  } catch (error) {
+    // If loadEnv fails, use process.env as fallback
+    env = process.env
+  }
 
   // Default values for development
-  const frontendPort = parseInt(env.VITE_FRONTEND_PORT || '3000', 10)
-  const apiBaseUrl = env.VITE_API_BASE_URL || 'http://localhost:4005'
+  const frontendPort = parseInt(
+    env.VITE_FRONTEND_PORT || process.env.VITE_FRONTEND_PORT || '3000',
+    10,
+  )
+  const apiBaseUrl =
+    env.VITE_API_BASE_URL || process.env.VITE_API_BASE_URL || 'http://localhost:4005'
 
   return {
     root: root,
