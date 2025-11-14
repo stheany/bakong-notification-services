@@ -57,9 +57,10 @@ COPY apps/packages/shared/package*.json ./apps/packages/shared/
 COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
 COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./apps/packages/shared/dist
 
-# Install production dependencies in runtime stage
-# Using npm install --production instead of npm ci for better workspace compatibility
-# npm ci can be too strict with workspaces and may miss dependencies
-RUN npm install --production --legacy-peer-deps
+# Install ALL dependencies (including dev) in runtime stage
+# This ensures workspace structure is correct and all required dependencies are available
+# npm install --production can miss dependencies in workspace setups
+# Note: Image will be larger but functional and reliable
+RUN npm install --legacy-peer-deps
 
 CMD ["node", "dist/main.js"]
