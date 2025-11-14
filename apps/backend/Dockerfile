@@ -1,71 +1,65 @@
-# ---- Base build stage ----
-FROM node:20-alpine AS builder  
+# -----------------------------------------------------
+# 🏗️ Stage 1 — Build backend and shared packages
+# -----------------------------------------------------
+FROM node:20-alpine AS builder
+
+# Enable faster builds
+ENV NODE_ENV=development
 
 WORKDIR /opt/bk_notification_service
-    
-# Copy dependency manifests
+
+# Copy package manifests
 COPY package*.json ./
-COPY package-lock.json ./
 COPY apps/backend/package*.json ./apps/backend/
 COPY apps/packages/shared/package*.json ./apps/packages/shared/
 
 # Copy TypeScript config files
-COPY tsconfig.json ./
-COPY apps/packages/shared/tsconfig.json ./apps/packages/shared/
+COPY tsconfig*.json ./
 COPY apps/backend/tsconfig*.json ./apps/backend/
+COPY apps/packages/shared/tsconfig*.json ./apps/packages/shared/
 COPY apps/backend/nest-cli.json ./apps/backend/
 
-# Install dependencies at root level (handles npm workspaces)
-RUN npm ci
+# -----------------------------------------------------
+# Install all workspace dependencies
+# -----------------------------------------------------
+RUN npm ci --legacy-peer-deps
 
-# Copy shared package source files
-COPY apps/packages/shared/src ./apps/packages/shared/src
+# Copy full source
+COPY apps/backend ./apps/backend
+COPY apps/packages/shared ./apps/packages/shared
 
-# Build shared package first (backend depends on it)
+# Build shared first (it’s imported by backend)
 WORKDIR /opt/bk_notification_service/apps/packages/shared
 RUN npm run build
 
-# Create symlink for dist-cjs (tsconfig references dist-cjs but package builds to dist)
-RUN ln -s dist dist-cjs || true
-
-# Copy backend source files
-WORKDIR /opt/bk_notification_service
-COPY apps/backend/src ./apps/backend/src
-
-# Build backend
+# Build backend (NestJS)
 WORKDIR /opt/bk_notification_service/apps/backend
 RUN npm run build
 
-# ---- Runtime stage ----
-FROM node:20-alpine
+# -----------------------------------------------------
+# 🧱 Stage 2 — Runtime image
+# -----------------------------------------------------
+FROM node:20-alpine AS runtime
+ENV NODE_ENV=production
 
 WORKDIR /opt/bk_notification_service
 
-# Copy root package files for workspace setup
+# Copy root package files for workspace resolution
 COPY package*.json ./
-COPY package-lock.json ./
-
-# Copy backend package files
 COPY apps/backend/package*.json ./apps/backend/
-
-# Copy shared package files (needed for @bakong/shared dependency)
 COPY apps/packages/shared/package*.json ./apps/packages/shared/
 
-# Copy built shared package dist (backend depends on it)
+# Copy built code and node_modules from builder
+COPY --from=builder /opt/bk_notification_service/node_modules ./node_modules
+COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
 COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./apps/packages/shared/dist
 
-# Copy built backend dist
-COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
+# ✅ Verify critical dependency exists
+RUN test -d node_modules/@nestjs/core || (echo "❌ Missing @nestjs/core"; exit 1)
 
-# Install production dependencies in runtime stage
-# This ensures all workspace dependencies are correctly installed and linked
-# Using npm ci with --omit=dev for production-only dependencies
-RUN npm ci --omit=dev
+# Healthcheck (optional)
+HEALTHCHECK CMD node -e "require('http').get('http://localhost:4005/health', r => process.exit(0)).on('error', e => process.exit(1))" || exit 1
 
-# Note: We reinstall dependencies here instead of copying node_modules because:
-# 1. npm workspaces may have dependencies in workspace-specific locations
-# 2. Copying node_modules can miss workspace symlinks and dependencies
-# 3. Reinstalling ensures the workspace structure is correctly set up
-# The --omit=dev flag installs only production dependencies for a smaller image
-
+# Default command
 CMD ["node", "dist/main.js"]
+    

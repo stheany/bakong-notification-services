@@ -50,13 +50,6 @@ target "frontend" {
   dockerfile = "apps/frontend/Dockerfile"
   context    = "."
   
-  # Build args for Vite environment variables
-  args = {
-    VITE_API_BASE_URL = "http://localhost:4005"
-    VITE_FRONTEND_PORT = "3000"
-    VITE_BASE_URL = "/"
-  }
-  
   tags = [
     "${DOCKER_REGISTRY}${DOCKER_NAMESPACE}/notification-services-frontend:${VERSION}"
   ]
