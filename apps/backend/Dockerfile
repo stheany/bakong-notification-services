@@ -39,6 +39,12 @@ RUN npm run build
 # Build backend
 WORKDIR /opt/bk_notification_service/apps/backend
 RUN npm run build
+# Verify tsc-alias worked - check if any src/ paths remain
+RUN if grep -r "require(['\"]src/" dist/ 2>/dev/null | head -1; then \
+      echo "⚠️ Warning: Some src/ paths not resolved by tsc-alias"; \
+      echo "Running tsc-alias again..."; \
+      npx tsc-alias -p tsconfig.json || true; \
+    fi
 
 # -----------------------------------------------------
 # 🚀 Stage 2 — Runtime
@@ -76,5 +82,9 @@ RUN test -d node_modules/@nestjs/core || test -d apps/backend/node_modules/@nest
 # Health endpoint is at /api/v1/health or /api/v1/management/healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:8080/api/v1/health', (r) => { if (r.statusCode === 200) process.exit(0); else process.exit(1); }).on('error', () => process.exit(1))"
+
+# Run from root directory but set NODE_PATH to include backend node_modules
+# This allows Node.js to find modules in both root and backend node_modules
+ENV NODE_PATH=/opt/bk_notification_service/node_modules:/opt/bk_notification_service/apps/backend/node_modules
 
 CMD ["node", "dist/main.js"]
