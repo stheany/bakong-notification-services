@@ -17,16 +17,29 @@ function fixPathsInFile(filePath) {
   const srcPathRegex = /require\(['"](src\/[^'"]+)['"]\)/g;
   
   content = content.replace(srcPathRegex, (match, srcPath) => {
+    // Convert src/... to dist/... (since dist mirrors src structure)
+    const distPath = srcPath.replace(/^src\//, 'dist/');
+    
     // Calculate relative path from current file to the target
     const currentDir = path.dirname(filePath);
-    const targetPath = path.join(__dirname, srcPath);
-    const relativePath = path.relative(currentDir, targetPath);
+    const targetPath = path.join(__dirname, distPath);
+    
+    // Add .js extension if not present
+    let targetWithExt = targetPath;
+    if (!targetPath.endsWith('.js')) {
+      targetWithExt = targetPath + '.js';
+    }
+    
+    const relativePath = path.relative(currentDir, targetWithExt);
     
     // Normalize path separators and ensure it starts with ./
     let relative = relativePath.replace(/\\/g, '/');
     if (!relative.startsWith('.')) {
       relative = './' + relative;
     }
+    
+    // Remove .js extension for require (Node.js adds it automatically)
+    relative = relative.replace(/\.js$/, '');
     
     modified = true;
     return `require('${relative}')`;
