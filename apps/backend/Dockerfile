@@ -39,11 +39,13 @@ RUN npm run build
 # Build backend
 WORKDIR /opt/bk_notification_service/apps/backend
 RUN npm run build
-# Verify tsc-alias worked - check if any src/ paths remain
+# Verify no src/ paths remain (fix-paths.js should have fixed them)
 RUN if grep -r "require(['\"]src/" dist/ 2>/dev/null | head -1; then \
-      echo "⚠️ Warning: Some src/ paths not resolved by tsc-alias"; \
-      echo "Running tsc-alias again..."; \
-      npx tsc-alias -p tsconfig.json || true; \
+      echo "❌ ERROR: src/ paths still exist after build!"; \
+      grep -r "require(['\"]src/" dist/ 2>/dev/null | head -5; \
+      exit 1; \
+    else \
+      echo "✅ All src/ paths resolved successfully"; \
     fi
 
 # -----------------------------------------------------
