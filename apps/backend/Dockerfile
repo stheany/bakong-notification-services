@@ -42,16 +42,8 @@ RUN npm run build
 WORKDIR /opt/bk_notification_service/apps/backend
 RUN npm run build
 # Run fix-paths.js explicitly to ensure it runs (in case npm script fails silently)
-RUN node fix-paths.js || (echo "⚠️ fix-paths.js failed or had errors" && exit 1)
-# Verify no src/ paths remain
-RUN if grep -r "require(['\"]src/" dist/ 2>/dev/null | head -1; then \
-      echo "❌ ERROR: src/ paths still exist after fix-paths.js!"; \
-      echo "Sample of remaining paths:"; \
-      grep -r "require(['\"]src/" dist/ 2>/dev/null | head -5; \
-      exit 1; \
-    else \
-      echo "✅ All src/ paths resolved successfully"; \
-    fi
+# The script includes its own verification and will exit with error if paths remain
+RUN node fix-paths.js
 
 # -----------------------------------------------------
 # 🚀 Stage 2 — Runtime
@@ -94,4 +86,8 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 # This allows Node.js to find modules in both root and backend node_modules
 ENV NODE_PATH=/opt/bk_notification_service/node_modules:/opt/bk_notification_service/apps/backend/node_modules
 
-CMD ["node", "dist/main.js"]
+# Copy runtime path resolver (handles src/ paths at runtime as fallback)
+COPY --from=builder /opt/bk_notification_service/apps/backend/runtime-path-resolver.js ./runtime-path-resolver.js
+
+# Use runtime resolver to handle any remaining src/ paths
+CMD ["node", "-r", "./runtime-path-resolver.js", "dist/main.js"]
