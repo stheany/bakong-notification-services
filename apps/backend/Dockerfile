@@ -47,20 +47,30 @@ FROM node:20-alpine AS runtime
 WORKDIR /opt/bk_notification_service
 ENV NODE_ENV=production
 
-# Copy package files
+# Copy package files (needed for workspace structure)
 COPY package*.json ./
+COPY package-lock.json ./
 COPY apps/backend/package*.json ./apps/backend/
 COPY apps/packages/shared/package*.json ./apps/packages/shared/
 
-# Copy built code and dependencies
-COPY --from=builder /opt/bk_notification_service/node_modules ./node_modules
-COPY --from=builder /opt/bk_notification_service/apps/backend/node_modules ./apps/backend/node_modules
+# Copy built code
 COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
 COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./apps/packages/shared/dist
 
-# ✅ Ensure NestJS exists before starting
+# Copy ALL node_modules from builder (includes all dependencies properly resolved)
+# This ensures workspace dependencies are correctly hoisted and available
+COPY --from=builder /opt/bk_notification_service/node_modules ./node_modules
+COPY --from=builder /opt/bk_notification_service/apps/backend/node_modules ./apps/backend/node_modules
+# Note: Shared package node_modules not needed (it's a workspace package, only dist is needed)
+
+# Don't prune - it can remove required dependencies in workspace setups
+# Instead, verify critical dependencies exist
 RUN test -d node_modules/@nestjs/core || test -d apps/backend/node_modules/@nestjs/core \
-  || (echo "❌ Missing @nestjs/core in both root and backend node_modules" && exit 1)
+  || (echo "❌ Missing @nestjs/core - checking locations..." && \
+      echo "Root node_modules:" && ls -la node_modules/@nestjs 2>/dev/null || echo "  Not in root" && \
+      echo "Backend node_modules:" && ls -la apps/backend/node_modules/@nestjs 2>/dev/null || echo "  Not in backend" && \
+      echo "All @nestjs locations:" && find . -type d -name "@nestjs" 2>/dev/null | head -10 && \
+      exit 1)
 
 # Healthcheck - backend runs on port 8080 inside container
 # Health endpoint is at /api/v1/health or /api/v1/management/healthcheck
