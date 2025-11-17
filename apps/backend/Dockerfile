@@ -53,6 +53,9 @@ FROM node:20-alpine AS runtime
 WORKDIR /opt/bk_notification_service
 ENV NODE_ENV=production
 
+# Install build dependencies needed for native modules (bcrypt, etc.)
+RUN apk add --no-cache python3 make g++
+
 # Copy package files (needed for workspace structure)
 COPY package*.json ./
 COPY package-lock.json ./
@@ -68,6 +71,9 @@ COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./app
 RUN npm ci --legacy-peer-deps --omit=dev \
   && cd apps/backend && npm ci --legacy-peer-deps --omit=dev \
   && cd ../packages/shared && npm ci --legacy-peer-deps --omit=dev || true
+
+# Remove build dependencies to reduce image size (keep only runtime dependencies)
+RUN apk del python3 make g++
 
 # Don't prune - it can remove required dependencies in workspace setups
 # Instead, verify critical dependencies exist
