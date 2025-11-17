@@ -1,5 +1,46 @@
 # Test Commands Reference
 
+## 🔍 Pre-Deployment Validation (Before Pushing to Server)
+
+When you're at home and can't test with the real server, validate your configuration first:
+
+### Quick Validation (Recommended)
+```powershell
+# PowerShell (Windows)
+.\validate-deployment.ps1
+
+# Bash (Git Bash / Linux / Mac)
+chmod +x validate-deployment.sh
+./validate-deployment.sh
+```
+
+This checks that `docker-compose.sit.yml` has correct server IPs, ports, and URLs.
+
+### Test Server Configuration Locally (Recommended when you can't access server IP)
+```bash
+# Bash / Git Bash - Uses server ports but localhost
+chmod +x test-server-config.sh
+./test-server-config.sh
+
+# PowerShell
+.\test-server-config.ps1
+```
+
+This uses the SAME ports and structure as the server, but with localhost so it works from home. Perfect for verifying configuration pattern!
+
+### Alternative: Test with Server IPs in Config
+```bash
+# Test locally but with server IPs in configuration
+chmod +x test-local-sit.sh
+./test-local-sit.sh
+```
+
+This builds and runs services using SIT configuration with server IPs, so you can verify everything works before deploying.
+
+**See `PRE_DEPLOYMENT_VALIDATION.md` for detailed guide.**
+
+---
+
 ## 🏠 Local Testing (Your Windows Machine)
 
 ### Backend Health Check

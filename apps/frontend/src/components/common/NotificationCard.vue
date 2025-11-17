@@ -50,11 +50,11 @@
               </button>
               <button class="edit-button" @click="handleEditClick(notification)">
                 <span>Edit</span>
-                <img src="@/assets/image/edit.png" alt="Edit" class="button-icon" />
+                <img :src="editIcon" alt="Edit" class="button-icon" />
               </button>
               <button class="delete-button" @click="handleDeleteClick(notification)">
                 <span>Delete</span>
-                <img src="@/assets/image/trash-can.png" alt="Delete" class="button-icon" />
+                <img :src="deleteIcon" alt="Delete" class="button-icon" />
               </button>
             </div>
           </div>
@@ -86,6 +86,8 @@ import { Search, Calendar, Edit2, Trash2 } from 'lucide-vue-next'
 import type { Notification } from '@/types/notification'
 import ConfirmationDialog from './ConfirmationDialog.vue'
 import { useConfirmationDialog } from '@/composables/useConfirmationDialog'
+import editIcon from '@/assets/image/edit.png'
+import deleteIcon from '@/assets/image/trash-can.png'
 
 interface Props {
   activeTab?: 'published' | 'scheduled' | 'draft'

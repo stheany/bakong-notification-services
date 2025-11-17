@@ -52,6 +52,9 @@ export class AuthService implements OnModuleInit {
 
   async validateUserLogin(username: string, password: string) {
     const user = await this.userService.findByUsername(username)
+    if (!user) {
+      return null
+    }
     if (user.failLoginAttempt >= 3) {
       throw new BaseResponseDto({
         responseCode: 1,
@@ -59,12 +62,10 @@ export class AuthService implements OnModuleInit {
         responseMessage: ResponseMessage.ACCOUNT_TIMEOUT,
       })
     }
-    if (user) {
-      if (await bcrypt.compare(password, user.password)) {
-        return user
-      }
-      await this.userService.increementFailLoginAttempt(user.id)
+    if (await bcrypt.compare(password, user.password)) {
+      return user
     }
+    await this.userService.increementFailLoginAttempt(user.id)
     return null
   }
 

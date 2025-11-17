@@ -10,7 +10,10 @@ export class UserService {
   constructor(@InjectRepository(User) private readonly repo: Repository<User>) {}
 
   async findByUsername(username: string) {
-    return this.repo.findOne({ where: { username } })
+    return this.repo.findOne({ 
+      where: { username },
+      withDeleted: false // Explicitly exclude soft-deleted users
+    })
   }
 
   async create(dto: CreateUserDto) {

@@ -15,10 +15,14 @@ function fixPathsInFile(filePath) {
   let modified = false;
 
   // Replace require('src/...') and require("src/...") with relative paths
-  // Match both single and double quotes, and handle various patterns
-  const srcPathRegex = /require\((['"])(src\/[^'"]+)\1\)/g;
+  // Match both single and double quotes, handle whitespace, and various patterns
+  // Use a more comprehensive regex that matches what grep finds
+  const srcPathRegex = /require\s*\(\s*['"](src\/[^'"]+)['"]\s*\)/g;
   
-  content = content.replace(srcPathRegex, (match, quote, srcPath) => {
+  content = content.replace(srcPathRegex, (match, srcPath) => {
+    // Extract quote style from match (preserve original)
+    const quoteMatch = match.match(/['"]/);
+    const quote = quoteMatch ? quoteMatch[0] : "'";
     // Convert src/... to dist/... (since dist mirrors src structure)
     const distPath = srcPath.replace(/^src\//, 'dist/');
     
@@ -107,7 +111,8 @@ function checkRemaining(dir) {
       checkRemaining(filePath);
     } else if (file.endsWith('.js')) {
       const content = fs.readFileSync(filePath, 'utf8');
-      if (/require\(['"]src\//.test(content)) {
+      // Use same pattern as the fix function
+      if (/require\s*\(\s*['"]src\//.test(content)) {
         remaining.push(path.relative(distDir, filePath));
       }
     }
