@@ -139,9 +139,9 @@ ON CONFLICT (username) DO UPDATE SET
 -- 
 INSERT INTO public."user" (username, password, "displayName", role, "failLoginAttempt", "createdAt", "updatedAt", "deletedAt") 
 VALUES (
-    'Sorya Phoeun',
+    'Peng',
     '\$2b\$10\$KXqEgbKH0pKbYTZ9jKFVgOhiUQLOsdcaOpEXjKWdqBh70lua2YIEG',
-    'Sorya Phoeun',
+    'Peng',
     'ADMIN_USER',
     0,
     NOW(),
