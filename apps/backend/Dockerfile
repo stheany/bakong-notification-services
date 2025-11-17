@@ -63,11 +63,11 @@ COPY apps/packages/shared/package*.json ./apps/packages/shared/
 COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
 COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./apps/packages/shared/dist
 
-# Copy node_modules from builder (already built for Alpine Linux, much faster than reinstalling)
-# Both stages use node:20-alpine, so native modules are compatible
-COPY --from=builder /opt/bk_notification_service/node_modules ./node_modules
-COPY --from=builder /opt/bk_notification_service/apps/backend/node_modules ./apps/backend/node_modules
-# Note: Copying is much faster than reinstalling, and native modules work since both stages use the same base image
+# Install production dependencies (rebuilds native modules like bcrypt for correct architecture)
+# This ensures native modules are compiled correctly for the runtime environment
+RUN npm ci --legacy-peer-deps --omit=dev \
+  && cd apps/backend && npm ci --legacy-peer-deps --omit=dev \
+  && cd ../packages/shared && npm ci --legacy-peer-deps --omit=dev || true
 
 # Don't prune - it can remove required dependencies in workspace setups
 # Instead, verify critical dependencies exist
