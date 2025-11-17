@@ -15,7 +15,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
     const user = await this.authService.validateUserLogin(username, password)
     if (!user) {
       throw new BaseResponseDto({
-        responseCode: 1,
+        responseCode: ErrorCode.INVALID_USERNAME_OR_PASSWORD,
         errorCode: ErrorCode.INVALID_USERNAME_OR_PASSWORD,
         responseMessage: ResponseMessage.INVALID_USERNAME_OR_PASSWORD,
       })
