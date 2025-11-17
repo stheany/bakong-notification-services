@@ -49,9 +49,9 @@ services:
       # CORS_ORIGIN uses IP for browser access compatibility
       # API_BASE_URL/HOSTING_BASE_URL can use hostname or IP
       - API_BASE_URL=http://10.20.6.57:4002
-      - HOSTING_BASE_URL=http://10.20.6.57:4002
+      - HOSTING_BASE_URL=http://10.20.6.57
       - NODE_ENV=staging
-      - CORS_ORIGIN=http://10.20.6.57:8090
+      - CORS_ORIGIN=http://10.20.6.57
       - LOG_LEVEL=info
       - TYPEORM_SYNCHRONIZE=true
     volumes:
@@ -77,7 +77,7 @@ services:
       context: .
       dockerfile: ./apps/frontend/Dockerfile
       args:
-        VITE_API_BASE_URL: http://10.20.6.57:4002
+        VITE_API_BASE_URL: http://10.20.6.57/api
         VITE_FRONTEND_PORT: 3000
         VITE_BASE_URL: /
     # Option 2: Use pre-built image from GHCR (faster, requires image to exist)
@@ -86,8 +86,11 @@ services:
     # When switching to Bakong account, change 'stheany' to new org/username
     container_name: bakong-notification-services-frontend-sit
     ports:
-      - "8090:80"
-      - "8443:443"
+      - "80:80"      # Default HTTP port - allows http://10.20.6.57/ without port number
+      - "443:443"    # Default HTTPS port
+      # Alternative: Keep 8090 for backward compatibility
+      # - "8090:80"
+      # - "8443:443"
     depends_on:
       - backend
     restart: unless-stopped
