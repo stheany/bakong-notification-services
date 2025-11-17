@@ -67,20 +67,20 @@ COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
 COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./apps/packages/shared/dist
 
 # Install production dependencies (rebuilds native modules like bcrypt for correct architecture)
-# In workspace setup, install at root first to handle workspace dependencies
-RUN npm ci --legacy-peer-deps --omit=dev || true
-# Then install backend dependencies (workspace dependencies should be available)
-RUN cd apps/backend && npm ci --legacy-peer-deps --omit=dev
+# Install backend dependencies first (this will also install workspace dependencies)
+WORKDIR /opt/bk_notification_service/apps/backend
+RUN npm ci --legacy-peer-deps --omit=dev
+# Install root dependencies if package.json exists (for workspace setup)
+WORKDIR /opt/bk_notification_service
+RUN if [ -f package.json ]; then npm ci --legacy-peer-deps --omit=dev || true; fi
 # Install shared package dependencies if needed
 RUN cd apps/packages/shared && npm ci --legacy-peer-deps --omit=dev || true
 
-# Verify critical dependencies exist before removing build tools
-RUN test -d node_modules/@nestjs/core || test -d apps/backend/node_modules/@nestjs/core \
-  || (echo "❌ Missing @nestjs/core - checking locations..." && \
-      echo "Root node_modules:" && ls -la node_modules/@nestjs 2>/dev/null || echo "  Not in root" && \
-      echo "Backend node_modules:" && ls -la apps/backend/node_modules/@nestjs 2>/dev/null || echo "  Not in backend" && \
-      echo "All @nestjs locations:" && find . -type d -name "@nestjs" 2>/dev/null | head -10 && \
-      exit 1)
+# Verify critical dependencies can be loaded (more reliable than directory check)
+# This works even if dependencies are hoisted in workspace setup
+WORKDIR /opt/bk_notification_service
+RUN node -e "try { require('@nestjs/core'); console.log('✅ @nestjs/core found'); } catch(e) { console.error('❌ @nestjs/core not found:', e.message); process.exit(1); }" \
+  || node -e "process.env.NODE_PATH='/opt/bk_notification_service/apps/backend/node_modules'; try { require('@nestjs/core'); console.log('✅ @nestjs/core found in backend node_modules'); } catch(e) { console.error('❌ @nestjs/core not found anywhere:', e.message); process.exit(1); }"
 
 # Remove build dependencies to reduce image size (keep only runtime dependencies)
 # Note: Native modules are already compiled, so build tools are no longer needed
