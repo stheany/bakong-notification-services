@@ -67,12 +67,14 @@ COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
 COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./apps/packages/shared/dist
 
 # Install production dependencies (rebuilds native modules like bcrypt for correct architecture)
-# Install at root first to handle workspace dependencies correctly
+# Try workspace install first, fallback to installing all deps if needed (ensures @nestjs/core is available)
 WORKDIR /opt/bk_notification_service
-RUN npm ci --legacy-peer-deps --omit=dev --workspace=apps/backend --workspace=apps/packages/shared || \
-    (echo "Workspace install failed, trying individual installs..." && \
-     cd apps/backend && npm ci --legacy-peer-deps --omit=dev && \
-     cd ../packages/shared && npm ci --legacy-peer-deps --omit=dev || true)
+RUN npm ci --legacy-peer-deps --omit=dev --workspace=apps/backend --workspace=apps/packages/shared 2>&1 || \
+    (echo "⚠️  Workspace install with --omit=dev failed, installing all dependencies to ensure availability..." && \
+     npm ci --legacy-peer-deps --workspace=apps/backend --workspace=apps/packages/shared 2>&1 || \
+     (echo "⚠️  Workspace install failed, trying individual installs..." && \
+      cd apps/backend && npm ci --legacy-peer-deps && \
+      cd ../packages/shared && npm ci --legacy-peer-deps || true))
 
 # Verify @nestjs/core is actually installed and can be required
 WORKDIR /opt/bk_notification_service
