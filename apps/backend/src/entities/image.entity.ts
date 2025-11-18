@@ -1,22 +1,29 @@
 import {
+  BeforeInsert,
   Column,
   CreateDateColumn,
   Entity,
-  Generated,
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm'
 import { TemplateTranslation } from './template-translation.entity'
 import { Exclude } from 'class-transformer'
+import { randomUUID } from 'crypto'
 
 @Entity()
 export class Image {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number
 
-  @Column({ nullable: false, type: 'uuid', unique: true })
-  @Generated('uuid')
+  @Column({ nullable: false, type: 'varchar', length: 255, unique: true })
   fileId: string
+
+  @BeforeInsert()
+  generateFileId() {
+    if (!this.fileId) {
+      this.fileId = randomUUID()
+    }
+  }
 
   @Exclude()
   @Column({ nullable: false, type: 'bytea' })
