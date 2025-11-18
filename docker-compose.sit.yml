@@ -45,13 +45,13 @@ services:
       - POSTGRES_PASSWORD=0101bkns_sit
       - API_PORT=8080
       # ⚠️ SERVER CONFIG: Update when switching to different server
-      # Current: sit-bk-notifi-service (10.20.6.57)
-      # CORS_ORIGIN uses IP for browser access compatibility
-      # API_BASE_URL/HOSTING_BASE_URL can use hostname or IP
-      - API_BASE_URL=http://10.20.6.57:4002
-      - HOSTING_BASE_URL=http://10.20.6.57
+      # Supports both HTTPS domain and HTTP IP for flexibility
+      # CORS_ORIGIN supports comma-separated values for multiple origins
+      # API_BASE_URL/HOSTING_BASE_URL use HTTPS domain (primary)
+      - API_BASE_URL=https://sit-bakong-notification.nbc.gov.kh
+      - HOSTING_BASE_URL=https://sit-bakong-notification.nbc.gov.kh
       - NODE_ENV=staging
-      - CORS_ORIGIN=http://10.20.6.57
+      - CORS_ORIGIN=https://sit-bakong-notification.nbc.gov.kh,http://10.20.6.57
       - LOG_LEVEL=info
       - TYPEORM_SYNCHRONIZE=true
     volumes:
@@ -77,7 +77,8 @@ services:
       context: .
       dockerfile: ./apps/frontend/Dockerfile
       args:
-        VITE_API_BASE_URL: http://10.20.6.57
+        # Empty string uses relative URLs - automatically matches page protocol (HTTP/HTTPS)
+        VITE_API_BASE_URL: ""
         VITE_FRONTEND_PORT: 3000
         VITE_BASE_URL: /
     # Option 2: Use pre-built image from GHCR (faster, requires image to exist)

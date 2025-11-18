@@ -23,8 +23,13 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule)
 
+  // Parse CORS origins - support comma-separated values
+  const corsOrigins = configService.corsOrigin
+    ? configService.corsOrigin.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : []
+  
   app.enableCors({
-    origin: ['http://localhost', 'http://127.0.0.1', configService.corsOrigin],
+    origin: ['http://localhost', 'http://127.0.0.1', ...corsOrigins],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: [
       'Content-Type',

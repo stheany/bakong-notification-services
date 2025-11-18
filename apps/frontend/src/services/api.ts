@@ -1,9 +1,12 @@
 ﻿import axios from 'axios'
 // In dev mode, uses Vite proxy (configured in vite.config.ts)
 // In production, uses VITE_API_BASE_URL environment variable
+// Empty string means use relative URLs (same protocol as page)
 const API_BASE_URL = import.meta.env.DEV
   ? ''
-  : import.meta.env.VITE_API_BASE_URL || 'http://localhost:4004'
+  : import.meta.env.VITE_API_BASE_URL !== undefined && import.meta.env.VITE_API_BASE_URL !== null
+    ? import.meta.env.VITE_API_BASE_URL
+    : 'http://localhost:4004'
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
