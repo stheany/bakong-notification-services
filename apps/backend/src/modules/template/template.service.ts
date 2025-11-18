@@ -163,7 +163,13 @@ export class TemplateService implements OnModuleInit {
         responseMessage: ResponseMessage.VALIDATION_FAILED,
       })
     }
-    const initialIsSent = dto.isSent === true
+    // For SEND_NOW: if isSent is explicitly false, it's a draft - don't send
+    // If isSent is true or undefined, send immediately
+    // For other send types, respect the isSent flag from the request
+    const initialIsSent =
+      dto.sendType === SendType.SEND_NOW
+        ? dto.isSent !== false // Send if not explicitly false (true or undefined)
+        : dto.isSent === true
 
     let template = this.repo.create({
       platforms: dto.platforms,
@@ -356,6 +362,8 @@ export class TemplateService implements OnModuleInit {
         templateId: template.id,
       })
 
+      // For SEND_NOW: send if isSent is true (not a draft)
+      // For other send types: send if isSent is true
       const shouldAutoSend = template.isSent === true
       console.log(
         '🔵 [TEMPLATE CREATE] shouldAutoSend:',
@@ -368,6 +376,7 @@ export class TemplateService implements OnModuleInit {
 
       switch (template.sendType) {
         case SendType.SEND_NOW:
+          // Only send if shouldAutoSend is true (not a draft)
           if (!shouldAutoSend) {
             console.log(
               '🔵 [TEMPLATE CREATE] Skipping SEND_NOW - this is a draft (isSent=false):',
@@ -424,21 +433,24 @@ export class TemplateService implements OnModuleInit {
           console.log('📊 SEND_NOW Result:', {
             templateId: template.id,
             sentCount: sentCount,
-            willMarkAsPublished: sentCount && sentCount !== 0,
+            willMarkAsPublished: true, // SEND_NOW always marks as published after sending attempt
           })
 
-          if (sentCount && sentCount !== 0) {
-            await this.markAsPublished(template.id)
-            console.log('✅ Template marked as published:', template.id)
-          } else {
-            await this.repo.update(template.id, { isSent: false })
-            console.warn('⚠️ Template NOT sent. Sent count was:', sentCount)
-            console.warn('⚠️ Template isSent set to false. This might indicate:')
+          // For SEND_NOW, mark as published after attempting to send
+          // Even if sending failed (no users, etc.), the notification was "sent" (attempted)
+          await this.markAsPublished(template.id, currentUser)
+          console.log('✅ Template marked as published:', template.id)
+          
+          if (!sentCount || sentCount === 0) {
+            console.warn('⚠️ Template published but no notifications were actually sent. Sent count was:', sentCount)
+            console.warn('⚠️ This might indicate:')
             console.warn('   1. No users have FCM tokens')
             console.warn('   2. No users match the platform filter')
             console.warn('   3. FCM token validation failed')
             console.warn('   4. Firebase FCM not initialized')
             console.warn('   5. No users in database')
+          } else {
+            console.log(`✅ Successfully sent to ${sentCount} user(s)`)
           }
           break
         case SendType.SEND_SCHEDULE:

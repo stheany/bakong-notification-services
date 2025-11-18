@@ -56,6 +56,8 @@ export default defineConfig(() => {
       rollupOptions: {
         external: [],
       },
+      // Ensure public directory files are copied to dist root
+      copyPublicDir: true,
     },
     define: {
       __VUE_OPTIONS_API__: true,

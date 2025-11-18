@@ -73,9 +73,26 @@ export class NotificationService implements OnModuleInit {
       return 0
     }
 
-    const normalizedPlatforms = template.platforms.map((p) => ValidationHelper.normalizeEnum(p))
+    // Parse platforms - handle both array and JSON string formats
+    let platformsArray: string[] = []
+    if (Array.isArray(template.platforms)) {
+      platformsArray = template.platforms
+    } else if (typeof template.platforms === 'string') {
+      try {
+        platformsArray = JSON.parse(template.platforms)
+      } catch (e) {
+        console.warn('⚠️ [sendWithTemplate] Failed to parse platforms JSON, using default ALL:', e)
+        platformsArray = ['ALL']
+      }
+    } else {
+      console.warn('⚠️ [sendWithTemplate] Platforms is not array or string, using default ALL')
+      platformsArray = ['ALL']
+    }
+
+    const normalizedPlatforms = platformsArray.map((p) => ValidationHelper.normalizeEnum(p))
     console.log('📤 [sendWithTemplate] Target platforms:', {
       raw: template.platforms,
+      parsed: platformsArray,
       normalized: normalizedPlatforms,
     })
 
