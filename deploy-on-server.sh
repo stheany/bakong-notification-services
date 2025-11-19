@@ -13,6 +13,14 @@ echo "📥 Pulling latest code..."
 git fetch origin
 git reset --hard origin/develop
 
+# Run database migration to fix NULL fileId values
+echo "🔄 Running database migration..."
+if [ -f "apps/backend/scripts/fix-null-fileid.sql" ]; then
+    docker exec -i bakong-notification-services-db-sit psql -U bkns_sit -d bakong_notification_services_sit < apps/backend/scripts/fix-null-fileid.sql || echo "⚠️  Migration warning (may be normal if no NULL values exist)"
+else
+    echo "⚠️  Migration script not found, skipping..."
+fi
+
 # Verify Dockerfile is correct (fix if corrupted)
 echo "🔍 Verifying Dockerfile..."
 if ! grep -q "npm exec -- tsc" apps/backend/Dockerfile; then

@@ -29,10 +29,40 @@ BEGIN
 END $$;
 
 -- Update all NULL fileId values with UUIDs
--- Using gen_random_uuid() from pgcrypto extension (faster than uuid-ossp)
-UPDATE image
-SET "fileId" = gen_random_uuid()::text
-WHERE "fileId" IS NULL;
+-- Handle both UUID and VARCHAR column types
+DO $$
+DECLARE
+    col_type TEXT;
+    null_count INTEGER;
+BEGIN
+    -- Get column data type
+    SELECT data_type INTO col_type
+    FROM information_schema.columns
+    WHERE table_name = 'image' AND column_name = 'fileId';
+    
+    -- Get count of NULL values
+    SELECT COUNT(*) INTO null_count FROM image WHERE "fileId" IS NULL;
+    
+    IF null_count = 0 THEN
+        RAISE NOTICE 'No NULL values to update.';
+        RETURN;
+    END IF;
+    
+    -- Update based on column type
+    IF col_type = 'uuid' THEN
+        -- Column is UUID type, use UUID directly
+        UPDATE image
+        SET "fileId" = uuid_generate_v4()
+        WHERE "fileId" IS NULL;
+        RAISE NOTICE 'Updated % row(s) with UUID type', null_count;
+    ELSE
+        -- Column is VARCHAR/TEXT type, cast to text
+        UPDATE image
+        SET "fileId" = uuid_generate_v4()::text
+        WHERE "fileId" IS NULL;
+        RAISE NOTICE 'Updated % row(s) with VARCHAR type', null_count;
+    END IF;
+END $$;
 
 -- Verify all NULL values are fixed
 DO $$
