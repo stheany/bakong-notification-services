@@ -28,6 +28,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typeorm": "node --require ts-node/register ./node_modules/typeorm/cli.js --dataSource ./src/ormconfig.ts",
     "remove-duplicates": "ts-node -r tsconfig-paths/register scripts/remove-duplicate-images.ts",
+    "fix-null-fileid": "ts-node -r tsconfig-paths/register scripts/fix-null-fileid.ts",
     "start:dev-tunnel": "NODE_ENV=development npx localtunnel --port 4002 --subdomain bakong-notification-services"
   },
   "dependencies": {
