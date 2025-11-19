@@ -84,3 +84,66 @@ Once the migration is complete, TypeORM synchronize should work without errors. 
 - Check that TypeORM synchronize is enabled: `TYPEORM_SYNCHRONIZE=true`
 - Review application logs for other errors
 
+## Image Association Scripts
+
+### Problem
+
+When creating templates directly in the database or after migrations, template translations may not have `imageId` values associated, even though images exist in the database.
+
+### Solution
+
+Use these scripts to check and restore image associations:
+
+#### 1. Check Current Image Associations
+
+```bash
+docker exec -i bakong-notification-services-db-sit psql -U bkns_sit -d bakong_notification_services_sit < apps/backend/scripts/restore-images-to-templates.sql
+```
+
+This script will:
+- Show total translations and how many have images
+- List orphaned image references (if any)
+- Show valid image associations
+- Clean up broken references automatically
+
+#### 2. Associate Images to Templates
+
+```bash
+# First, see available images and templates needing images
+docker exec -i bakong-notification-services-db-sit psql -U bkns_sit -d bakong_notification_services_sit < apps/backend/scripts/associate-images-to-templates.sql
+```
+
+This will show:
+- All available images with their `fileId` values
+- All template translations without images
+- Generated UPDATE statements you can customize
+
+#### 3. Manually Associate a Specific Image
+
+Edit `manual-associate-image.sql` and set:
+- `TRANSLATION_ID`: The template translation ID
+- `FILE_ID`: The image fileId from the image table
+
+Then run:
+```bash
+docker exec -i bakong-notification-services-db-sit psql -U bkns_sit -d bakong_notification_services_sit < apps/backend/scripts/manual-associate-image.sql
+```
+
+### Quick Association Example
+
+To associate an image to a template translation, run this SQL (replace values):
+
+```sql
+UPDATE template_translation 
+SET "imageId" = '931fc61c-ed0b-461a-aef2-866e15f2dd61',  -- Replace with actual fileId
+    "updatedAt" = NOW()
+WHERE id = 33;  -- Replace with actual translation ID
+```
+
+### Files
+
+- `restore-images-to-templates.sql` - Check and fix image associations
+- `associate-images-to-templates.sql` - Generate UPDATE statements for manual association
+- `manual-associate-image.sql` - Template for associating a specific image
+- `verify-image-associations.sql` - Quick verification script
+
