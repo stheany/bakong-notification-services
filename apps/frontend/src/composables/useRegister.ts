@@ -6,6 +6,7 @@ import { UserRole } from '../stores/auth'
 import { useAuthStore } from '../stores/auth'
 import { passwordFormat } from '../utils/helpers'
 import { getRules } from '../utils/helpers'
+import { ValidationUtils } from '@bakong/shared'
 
 export const useRegister = () => {
   const authStore = useAuthStore()
@@ -29,13 +30,7 @@ export const useRegister = () => {
     return true
   }
   const usernameRule = () => {
-    if (!registerFormData.username) {
-      return 'Username is required'
-    }
-    if (registerFormData.username.length < 3) {
-      return 'Username must be at least 3 characters long'
-    }
-    return true
+    return ValidationUtils.validateUsername(registerFormData.username, true)
   }
   const displayNameRule = () => {
     if (!registerFormData.displayName) {

@@ -32,7 +32,7 @@
                 placeholder="ADMIN"
                 autocomplete="username"
                 autofocus
-                @input="clearFieldError('username')"
+                @input="validateUsernameOnInput"
               />
             </div>
             <div v-if="errors.username" class="error-message">
@@ -92,6 +92,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { ElNotification } from 'element-plus'
 import { View, Hide, ArrowRight } from '@element-plus/icons-vue'
+import { ValidationUtils } from '@bakong/shared'
 
 const router = useRouter()
 const {
@@ -120,6 +121,19 @@ const clearFieldError = (field: string) => {
   }
 }
 
+const validateUsernameOnInput = () => {
+  // Clear error first
+  errors.value.username = ''
+
+  // Only validate if username is not empty
+  if (loginFormData.Username) {
+    const usernameValidation = ValidationUtils.validateUsername(loginFormData.Username, false)
+    if (usernameValidation !== true) {
+      errors.value.username = usernameValidation as string
+    }
+  }
+}
+
 const handleSubmitLogin = async (formRef: any) => {
   errors.value.username = ''
   errors.value.password = ''
@@ -129,6 +143,13 @@ const handleSubmitLogin = async (formRef: any) => {
   if (!loginFormData.Username) {
     errors.value.username = 'Please enter your username'
     hasErrors = true
+  } else {
+    // Validate username format (lowercase, no spaces, no uppercase)
+    const usernameValidation = ValidationUtils.validateUsername(loginFormData.Username, true)
+    if (usernameValidation !== true) {
+      errors.value.username = usernameValidation as string
+      hasErrors = true
+    }
   }
 
   if (!loginFormData.Password) {
@@ -553,10 +574,10 @@ onMounted(() => {
   font-family: 'IBM Plex Sans';
   font-style: normal;
   font-weight: 400;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 150%;
   color: #f24444;
-  margin-top: 4px;
+  margin-top: 2px;
   margin-left: 4px;
 }
 

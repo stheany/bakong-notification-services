@@ -524,10 +524,10 @@ const handleChangePassword = async () => {
   font-family: 'IBM Plex Sans';
   font-style: normal;
   font-weight: 400;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 150%;
   color: #f24444;
-  margin-top: 4px;
+  margin-top: 2px;
   margin-left: 4px;
 }
 

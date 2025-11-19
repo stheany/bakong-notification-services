@@ -28,17 +28,22 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ])
-    
+
     if (isApiKeyRequired) {
       const request = context.switchToHttp().getRequest<Request>()
       const apiKey = request.headers['x-api-key'] as string
-      
+
       // If valid API key is provided, skip role checking (API key auth is sufficient)
       if (apiKey && apiKey === k.API_MOBILE_KEY) {
         console.log('✅ RolesGuard: Valid API key provided, skipping role check')
         return true
       } else {
-        console.log('⚠️ RolesGuard: API key required but not provided or invalid. Provided:', apiKey, 'Expected:', k.API_MOBILE_KEY)
+        console.log(
+          '⚠️ RolesGuard: API key required but not provided or invalid. Provided:',
+          apiKey,
+          'Expected:',
+          k.API_MOBILE_KEY,
+        )
       }
     }
 

@@ -20,7 +20,7 @@ if ! grep -q "npm exec -- tsc" apps/backend/Dockerfile; then
     # Remove any corrupted lines and add correct one
     sed -i '/^RUN.*tsc.*tsconfig.json/d' apps/backend/Dockerfile
     # Find the line before the note and insert the correct RUN command
-    sed -i '/# Build without fix-paths.js/a RUN npm exec -- tsc -p tsconfig.json && npm exec -- tsc-alias -p tsconfig.json' apps/backend/Dockerfile
+    sed -i '/# Build TypeScript and fix paths/a RUN npm exec -- tsc -p tsconfig.json && npm exec -- tsc-alias -p tsconfig.json' apps/backend/Dockerfile
 fi
 
 # Stop containers

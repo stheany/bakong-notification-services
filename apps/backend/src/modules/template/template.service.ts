@@ -440,9 +440,12 @@ export class TemplateService implements OnModuleInit {
           // Even if sending failed (no users, etc.), the notification was "sent" (attempted)
           await this.markAsPublished(template.id, currentUser)
           console.log('✅ Template marked as published:', template.id)
-          
+
           if (!sentCount || sentCount === 0) {
-            console.warn('⚠️ Template published but no notifications were actually sent. Sent count was:', sentCount)
+            console.warn(
+              '⚠️ Template published but no notifications were actually sent. Sent count was:',
+              sentCount,
+            )
             console.warn('⚠️ This might indicate:')
             console.warn('   1. No users have FCM tokens')
             console.warn('   2. No users match the platform filter')

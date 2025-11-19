@@ -6,7 +6,7 @@
         <div class="info-item">
           <span class="info-label">Name</span>
           <span class="info-value" :class="{ loading: loading }">
-            {{ loading ? 'Loading...' : userInfo.name }}
+            {{ loading ? 'Loading...' : userInfo.displayName || userInfo.username }}
           </span>
         </div>
         <div class="info-item">
@@ -58,6 +58,7 @@ import { ArrowRight } from '@element-plus/icons-vue'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog.vue'
 import { useConfirmationDialog } from '@/composables/useConfirmationDialog'
 import { ElNotification } from 'element-plus'
+import { UserRole } from '@/stores/auth'
 
 const formatUserRole = (role: string) => {
   switch (role) {
@@ -82,12 +83,13 @@ const error = ref<string | null>(null)
 const userInfo = computed(() => {
   if (authStore.user) {
     return {
-      name: authStore.user.displayName || authStore.user.username,
-      role: formatUserRole(authStore.user.role),
+      displayName: authStore.user.displayName,
+      role: formatUserRole(authStore.user.role) as UserRole,
+      username: authStore.user.username,
     }
   }
   return {
-    name: 'Loading...',
+    displayName: 'Loading...',
     role: 'Loading...',
   }
 })
@@ -245,10 +247,10 @@ onMounted(() => {
 .error-message {
   font-family: 'IBM Plex Sans', sans-serif;
   font-weight: 400;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 150%;
   color: #dc3545;
-  margin-top: 8px;
+  margin-top: 4px;
   padding: 8px 12px;
   background-color: #f8d7da;
   border: 1px solid #f5c6cb;

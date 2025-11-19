@@ -27,12 +27,10 @@ RUN npm ci --legacy-peer-deps \
   && cd apps/backend && npm ci --legacy-peer-deps
 
 # -----------------------------------------------------
-# Copy full source (including fix-paths.js)
+# Copy full source
 # -----------------------------------------------------
 COPY apps/backend ./apps/backend
 COPY apps/packages/shared ./apps/packages/shared
-# Ensure fix-paths.js is executable
-RUN chmod +x apps/backend/fix-paths.js || true
 
 # Build shared first
 WORKDIR /opt/bk_notification_service/apps/packages/shared

@@ -1,9 +1,13 @@
-import { IsNotEmpty, IsString, IsEnum } from 'class-validator'
+import { IsNotEmpty, IsString, IsEnum, Matches, Length } from 'class-validator'
 import { UserRole } from '@bakong/shared'
 
 export class CreateUserDto {
   @IsNotEmpty()
   @IsString()
+  @Length(3, 255)
+  @Matches(/^[a-z0-9_@.]+$/, {
+    message: 'Username must be lowercase with no spaces.',
+  })
   username: string
 
   @IsNotEmpty()

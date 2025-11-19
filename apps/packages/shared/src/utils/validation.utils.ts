@@ -10,8 +10,10 @@ export class ValidationUtils {
   }
 
   static isValidUsername(username: string): boolean {
-    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/
-    return usernameRegex.test(username)
+    // Allow lowercase letters, numbers, underscore, @, and dot (for email format)
+    // No spaces, no uppercase letters
+    const usernameRegex = /^[a-z0-9_@.]+$/
+    return usernameRegex.test(username) && username.length >= 3 && username.length <= 255
   }
 
   static sanitizeString(input: string): string {

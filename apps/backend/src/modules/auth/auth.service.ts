@@ -1,15 +1,13 @@
-import { ResponseMessage } from '@bakong/shared'
+import { ErrorCode, ResponseMessage, UserRole, ValidationUtils } from '@bakong/shared'
 import { Injectable, OnModuleInit } from '@nestjs/common'
 import { UserService } from '../user/user.service'
 import * as bcrypt from 'bcrypt'
 import { JwtService } from '@nestjs/jwt'
 import { User } from 'src/entities/user.entity'
 import k from 'src/constant'
-import { UserRole } from '@bakong/shared'
 import { CreateUserDto } from '../user/dto/create-user.dto'
 import moment from 'moment'
 import { BaseResponseDto } from 'src/common/base-response.dto'
-import { ErrorCode } from '@bakong/shared'
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -51,6 +49,15 @@ export class AuthService implements OnModuleInit {
   }
 
   async validateUserLogin(username: string, password: string) {
+    // Validate username format before database lookup
+    if (!ValidationUtils.isValidUsername(username)) {
+      throw new BaseResponseDto({
+        responseCode: 1,
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        responseMessage: 'Username must be lowercase with no spaces.',
+      })
+    }
+
     const user = await this.userService.findByUsername(username)
     if (!user) {
       return null

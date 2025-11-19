@@ -102,7 +102,8 @@ router.beforeEach(async (to, from, next) => {
       try {
         await authStore.initializeAuth()
       } catch (error) {
-        // Auth initialization failed
+        console.error('Auth initialization failed:', error)
+        next('/login')
       }
     }
   }

@@ -25,9 +25,12 @@ async function bootstrap() {
 
   // Parse CORS origins - support comma-separated values
   const corsOrigins = configService.corsOrigin
-    ? configService.corsOrigin.split(',').map((origin) => origin.trim()).filter(Boolean)
+    ? configService.corsOrigin
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
     : []
-  
+
   app.enableCors({
     origin: ['http://localhost', 'http://127.0.0.1', ...corsOrigins],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],

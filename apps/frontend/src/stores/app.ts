@@ -23,7 +23,8 @@ export const useAppStore = defineStore('app', () => {
       const result = await authStore.login(credentials)
 
       if (result.success && authStore.user) {
-        storeUserName.value = authStore.user.username || authStore.user.email || ''
+        storeUserName.value =
+          authStore.user.displayName || authStore.user.username || authStore.user.email || ''
       }
 
       return result
