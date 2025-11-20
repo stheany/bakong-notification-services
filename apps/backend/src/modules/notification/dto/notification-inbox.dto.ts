@@ -55,10 +55,12 @@ export class NotificationInboxDto {
     // Handle typo: "bakongPlatfrom" -> "bakongPlatform"
     // If the typo field exists but bakongPlatform doesn't, use the typo value
     if (!value && obj && obj.bakongPlatfrom) {
-      console.warn('⚠️  Typo detected: "bakongPlatfrom" should be "bakongPlatform". Using value from typo field.')
+      console.warn(
+        '⚠️  Typo detected: "bakongPlatfrom" should be "bakongPlatform". Using value from typo field.',
+      )
       value = obj.bakongPlatfrom
     }
-    
+
     if (typeof value === 'string') {
       return ValidationHelper.normalizeEnum(value)
     }

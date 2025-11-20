@@ -129,12 +129,12 @@ const validateUsernameOnInput = () => {
   if (loginFormData.Username) {
     // Normalize username: convert to lowercase and remove spaces
     const normalizedUsername = loginFormData.Username.toLowerCase().replace(/\s+/g, '')
-    
+
     // Update the form data with normalized username (auto-correct as user types)
     if (loginFormData.Username !== normalizedUsername) {
       loginFormData.Username = normalizedUsername
     }
-    
+
     // Validate normalized username format
     const usernameValidation = ValidationUtils.validateUsername(normalizedUsername, false)
     if (usernameValidation !== true) {
@@ -155,7 +155,7 @@ const handleSubmitLogin = async (formRef: any) => {
   } else {
     // Normalize username: convert to lowercase and remove spaces
     const normalizedUsername = loginFormData.Username.toLowerCase().replace(/\s+/g, '')
-    
+
     // Validate normalized username format
     const usernameValidation = ValidationUtils.validateUsername(normalizedUsername, true)
     if (usernameValidation !== true) {

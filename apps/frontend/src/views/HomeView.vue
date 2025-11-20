@@ -95,7 +95,13 @@ import { Tabs } from '@/components/common'
 import { notificationApi } from '@/services/notificationApi'
 import type { Notification } from '@/types/notification'
 import { ElNotification } from 'element-plus'
-import { NotificationType, formatNotificationType, formatBakongApp, getFormattedPlatformName, getNoUsersAvailableMessage } from '@/utils/helpers'
+import {
+  NotificationType,
+  formatNotificationType,
+  formatBakongApp,
+  getFormattedPlatformName,
+  getNoUsersAvailableMessage,
+} from '@/utils/helpers'
 import { DateUtils } from '@bakong/shared'
 import { mapBackendStatusToFrontend } from '../utils/helpers'
 
@@ -764,18 +770,19 @@ const handlePublishNotification = async (notification: Notification) => {
 
       // Check if error response (no users found)
       if (result?.responseCode !== 0 || result?.errorCode !== 0) {
-        const errorMessage = result?.responseMessage || result?.message || 'Failed to publish notification'
-        
+        const errorMessage =
+          result?.responseMessage || result?.message || 'Failed to publish notification'
+
         // Get platform name from response data or notification
         const platformName = getFormattedPlatformName({
           platformName: result?.data?.platformName,
           bakongPlatform: result?.data?.bakongPlatform,
           notification: notification as any,
         })
-        
+
         ElNotification({
           title: 'Info',
-          message: errorMessage.includes('No users found') 
+          message: errorMessage.includes('No users found')
             ? getNoUsersAvailableMessage(platformName)
             : errorMessage,
           type: 'info',
@@ -812,20 +819,24 @@ const handlePublishNotification = async (notification: Notification) => {
     }
   } catch (error: any) {
     console.error('Failed to publish notification:', error)
-    const errorMessage = error?.response?.data?.responseMessage || 
-                        error?.response?.data?.message || 
-                        error?.message || 
-                        'Failed to publish notification'
-    
+    const errorMessage =
+      error?.response?.data?.responseMessage ||
+      error?.response?.data?.message ||
+      error?.message ||
+      'Failed to publish notification'
+
     // Check if it's a "no users" error
-    if (errorMessage.includes('NO_USERS_FOR_BAKONG_PLATFORM') || errorMessage.includes('No users found for')) {
+    if (
+      errorMessage.includes('NO_USERS_FOR_BAKONG_PLATFORM') ||
+      errorMessage.includes('No users found for')
+    ) {
       // Get platform name from error response data or notification
       const platformName = getFormattedPlatformName({
         platformName: error?.response?.data?.data?.platformName,
         bakongPlatform: error?.response?.data?.data?.bakongPlatform,
         notification: notification as any,
       })
-      
+
       ElNotification({
         title: 'Info',
         message: getNoUsersAvailableMessage(platformName),

@@ -28,7 +28,7 @@ export class NotificationController {
       notificationType: dto.notificationType,
       bakongPlatform: dto.bakongPlatform,
     })
-    
+
     try {
       if (dto.accountId) {
         dto.notificationType = NotificationType.FLASH_NOTIFICATION
@@ -50,13 +50,19 @@ export class NotificationController {
       }
 
       const result = await this.service.sendNow(dto, req)
-      
+
       // Check if result is an error response (for no users case)
-      if (result && typeof result === 'object' && 'responseCode' in result && result.responseCode !== 0) {
+      if (
+        result &&
+        typeof result === 'object' &&
+        'responseCode' in result &&
+        result.responseCode !== 0
+      ) {
         // If no users found, also mark template as draft if templateId is provided
         if (dto.templateId && result.errorCode === ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM) {
           try {
-            const templateService = this.service['templateService'] || 
+            const templateService =
+              this.service['templateService'] ||
               (await import('../template/template.service')).TemplateService
             // Mark as draft - we'll do this via a service method if available
             // For now, the error response is sufficient
@@ -66,11 +72,11 @@ export class NotificationController {
         }
         return result
       }
-      
+
       return result
     } catch (error: any) {
       console.error('❌ [CONTROLLER] Error in sendNotification:', error)
-      
+
       // Check if error is about no users for bakongPlatform
       if (error?.message && error.message.includes('No users found for')) {
         return BaseResponseDto.error({
@@ -81,7 +87,7 @@ export class NotificationController {
           },
         })
       }
-      
+
       // Re-throw other errors
       throw error
     }

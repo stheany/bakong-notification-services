@@ -77,7 +77,7 @@ export class BaseFunctionHelper {
       // For existing users: only update fields that are provided and not empty
       // Don't overwrite existing fcmToken with empty string
       const updatesToApply: any = {}
-      
+
       if (updateData.fcmToken !== undefined && updateData.fcmToken !== '') {
         // Only update fcmToken if provided and not empty
         updatesToApply.fcmToken = updateData.fcmToken
@@ -85,28 +85,32 @@ export class BaseFunctionHelper {
         // Only set empty fcmToken if user doesn't have one yet
         updatesToApply.fcmToken = ''
       }
-      
+
       if (updateData.participantCode !== undefined) {
         updatesToApply.participantCode = updateData.participantCode
       }
-      
+
       if (updateData.platform !== undefined) {
         updatesToApply.platform = this.normalizePlatform(updateData.platform)
       }
-      
+
       if (updateData.language !== undefined) {
         updatesToApply.language = this.normalizeLanguage(updateData.language)
       }
-      
+
       if (updateData.bakongPlatform !== undefined) {
         updatesToApply.bakongPlatform = updateData.bakongPlatform
-        console.log(`📝 [syncUser] Updating user ${accountId} bakongPlatform: ${user.bakongPlatform || 'NULL'} -> ${updateData.bakongPlatform}`)
+        console.log(
+          `📝 [syncUser] Updating user ${accountId} bakongPlatform: ${user.bakongPlatform || 'NULL'} -> ${updateData.bakongPlatform}`,
+        )
       }
 
       const changed = ValidationHelper.updateUserFields(user, updatesToApply)
       if (changed) {
         user = await this.bkUserRepo.save(user)
-        console.log(`✅ [syncUser] Updated user ${accountId} bakongPlatform: ${user.bakongPlatform || 'NULL'}`)
+        console.log(
+          `✅ [syncUser] Updated user ${accountId} bakongPlatform: ${user.bakongPlatform || 'NULL'}`,
+        )
       }
       return { isNewUser, savedUser: user }
     }
@@ -120,9 +124,13 @@ export class BaseFunctionHelper {
       language: this.normalizeLanguage(updateData.language),
       bakongPlatform: updateData.bakongPlatform,
     })
-    console.log(`📝 [syncUser] Creating new user ${accountId} with bakongPlatform: ${updateData.bakongPlatform || 'NULL'}`)
+    console.log(
+      `📝 [syncUser] Creating new user ${accountId} with bakongPlatform: ${updateData.bakongPlatform || 'NULL'}`,
+    )
     const savedUser = await this.bkUserRepo.save(created)
-    console.log(`✅ [syncUser] Created user ${accountId} with bakongPlatform: ${savedUser.bakongPlatform || 'NULL'}`)
+    console.log(
+      `✅ [syncUser] Created user ${accountId} with bakongPlatform: ${savedUser.bakongPlatform || 'NULL'}`,
+    )
     return { isNewUser, savedUser }
   }
 

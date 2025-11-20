@@ -7,6 +7,7 @@ This directory contains scripts to fix NULL `fileId` values in the `image` table
 ### Problem
 
 When TypeORM synchronize tries to change the `fileId` column to `NOT NULL`, it fails if there are existing rows with NULL values:
+
 ```
 error: column "fileId" of relation "image" contains null values
 ```
@@ -72,14 +73,17 @@ Once the migration is complete, TypeORM synchronize should work without errors. 
 ## Troubleshooting
 
 ### Error: "psql: command not found"
+
 - Install PostgreSQL client tools, or
 - Use Docker: `docker exec -i <container> psql ...`
 
 ### Error: "permission denied"
+
 - Ensure the database user has UPDATE permissions on the `image` table
 - Check that the user can connect to the database
 
 ### Still getting NULL errors after migration
+
 - Verify the migration ran successfully: `SELECT COUNT(*) FROM image WHERE "fileId" IS NULL;`
 - Check that TypeORM synchronize is enabled: `TYPEORM_SYNCHRONIZE=true`
 - Review application logs for other errors
@@ -101,6 +105,7 @@ docker exec -i bakong-notification-services-db-sit psql -U bkns_sit -d bakong_no
 ```
 
 This script will:
+
 - Show total translations and how many have images
 - List orphaned image references (if any)
 - Show valid image associations
@@ -114,6 +119,7 @@ docker exec -i bakong-notification-services-db-sit psql -U bkns_sit -d bakong_no
 ```
 
 This will show:
+
 - All available images with their `fileId` values
 - All template translations without images
 - Generated UPDATE statements you can customize
@@ -121,10 +127,12 @@ This will show:
 #### 3. Manually Associate a Specific Image
 
 Edit `manual-associate-image.sql` and set:
+
 - `TRANSLATION_ID`: The template translation ID
 - `FILE_ID`: The image fileId from the image table
 
 Then run:
+
 ```bash
 docker exec -i bakong-notification-services-db-sit psql -U bkns_sit -d bakong_notification_services_sit < apps/backend/scripts/manual-associate-image.sql
 ```
@@ -134,7 +142,7 @@ docker exec -i bakong-notification-services-db-sit psql -U bkns_sit -d bakong_no
 To associate an image to a template translation, run this SQL (replace values):
 
 ```sql
-UPDATE template_translation 
+UPDATE template_translation
 SET "imageId" = '931fc61c-ed0b-461a-aef2-866e15f2dd61',  -- Replace with actual fileId
     "updatedAt" = NOW()
 WHERE id = 33;  -- Replace with actual translation ID
@@ -146,4 +154,3 @@ WHERE id = 33;  -- Replace with actual translation ID
 - `associate-images-to-templates.sql` - Generate UPDATE statements for manual association
 - `manual-associate-image.sql` - Template for associating a specific image
 - `verify-image-associations.sql` - Quick verification script
-

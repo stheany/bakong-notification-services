@@ -854,7 +854,7 @@ const handlePublishNow = async () => {
     if (result?.data?.savedAsDraftNoUsers) {
       // Format platform name using helper function
       const platformName = formatBakongApp(formData.platform)
-      
+
       ElNotification({
         title: 'Info',
         message: getNoUsersAvailableMessage(platformName),

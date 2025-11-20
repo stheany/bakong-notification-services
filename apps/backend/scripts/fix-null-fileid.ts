@@ -5,7 +5,7 @@ import datasource from '../src/ormconfig'
 /**
  * Migration script to fix NULL fileId values in the image table
  * This script populates NULL fileId values with UUIDs before TypeORM synchronize runs
- * 
+ *
  * Usage:
  *   npm run fix-null-fileid
  *   or
@@ -26,7 +26,7 @@ async function fixNullFileIds() {
 
     // Check for rows with NULL fileId
     const nullCountResult = await dataSource.query(
-      `SELECT COUNT(*) as count FROM image WHERE "fileId" IS NULL`
+      `SELECT COUNT(*) as count FROM image WHERE "fileId" IS NULL`,
     )
     const nullCount = parseInt(nullCountResult[0].count, 10)
 
@@ -39,9 +39,7 @@ async function fixNullFileIds() {
     console.log('🔄 Generating UUIDs and updating rows...\n')
 
     // Get all rows with NULL fileId
-    const nullRows = await dataSource.query(
-      `SELECT id FROM image WHERE "fileId" IS NULL`
-    )
+    const nullRows = await dataSource.query(`SELECT id FROM image WHERE "fileId" IS NULL`)
 
     let updatedCount = 0
     let errorCount = 0
@@ -50,26 +48,25 @@ async function fixNullFileIds() {
     for (const row of nullRows) {
       try {
         const newFileId = randomUUID()
-        
+
         // Check if this UUID already exists (very unlikely, but safe)
-        const existingCheck = await dataSource.query(
-          `SELECT id FROM image WHERE "fileId" = $1`,
-          [newFileId]
-        )
+        const existingCheck = await dataSource.query(`SELECT id FROM image WHERE "fileId" = $1`, [
+          newFileId,
+        ])
 
         if (existingCheck.length > 0) {
           // If UUID collision (extremely rare), generate a new one
           const retryFileId = randomUUID()
-          await dataSource.query(
-            `UPDATE image SET "fileId" = $1 WHERE id = $2`,
-            [retryFileId, row.id]
-          )
+          await dataSource.query(`UPDATE image SET "fileId" = $1 WHERE id = $2`, [
+            retryFileId,
+            row.id,
+          ])
           console.log(`  ✓ Updated row id=${row.id} with fileId=${retryFileId}`)
         } else {
-          await dataSource.query(
-            `UPDATE image SET "fileId" = $1 WHERE id = $2`,
-            [newFileId, row.id]
-          )
+          await dataSource.query(`UPDATE image SET "fileId" = $1 WHERE id = $2`, [
+            newFileId,
+            row.id,
+          ])
           console.log(`  ✓ Updated row id=${row.id} with fileId=${newFileId}`)
         }
         updatedCount++
@@ -90,7 +87,7 @@ async function fixNullFileIds() {
 
     // Verify all NULL values are fixed
     const remainingNulls = await dataSource.query(
-      `SELECT COUNT(*) as count FROM image WHERE "fileId" IS NULL`
+      `SELECT COUNT(*) as count FROM image WHERE "fileId" IS NULL`,
     )
     const remainingCount = parseInt(remainingNulls[0].count, 10)
 
@@ -128,4 +125,3 @@ fixNullFileIds()
     console.error('❌ Migration failed:', error)
     process.exit(1)
   })
-

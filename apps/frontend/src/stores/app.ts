@@ -17,7 +17,7 @@ export const useAppStore = defineStore('app', () => {
     try {
       // Normalize username: convert to lowercase and remove spaces
       const normalizedUsername = request.Username.toLowerCase().replace(/\s+/g, '')
-      
+
       const credentials = {
         username: normalizedUsername,
         password: request.Password,

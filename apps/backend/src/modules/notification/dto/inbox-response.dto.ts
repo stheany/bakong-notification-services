@@ -100,8 +100,13 @@ export class InboxResponseDto implements NotificationData {
     userBakongPlatform?: string,
   ) {
     const response = this.getResponse(notifications, message, pagination)
-    if (userBakongPlatform && response.data && typeof response.data === 'object' && 'notifications' in response.data) {
-      (response.data as any).userBakongPlatform = userBakongPlatform
+    if (
+      userBakongPlatform &&
+      response.data &&
+      typeof response.data === 'object' &&
+      'notifications' in response.data
+    ) {
+      ;(response.data as any).userBakongPlatform = userBakongPlatform
     }
     return response
   }
