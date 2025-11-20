@@ -8,10 +8,18 @@ echo "🚀 Starting deployment..."
 
 cd ~/bakong-notification-services
 
+# Create backup before deployment (optional but recommended)
+echo "💾 Creating backup before deployment..."
+if [ -f "apps/backend/scripts/backup-database.sh" ]; then
+    bash apps/backend/scripts/backup-database.sh staging || echo "⚠️  Backup warning (continuing anyway...)"
+else
+    echo "⚠️  Backup script not found, skipping backup..."
+fi
+
 # Pull latest code
 echo "📥 Pulling latest code..."
 git fetch origin
-git reset --hard origin/develop
+git reset --hard origin/developស
 
 # Run database migrations
 echo "🔄 Running database migrations..."
@@ -24,7 +32,15 @@ else
     echo "⚠️  fileId migration script not found, skipping..."
 fi
 
-# Migration 2: Add bakongPlatform support (NEW)
+# Migration 2: Update usernames to lowercase and remove spaces (NEW)
+if [ -f "apps/backend/scripts/update-usernames-to-lowercase.sql" ]; then
+    echo "  📝 Running username update migration..."
+    docker exec -i bakong-notification-services-db-sit psql -U bkns_sit -d bakong_notification_services_sit < apps/backend/scripts/update-usernames-to-lowercase.sql || echo "⚠️  Username migration warning (may be normal if already applied)"
+else
+    echo "⚠️  Username migration script not found, skipping..."
+fi
+
+# Migration 3: Add bakongPlatform support (NEW)
 if [ -f "apps/backend/scripts/add-bakong-platform-migration.sql" ]; then
     echo "  📝 Running bakongPlatform migration..."
     docker exec -i bakong-notification-services-db-sit psql -U bkns_sit -d bakong_notification_services_sit < apps/backend/scripts/add-bakong-platform-migration.sql || echo "⚠️  bakongPlatform migration warning (may be normal if already applied)"

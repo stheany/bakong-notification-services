@@ -127,7 +127,16 @@ const validateUsernameOnInput = () => {
 
   // Only validate if username is not empty
   if (loginFormData.Username) {
-    const usernameValidation = ValidationUtils.validateUsername(loginFormData.Username, false)
+    // Normalize username: convert to lowercase and remove spaces
+    const normalizedUsername = loginFormData.Username.toLowerCase().replace(/\s+/g, '')
+    
+    // Update the form data with normalized username (auto-correct as user types)
+    if (loginFormData.Username !== normalizedUsername) {
+      loginFormData.Username = normalizedUsername
+    }
+    
+    // Validate normalized username format
+    const usernameValidation = ValidationUtils.validateUsername(normalizedUsername, false)
     if (usernameValidation !== true) {
       errors.value.username = usernameValidation as string
     }
@@ -144,11 +153,19 @@ const handleSubmitLogin = async (formRef: any) => {
     errors.value.username = 'Please enter your username'
     hasErrors = true
   } else {
-    // Validate username format (lowercase, no spaces, no uppercase)
-    const usernameValidation = ValidationUtils.validateUsername(loginFormData.Username, true)
+    // Normalize username: convert to lowercase and remove spaces
+    const normalizedUsername = loginFormData.Username.toLowerCase().replace(/\s+/g, '')
+    
+    // Validate normalized username format
+    const usernameValidation = ValidationUtils.validateUsername(normalizedUsername, true)
     if (usernameValidation !== true) {
       errors.value.username = usernameValidation as string
       hasErrors = true
+    } else {
+      // Update the form data with normalized username (for display feedback)
+      if (loginFormData.Username !== normalizedUsername) {
+        loginFormData.Username = normalizedUsername
+      }
     }
   }
 
