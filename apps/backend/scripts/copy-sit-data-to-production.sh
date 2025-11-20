@@ -36,18 +36,38 @@ SIT_CONTAINER="bakong-notification-services-db-sit"
 PROD_DB_NAME="bakong_notification_services"
 PROD_DB_USER="bkns"
 PROD_DB_PASS="010110bkns"
-PROD_CONTAINER="bakong-notification-services-db-prod"
+PROD_CONTAINER="bakong-notification-services-db"
 
 # Check if containers exist
+echo "🔍 Checking for containers..."
+echo "   Looking for SIT container: $SIT_CONTAINER"
+echo "   Looking for Production container: $PROD_CONTAINER"
+echo ""
+
 if ! docker ps --format '{{.Names}}' | grep -q "^${SIT_CONTAINER}$"; then
   echo "❌ SIT database container not found: $SIT_CONTAINER"
+  echo ""
+  echo "💡 Available containers:"
+  docker ps --format "   - {{.Names}}" | grep -i bakong || echo "   (none found)"
+  echo ""
+  echo "⚠️  This script should run on the SERVER where both SIT and Production containers exist."
+  echo "    Or use the local dev copy script if testing locally."
   exit 1
 fi
 
 if ! docker ps --format '{{.Names}}' | grep -q "^${PROD_CONTAINER}$"; then
   echo "❌ Production database container not found: $PROD_CONTAINER"
+  echo ""
+  echo "💡 Available containers:"
+  docker ps --format "   - {{.Names}}" | grep -i bakong || echo "   (none found)"
+  echo ""
+  echo "⚠️  This script should run on the SERVER where both SIT and Production containers exist."
+  echo "    Or use the local dev copy script if testing locally."
   exit 1
 fi
+
+echo "✅ Both containers found!"
+echo ""
 
 echo ""
 echo "💾 Step 1: Creating backup of production database..."
