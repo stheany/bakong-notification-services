@@ -7,17 +7,35 @@ set -e
 
 cd ~/bakong-notification-services
 
-echo "🛑 Step 1: Stopping all containers..."
-docker-compose -f docker-compose.production.yml down || {
-    echo "⚠️  docker-compose down failed, trying individual stops..."
-    docker stop bakong-notification-services-api bakong-notification-services-frontend bakong-notification-services-db 2>/dev/null || true
-}
+echo "🛑 Step 1: Stopping and removing all containers..."
+docker-compose -f docker-compose.production.yml down 2>/dev/null || true
+
+# Force remove containers by name if they still exist
+echo "   Force removing containers if they exist..."
+docker rm -f bakong-notification-services-api bakong-notification-services-frontend bakong-notification-services-db 2>/dev/null || true
+
+# Remove any orphaned networks
+docker network rm bakong-notification-services_bakong-network bakong-network 2>/dev/null || true
 
 echo ""
-echo "🔍 Step 2: Ensuring database columns exist..."
+echo "🔍 Step 2: Checking for running containers..."
+docker ps -a | grep bakong-notification-services || echo "   No containers found"
+
+echo ""
+echo "🔍 Step 3: Ensuring database columns exist..."
 # Start DB temporarily to add columns if needed
-docker-compose -f docker-compose.production.yml up -d db
-sleep 5
+# First check if DB container exists and is running
+if docker ps | grep -q bakong-notification-services-db; then
+    echo "   DB container is running, using it..."
+elif docker ps -a | grep -q bakong-notification-services-db; then
+    echo "   DB container exists but stopped, starting it..."
+    docker start bakong-notification-services-db
+    sleep 5
+else
+    echo "   Starting DB container..."
+    docker-compose -f docker-compose.production.yml up -d db
+    sleep 5
+fi
 
 docker exec -i bakong-notification-services-db psql -U bkns -d bakong_notification_services -c "
 DO \$\$
@@ -38,15 +56,15 @@ END\$\$;
 " 2>&1 | grep -v "NOTICE" || true
 
 echo ""
-echo "🔄 Step 3: Starting all services with docker-compose (ensures proper networking)..."
+echo "🔄 Step 4: Starting all services with docker-compose (ensures proper networking)..."
 docker-compose -f docker-compose.production.yml up -d
 
 echo ""
-echo "⏳ Step 4: Waiting for services to start (45 seconds)..."
+echo "⏳ Step 5: Waiting for services to start (45 seconds)..."
 sleep 45
 
 echo ""
-echo "🔍 Step 5: Checking container status..."
+echo "🔍 Step 6: Checking container status..."
 docker ps | grep -E "bakong-notification-services-(api|frontend|db)" || {
     echo "❌ Some containers are not running!"
     docker ps -a | grep bakong-notification-services
@@ -54,7 +72,7 @@ docker ps | grep -E "bakong-notification-services-(api|frontend|db)" || {
 }
 
 echo ""
-echo "🔍 Step 6: Testing backend health from host..."
+echo "🔍 Step 7: Testing backend health from host..."
 for i in {1..5}; do
     if curl -s http://localhost:8080/api/v1/health > /dev/null 2>&1; then
         echo "✅ Backend is healthy!"
@@ -73,7 +91,7 @@ if ! curl -s http://localhost:8080/api/v1/health > /dev/null 2>&1; then
 fi
 
 echo ""
-echo "🔍 Step 7: Testing backend connectivity from frontend container..."
+echo "🔍 Step 8: Testing backend connectivity from frontend container..."
 # Install curl in frontend if needed, or use wget
 if docker exec bakong-notification-services-frontend curl -s http://backend:8080/api/v1/health > /dev/null 2>&1; then
     echo "✅ Frontend can reach backend via 'backend' hostname!"
@@ -96,13 +114,13 @@ else
 fi
 
 echo ""
-echo "🔍 Step 8: Checking nginx configuration..."
+echo "🔍 Step 9: Checking nginx configuration..."
 docker exec bakong-notification-services-frontend cat /etc/nginx/conf.d/default.conf 2>/dev/null | grep -A 2 "proxy_pass" | head -5 || {
     echo "⚠️  Could not read nginx config"
 }
 
 echo ""
-echo "🔍 Step 9: Testing frontend from host..."
+echo "🔍 Step 10: Testing frontend from host..."
 if curl -s http://localhost/api/v1/health > /dev/null 2>&1; then
     echo "✅ Frontend proxy is working!"
     curl -s http://localhost/api/v1/health | head -3
