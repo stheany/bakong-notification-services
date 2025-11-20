@@ -46,11 +46,11 @@ services:
       # Supports both HTTPS domain and HTTP IP for flexibility
       # CORS_ORIGIN supports comma-separated values for multiple origins
       # API_BASE_URL/HOSTING_BASE_URL use HTTPS domain (primary)
-      # Production: prod-bakong-notification.nbc.gov.kh (10.20.6.58)
-      - API_BASE_URL=https://prod-bakong-notification.nbc.gov.kh
-      - HOSTING_BASE_URL=https://prod-bakong-notification.nbc.gov.kh
+      # Production: bakong-notification.nbc.gov.kh (10.20.6.58)
+      - API_BASE_URL=https://bakong-notification.nbc.gov.kh
+      - HOSTING_BASE_URL=https://bakong-notification.nbc.gov.kh
       - NODE_ENV=production
-      - CORS_ORIGIN=https://prod-bakong-notification.nbc.gov.kh,http://10.20.6.58
+      - CORS_ORIGIN=https://bakong-notification.nbc.gov.kh,http://10.20.6.58
       - LOG_LEVEL=warn
       - API_JWT_KEY=010110bkns
       - TYPEORM_SYNCHRONIZE=false
