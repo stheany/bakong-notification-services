@@ -54,7 +54,6 @@ export class NotificationInboxDto {
     message:
       'bakongPlatform is required when accountId is provided. Must be one of: BAKONG, BAKONG_JUNIOR, BAKONG_TOURIST',
   })
-  @IsOptional()
   @Transform(({ value, obj }) => {
     // Handle typo: "bakongPlatfrom" -> "bakongPlatform"
     // If the typo field exists but bakongPlatform doesn't, use the typo value
