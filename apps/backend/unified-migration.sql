@@ -5,10 +5,10 @@
 -- It's safe to run multiple times (idempotent) - checks before creating/adding
 -- 
 -- Usage:
---   psql -U <username> -d <database> -f apps/backend/migrations/unified-migration.sql
+--   psql -U <username> -d <database> -f apps/backend/unified-migration.sql
 -- 
 -- Or via Docker:
---   docker exec -i <container-name> psql -U <username> -d <database> < apps/backend/migrations/unified-migration.sql
+--   docker exec -i <container-name> psql -U <username> -d <database> < apps/backend/unified-migration.sql
 -- ============================================================================
 
 \echo '🔄 Starting unified database migration...'

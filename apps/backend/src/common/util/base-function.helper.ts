@@ -208,7 +208,6 @@ export class BaseFunctionHelper {
     return res.isValid ? res.normalizedValue : language
   }
 
-
   static getFirebaseServiceAccountPaths(): string[] {
     const cwd = process.cwd()
     const nodeEnv = process.env.NODE_ENV || 'development'

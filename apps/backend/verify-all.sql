@@ -10,7 +10,7 @@
 -- Usage:
 --   bash utils-server.sh verify-all
 --   OR
---   docker exec -i <container> psql -U <user> -d <db> < apps/backend/scripts/verify-all.sql
+--   docker exec -i <container> psql -U <user> -d <db> < apps/backend/verify-all.sql
 -- ============================================
 
 \echo ''
@@ -402,18 +402,28 @@ BEGIN
     SELECT 
         EXISTS (
             SELECT 1 FROM information_schema.table_constraints tc
-            JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
-            WHERE tc.table_name = 'template_translation'
+            WHERE tc.table_schema = 'public'
+              AND tc.table_name = 'template_translation'
               AND tc.constraint_type = 'FOREIGN KEY'
-              AND tc.constraint_name = 'FK_d871aa842216b0708829b76233b'
+              AND tc.constraint_name = 'FK_template_translation_image'
         ),
-        (SELECT referenced_table_name FROM information_schema.key_column_usage 
-         WHERE table_name = 'template_translation' 
-           AND constraint_name = 'FK_d871aa842216b0708829b76233b' 
+        (SELECT ccu.table_name 
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.constraint_column_usage ccu 
+           ON tc.constraint_name = ccu.constraint_name
+         WHERE tc.table_schema = 'public'
+           AND tc.table_name = 'template_translation'
+           AND tc.constraint_type = 'FOREIGN KEY'
+           AND tc.constraint_name = 'FK_template_translation_image'
          LIMIT 1),
-        (SELECT referenced_column_name FROM information_schema.key_column_usage 
-         WHERE table_name = 'template_translation' 
-           AND constraint_name = 'FK_d871aa842216b0708829b76233b' 
+        (SELECT ccu.column_name 
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.constraint_column_usage ccu 
+           ON tc.constraint_name = ccu.constraint_name
+         WHERE tc.table_schema = 'public'
+           AND tc.table_name = 'template_translation'
+           AND tc.constraint_type = 'FOREIGN KEY'
+           AND tc.constraint_name = 'FK_template_translation_image'
          LIMIT 1)
     INTO fk_exists, fk_referenced_table, fk_referenced_column;
     
