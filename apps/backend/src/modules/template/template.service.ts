@@ -25,6 +25,7 @@ import {
 
 @Injectable()
 export class TemplateService implements OnModuleInit {
+  logger: any
   constructor(
     @InjectRepository(Template) private readonly repo: Repository<Template>,
     @InjectRepository(TemplateTranslation)
