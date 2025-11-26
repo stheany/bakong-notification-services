@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Post, Req, UseGuards, Query, Param } from '@nestjs/common'
+import { Body, Controller, Get, Post, Req, UseGuards, Query, Param, Put } from '@nestjs/common'
 import { UserRole } from '@bakong/shared'
 import { Public } from 'src/common/middleware/jwt-auth.guard'
 import { Roles } from 'src/common/middleware/roles.guard'
 import { LocalAuthGuard } from '../../common/middleware/local-auth.guard'
 import { CreateUserDto } from '../user/dto/create-user.dto'
+import { ChangePasswordDto } from './dto/change-password.dto'
 import { AuthService } from './auth.service'
 
 @Controller('auth')
@@ -44,5 +45,11 @@ export class AuthController {
   @Get('users/:id')
   async getUserById(@Param('id') id: number) {
     return this.authService.getUserById(id)
+  }
+
+  @Put('change-password')
+  async changePassword(@Req() req, @Body() dto: ChangePasswordDto) {
+    // JWT strategy returns { id: payload.sub, ... }, so use req.user.id
+    return this.authService.changePassword(req.user.id, dto)
   }
 }
