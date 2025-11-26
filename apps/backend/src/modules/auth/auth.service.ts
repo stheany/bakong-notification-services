@@ -6,15 +6,13 @@ import { JwtService } from '@nestjs/jwt'
 import { User } from 'src/entities/user.entity'
 import k from 'src/constant'
 import { CreateUserDto } from '../user/dto/create-user.dto'
+import { ChangePasswordDto } from './dto/change-password.dto'
 import moment from 'moment'
 import { BaseResponseDto } from 'src/common/base-response.dto'
 
 @Injectable()
 export class AuthService implements OnModuleInit {
-  constructor(
-    private readonly userService: UserService,
-    private readonly jwtService: JwtService,
-  ) {}
+  constructor(private readonly userService: UserService, private readonly jwtService: JwtService) {}
 
   async onModuleInit() {
     const admin = await this.userService.findByUsername(k.API_ADMIN_USERNAME)
@@ -29,6 +27,9 @@ export class AuthService implements OnModuleInit {
   }
 
   async login(user: User) {
+    // Reset failed login attempts on successful login
+    await this.userService.resetFailLoginAttempt(user.id)
+
     const expireAt = moment().add(24, 'hours').valueOf()
     const payload = {
       username: user.username,
@@ -58,7 +59,8 @@ export class AuthService implements OnModuleInit {
       })
     }
 
-    const user = await this.userService.findByUsername(username)
+    // Use findByUsernameWithPassword to ensure we get fresh password data from database
+    const user = await this.userService.findByUsernameWithPassword(username)
     if (!user) {
       // User not found - throw specific error
       throw new BaseResponseDto({
@@ -167,6 +169,90 @@ export class AuthService implements OnModuleInit {
       return { data: user }
     } catch (error) {
       throw error
+    }
+  }
+
+  /**
+   * Changes user password with comprehensive security validation
+   *
+   * Security Steps:
+   * 1. Verify user exists
+   * 2. Validate current password against database hash
+   * 3. Ensure new password is different from current
+   * 4. Validate new password strength (handled by DTO decorators)
+   * 5. Hash new password with bcrypt (cost factor 10)
+   * 6. Update database within transaction
+   * 7. Verify password was successfully updated
+   * 8. Reset failed login attempts (proves user knows current password)
+   *
+   * @param userId - The ID of the user changing their password
+   * @param dto - Contains currentPassword and newPassword
+   * @returns Success response with message
+   * @throws BaseResponseDto with appropriate error codes
+   */
+  async changePassword(userId: number, dto: ChangePasswordDto) {
+    // Step 1: Fetch user with password field from database
+    const user = await this.userService.findByIdWithPassword(userId)
+    if (!user) {
+      throw new BaseResponseDto({
+        responseCode: 1,
+        errorCode: ErrorCode.USER_NOT_FOUND,
+        responseMessage: 'User not found',
+      })
+    }
+
+    // Step 2: Validate current password using bcrypt.compare
+    // bcrypt.compare is timing-safe and prevents timing attacks
+    const isCurrentPasswordValid = await bcrypt.compare(dto.currentPassword, user.password)
+    if (!isCurrentPasswordValid) {
+      throw new BaseResponseDto({
+        responseCode: 1,
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        responseMessage: 'Current password is incorrect',
+      })
+    }
+
+    // Step 3: Ensure new password is different from current password
+    // This prevents users from "changing" to the same password
+    const isSamePassword = await bcrypt.compare(dto.newPassword, user.password)
+    if (isSamePassword) {
+      throw new BaseResponseDto({
+        responseCode: 1,
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        responseMessage: 'New password must be different from current password',
+      })
+    }
+
+    // Step 4 & 5: Update password in database (hashing happens in userService.updatePassword)
+    // The updatePassword method uses a transaction to ensure atomicity
+    const updatedUser = await this.userService.updatePassword(userId, dto.newPassword)
+
+    if (!updatedUser) {
+      throw new BaseResponseDto({
+        responseCode: 1,
+        errorCode: ErrorCode.USER_NOT_FOUND,
+        responseMessage: 'Failed to update password. User not found after update.',
+      })
+    }
+
+    // Step 6: Verify the password was actually updated by comparing the new password hash
+    // This ensures the database update was successful
+    const verifyNewPassword = await bcrypt.compare(dto.newPassword, updatedUser.password)
+    if (!verifyNewPassword) {
+      throw new BaseResponseDto({
+        responseCode: 1,
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        responseMessage: 'Password update failed. Please try again.',
+      })
+    }
+
+    // Step 7: Reset failed login attempts after successful password change
+    // This proves the user knows their current password, so we can reset the counter
+    await this.userService.resetFailLoginAttempt(userId)
+
+    return {
+      responseCode: 0,
+      responseMessage: 'Password changed successfully',
     }
   }
 }

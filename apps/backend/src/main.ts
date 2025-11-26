@@ -1,3 +1,4 @@
+import 'reflect-metadata'
 import { HttpAdapterHost, NestFactory, Reflector } from '@nestjs/core'
 import helmet from 'helmet'
 import { AllExceptionsFilter } from './common/middleware/exception.filter'
