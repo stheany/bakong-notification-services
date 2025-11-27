@@ -81,6 +81,7 @@
 
 <script setup lang="ts">
 import { InfoFilled } from '@element-plus/icons-vue'
+import { ElNotification } from 'element-plus'
 import { ref, computed, watch } from 'vue'
 import { formatFileSize } from '@/utils/helpers'
 import {
@@ -177,25 +178,44 @@ const handleDragLeave = () => {
   isDragOver.value = false
 }
 
-const processFileSuccess = (file: File, previewUrl: string) => {
+const processFileSuccess = (file: File, previewUrl: string, wasConverted?: boolean) => {
   errorMessage.value = ''
   selectedFile.value = file
   emit('update:modelValue', file)
   emit('file-selected', file)
   filePreview.value = previewUrl
+  
+  // Show success message if image was converted
+  if (wasConverted) {
+    ElNotification({
+      title: 'Image Converted',
+      message: 'Image has been automatically adjusted to correct size and aspect ratio (2:1).',
+      type: 'success',
+      duration: 3000,
+    })
+  }
 }
 
-const processFileHandler = (file: File) => {
-  processFile(
-    file,
-    processFileSuccess,
-    (error: string) => {
-      errorMessage.value = error
-    },
-    props.validateAspectRatio,
-    props.acceptTypes,
-    props.maxSize,
-  )
+const processFileHandler = async (file: File) => {
+  try {
+    await processFile(
+      file,
+      processFileSuccess,
+      (error: string) => {
+        errorMessage.value = error
+        emit('error', error)
+      },
+      props.validateAspectRatio,
+      props.acceptTypes,
+      props.maxSize,
+      true, // autoConvert = true - automatically convert instead of rejecting
+      2 / 1, // targetAspectRatio = 2:1 (as shown in UI)
+    )
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Failed to process image'
+    errorMessage.value = errorMsg
+    emit('error', errorMsg)
+  }
 }
 
 const removeFile = () => {

@@ -5,7 +5,7 @@
     >
       <img :src="bg" alt="" class="absolute inset-0 h-full w-full object-top" />
       <section
-        class="absolute bottom-[0px] left-[2px] bottom-[2px] w-[318.90px] h-[425.90px] justify-center items-center bg-white/90 backdrop-blur-[3.01882px] border ring-1 ring-black/5 rounded-t-[18.1129px] rounded-b-[39.2447px] shadow-[0_12px_40px_rgba(0,0,0,0.25)] overflow-hidden"
+        class="absolute bottom-[0px] left-[2px] bottom-[2px] w-[319.00px] h-[521.19px] justify-center items-center bg-white/90 backdrop-blur-[3.01882px] border ring-1 ring-black/5 rounded-t-[18.1129px] rounded-b-[39.2447px] shadow-[0_12px_40px_rgba(0,0,0,0.25)] overflow-hidden"
         role="dialog"
         aria-modal="true"
       >
@@ -13,7 +13,7 @@
           class="absolute inset-x-0 top-0 h-[164.53px] bg-[#E2E2E2] rounded-t-[18.1129px] overflow-hidden"
         >
           <div
-            class="absolute left-1/2 -translate-x-1/2 top-[10px] w-[46px] h-[6px] rounded-full bg-white/85"
+            class="absolute left-1/2 -translate-x-1/2 top-[5px] w-[46px] h-[6px] rounded-full bg-white/85"
           ></div>
           <div class="grid place-items-center h-full">
             <img :src="displayImage" alt="" class="w-full h-full object-cover" />
@@ -21,8 +21,11 @@
           <div class="absolute bottom-0 inset-x-0 h-[1px] bg-black/10"></div>
         </div>
         <div
-          class="absolute left-[12.08px] top-[176.6px] bottom-[60px] w-[307.92px] flex flex-col items-start gap-[6.04px] px-[30px] pt-[30px] pb-0 relative"
+          class="scrollable-content absolute left-[12.08px] top-[176.6px] bottom-[61px] w-[307.92px] flex flex-col items-start gap-[6.04px] px-[30px] pt-[30px] pb-[20px] overflow-y-auto overflow-x-hidden"
         >
+          <div class="title-container">
+            {{ displayTitle || 'No title' }}
+          </div>
           <div class="flex items-center w-full gap-2 h-[18px]">
             <img src="@/assets/image/star.png" alt="star" class="w-[14px] h-[14px]" />
             <div
@@ -32,9 +35,6 @@
               {{ formatCategoryType(displayCategory) }}
             </div>
             <div v-else class="w-[60%] h-[1px] border-b border-dotted border-black"></div>
-          </div>
-          <div class="title-container">
-            {{ displayTitle || 'No title' }}
           </div>
           <div class="text-[14px] leading-[18px] text-black h-[18px] flex items-center pb-2">
             {{ currentDate }}
@@ -143,17 +143,11 @@ const currentDate = computed(() => {
   font-size: 12px;
   line-height: 16px;
   color: #020202;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  line-clamp: 4;
-  -webkit-box-orient: vertical;
-  text-overflow: ellipsis;
   overflow-wrap: break-word;
   word-break: keep-all;
   white-space: normal;
-  max-height: 64px;
   margin-top: 2px;
+  padding-bottom: 12px;
 }
 
 .description-placeholder-relative {
@@ -162,6 +156,7 @@ const currentDate = computed(() => {
   flex-direction: column;
   gap: 4px;
   margin-top: 2px;
+  padding-bottom: 12px;
 }
 
 .description-container {
@@ -212,5 +207,14 @@ const currentDate = computed(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.scrollable-content {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.scrollable-content::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 </style>

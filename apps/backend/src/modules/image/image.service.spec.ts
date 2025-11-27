@@ -340,6 +340,373 @@ describe('ImageService', () => {
       expect(result.buffer).toEqual(buffer)
       expect(result.mimeType).toBe('image/jpeg')
     })
+
+    describe('Aspect Ratio Handling', () => {
+      it('should maintain 2:1 aspect ratio during compression', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 2000, height: 1000 }), // 2:1 ratio
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        expect(mockSharpInstance.resize).toHaveBeenCalledWith(
+          1920,
+          1080,
+          expect.objectContaining({
+            fit: 'inside',
+            withoutEnlargement: true,
+          }),
+        )
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle 16:9 aspect ratio images', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 1920, height: 1080 }), // 16:9 ratio, exactly at limit
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        // Should not resize since dimensions are exactly at limit (not exceeding)
+        expect(mockSharpInstance.resize).not.toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+        expect(result.mimeType).toBe('image/jpeg')
+      })
+
+      it('should handle 3:2 aspect ratio images', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 1500, height: 1000 }), // 3:2 ratio, within limits
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        // Should not resize since dimensions are within limits
+        expect(mockSharpInstance.resize).not.toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle 4:3 aspect ratio images', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 1600, height: 1200 }), // 4:3 ratio, height exceeds 1080
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        // Should resize since height (1200) exceeds maxHeight (1080)
+        expect(mockSharpInstance.resize).toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle 21:9 ultra-wide aspect ratio images', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 2100, height: 900 }), // 21:9 ratio, width exceeds 1920
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        // Should resize since width (2100) exceeds maxWidth (1920)
+        expect(mockSharpInstance.resize).toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle 1:1 square aspect ratio images', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 2000, height: 2000 }), // 1:1 square, width exceeds 1920
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        // Should resize since width (2000) exceeds maxWidth (1920)
+        expect(mockSharpInstance.resize).toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle portrait 1:2 aspect ratio images', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 1000, height: 2000 }), // 1:2 portrait, height exceeds 1080
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        // Should resize since height (2000) exceeds maxHeight (1080)
+        expect(mockSharpInstance.resize).toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle very wide 3:1 aspect ratio images', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 3000, height: 1000 }), // 3:1 very wide
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        expect(mockSharpInstance.resize).toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle very tall 1:3 aspect ratio images', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 1000, height: 3000 }), // 1:3 very tall
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        expect(mockSharpInstance.resize).toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should maintain aspect ratio when resizing large 2:1 images', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 4000, height: 2000 }), // Large 2:1
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        await service.compressImage(buffer, 'image/jpeg')
+
+        expect(mockSharpInstance.resize).toHaveBeenCalledWith(
+          1920,
+          1080,
+          expect.objectContaining({
+            fit: 'inside', // Maintains aspect ratio
+            withoutEnlargement: true,
+          }),
+        )
+      })
+
+      it('should maintain aspect ratio when resizing large 16:9 images', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 3840, height: 2160 }), // Large 16:9 (4K)
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        await service.compressImage(buffer, 'image/jpeg')
+
+        expect(mockSharpInstance.resize).toHaveBeenCalledWith(
+          1920,
+          1080,
+          expect.objectContaining({
+            fit: 'inside', // Maintains aspect ratio
+            withoutEnlargement: true,
+          }),
+        )
+      })
+
+      it('should not resize images that are already within limits (2:1)', async () => {
+        const buffer = createMockBuffer(500)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 1000, height: 500 }), // Small 2:1, within limits
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(500)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        await service.compressImage(buffer, 'image/jpeg')
+
+        expect(mockSharpInstance.resize).not.toHaveBeenCalled()
+      })
+
+      it('should handle images with width exceeding maxWidth but height within limit', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 3000, height: 800 }), // Wide but short, width exceeds 1920
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        // Should resize since width (3000) exceeds maxWidth (1920)
+        expect(mockSharpInstance.resize).toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle images with height exceeding maxHeight but width within limit', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 800, height: 2000 }), // Narrow but tall, height exceeds 1080
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        // Should resize since height (2000) exceeds maxHeight (1080)
+        expect(mockSharpInstance.resize).toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle images with both width and height exceeding limits', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 4000, height: 3000 }), // Both exceed
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        expect(mockSharpInstance.resize).toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle PNG with alpha channel and maintain aspect ratio', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 2000, height: 1000, hasAlpha: true }), // 2:1 PNG
+          resize: jest.fn().mockReturnThis(),
+          png: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/png')
+
+        expect(mockSharpInstance.resize).toHaveBeenCalled()
+        expect(mockSharpInstance.png).toHaveBeenCalledWith({ compressionLevel: 9 })
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle edge case: exactly maxWidth x maxHeight (1920x1080)', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 1920, height: 1080 }), // Exactly at limit
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        await service.compressImage(buffer, 'image/jpeg')
+
+        // Should not resize since it's exactly at the limit
+        expect(mockSharpInstance.resize).not.toHaveBeenCalled()
+      })
+
+      it('should handle edge case: one pixel over maxWidth', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 1921, height: 1080 }), // One pixel over
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        expect(mockSharpInstance.resize).toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle edge case: one pixel over maxHeight', async () => {
+        const buffer = createMockBuffer(5000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 1920, height: 1081 }), // One pixel over
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(2000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        expect(mockSharpInstance.resize).toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle missing metadata gracefully', async () => {
+        const buffer = createMockBuffer(1000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({}), // No width/height
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(1000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        expect(mockSharpInstance.resize).not.toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+
+      it('should handle zero dimensions gracefully', async () => {
+        const buffer = createMockBuffer(1000)
+        const mockSharpInstance = {
+          metadata: jest.fn().mockResolvedValue({ width: 0, height: 0 }),
+          resize: jest.fn().mockReturnThis(),
+          jpeg: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(createMockBuffer(1000)),
+        }
+        ;(sharp as any).mockReturnValue(mockSharpInstance)
+
+        const result = await service.compressImage(buffer, 'image/jpeg')
+
+        expect(mockSharpInstance.resize).not.toHaveBeenCalled()
+        expect(result.buffer).toBeDefined()
+      })
+    })
   })
 
   describe('buildImageUrl', () => {

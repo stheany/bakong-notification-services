@@ -717,6 +717,8 @@ const handlePublishNow = async () => {
             const { file: compressed, dataUrl } = await compressImage(langData.imageFile, {
               maxBytes: 10 * 1024 * 1024,
               maxWidth: 2000,
+              targetAspectRatio: 2 / 1, // 2:1 aspect ratio as shown in UI
+              correctAspectRatio: true, // Automatically correct aspect ratio
             })
             imagesToUpload.push({ file: compressed, language: langKey })
             if (languageFormData[langKey]) {
@@ -1026,6 +1028,8 @@ const handleSaveDraft = async () => {
           const { file: compressed, dataUrl } = await compressImage(langData.imageFile, {
             maxBytes: 10 * 1024 * 1024,
             maxWidth: 2000,
+            targetAspectRatio: 2 / 1, // 2:1 aspect ratio as shown in UI
+            correctAspectRatio: true, // Automatically correct aspect ratio
           })
           imagesToUpload.push({ file: compressed, language: langKey })
           if (languageFormData[langKey]) {
