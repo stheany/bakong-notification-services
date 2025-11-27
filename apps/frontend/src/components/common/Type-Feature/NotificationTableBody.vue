@@ -4,19 +4,38 @@
       <table class="w-full text-sm text-left text-[#001346] border-collapse min-w-[600px]">
         <thead class="text-[14px] font-semibold text-[#001346B3] uppercase bg-[#f2f2f4] bg-cover">
           <tr class="h-[63px]">
-            <th class="py-3 pl-4 sm:pl-8 pr-2 sm:pr-4 text-left w-[60px]">
-              <input
-                type="checkbox"
-                :checked="isAllSelected"
-                :indeterminate="isIndeterminate"
-                @change="handleSelectAll"
-                class="w-4 h-4 border border-[#001346] rounded bg-white focus:ring-0 focus:ring-offset-0"
-              />
+            <th class="py-3 pl-4 sm:pl-8 pr-2 sm:pr-4 text-left gap-2">
+              <div
+                class="flex items-center justify-start gap-2"
+                style="padding-left: 3px !important"
+              >
+                <input
+                  type="checkbox"
+                  :checked="isAllSelected"
+                  :indeterminate="isIndeterminate"
+                  @change="handleSelectAll"
+                  class="w-4 h-4 border border-[#001346] rounded bg-white focus:ring-0 focus:ring-offset-0"
+                />
+                <span>Icon</span>
+              </div>
             </th>
-            <th class="py-3 px-2 sm:px-4 text-center align-middle w-[100px]">Icon</th>
-            <th class="py-3 px-2 sm:px-4 text-center align-middle flex-1">Name</th>
+            <th class="py-3 px-2 sm:px-4 text-center align-middle cursor-pointer w-full">
+              <div class="flex items-center justify-center gap-2 w-full">
+                Name
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-3 h-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
+                </svg>
+              </div>
+            </th>
             <th
-              class="py-3 px-2 sm:px-4 text-center whitespace-nowrap w-[200px] sticky right-0 bg-[#f2f2f4] z-10"
+              class="py-3 px-2 sm:px-4 text-start whitespace-nowrap w-[200px] sticky right-0 bg-[#f2f2f4] z-10"
             >
               Actions
             </th>
@@ -28,21 +47,22 @@
             :key="i"
             class="transition-all duration-150 h-[63px]"
           >
-            <td class="py-3 pl-4 sm:pl-8 pr-2 sm:pr-4 w-[60px] align-middle">
-              <input
-                type="checkbox"
-                :checked="selectedItems.has(i)"
-                @change="handleSelectItem(i)"
-                class="w-4 h-4 border border-[#001346] rounded bg-white focus:ring-0 focus:ring-offset-0"
-              />
-            </td>
-            <td class="py-3 px-2 sm:px-4 align-middle text-center w-[100px]">
-              <div class="flex items-center justify-center text-xl">
-                {{ item.icon }}
+            <td class="py-3 pl-4 sm:pl-8 pr-2 sm:pr-4 align-middle">
+              <div
+                class="flex items-center justify-start gap-3"
+                style="padding-left: 3px !important"
+              >
+                <input
+                  type="checkbox"
+                  :checked="selectedItems.has(i)"
+                  @change="handleSelectItem(i)"
+                  class="w-4 h-4 border border-[#001346] rounded bg-white focus:ring-0 focus:ring-offset-0"
+                />
+                <div class="text-xl">{{ item.icon }}</div>
               </div>
             </td>
-            <td class="py-3 px-2 sm:px-4 text-[16px] font-medium text-center align-middle flex-1">
-              <div class="flex items-center justify-center">
+            <td class="py-3 px-2 sm:px-4 text-[16px] font-medium text-center align-middle w-full">
+              <div class="flex items-center justify-center w-full">
                 {{ item.name }}
               </div>
             </td>
@@ -91,7 +111,7 @@
                     <path
                       stroke-linecap="round"
                       stroke-linejoin="round"
-                      d="M11 4h9m-9 4h9M5 12h15M5 16h15M5 20h15"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                     />
                   </svg>
                 </button>
@@ -119,7 +139,7 @@
             </td>
           </tr>
           <tr v-if="!notifications || notifications.length === 0" class="h-[63px]">
-            <td colspan="4" class="px-4 py-8 text-center text-[#001346B3]">
+            <td colspan="3" class="px-4 py-8 text-center text-[#001346B3]">
               No notification types found.
             </td>
           </tr>

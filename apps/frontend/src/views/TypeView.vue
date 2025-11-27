@@ -32,10 +32,8 @@ const router = useRouter()
 
 const page = ref(1)
 const notifications = ref([
-  { icon: '📰', name: 'News' },
-  { icon: '🎉', name: 'Event' },
-  { icon: '💻', name: 'Product and Feature' },
-  { icon: '🔔', name: 'Other' },
+  { icon: '☰', name: 'Database Issue' },
+  { icon: '📅', name: 'Calendar' },
 ])
 
 const nextPage = () => page.value++

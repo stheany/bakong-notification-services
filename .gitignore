@@ -181,3 +181,9 @@ test-report.xml
 .cursor/rules/
 .cursor/scripts/
 .cursor/templates/
+
+# Ps1
+.ps1/
+
+# md
+*.md
