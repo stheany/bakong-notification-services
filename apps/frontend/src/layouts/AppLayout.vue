@@ -4,11 +4,7 @@
       <div class="header-content">
         <div class="page-title">
           <h1>{{ pageTitle }}</h1>
-          <div class="breadcrumb">
-            <span class="breadcrumb-text">Notification</span>
-            <span class="breadcrumb-separator">></span>
-            <span class="breadcrumb-current">{{ breadcrumbCurrent }}</span>
-          </div>
+          <Breadcrumb />
         </div>
         <div class="header-actions">
           <el-button
@@ -140,6 +136,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useRouter, useRoute } from 'vue-router'
 import { ElNotification, ElDialog } from 'element-plus'
 import { Plus, ArrowLeft, Warning, CirclePlus } from '@element-plus/icons-vue'
+import Breadcrumb from '@/components/common/Breadcrumb.vue'
 
 // Import images properly for production builds
 import nbcLogo from '@/assets/image/NBC-logo.png'
@@ -178,26 +175,6 @@ const pageTitle = computed(() => {
   }
 })
 
-const breadcrumbCurrent = computed(() => {
-  switch (route.name) {
-    case 'home':
-      return 'Home'
-    case 'notifications':
-      return 'Notifications'
-    case 'create-notification':
-      return 'Create notification'
-    case 'edit-notification':
-      return 'Edit notification'
-    case 'schedule':
-      return 'Schedule'
-    case 'templates':
-      return 'Templates'
-    case 'users':
-      return 'Users'
-    default:
-      return 'Home'
-  }
-})
 
 const handleCreateNotification = () => {
   router.push('/notifications/create')
@@ -270,28 +247,6 @@ const confirmLogout = () => {
   margin: 0;
 }
 
-.breadcrumb {
-  font-size: 14px;
-  color: #666;
-  margin-top: 4px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.breadcrumb-text {
-  color: #666;
-}
-
-.breadcrumb-separator {
-  font-weight: bold;
-  color: #666;
-}
-
-.breadcrumb-current {
-  font-weight: bold;
-  color: #001346;
-}
 
 .header-actions {
   display: flex;
