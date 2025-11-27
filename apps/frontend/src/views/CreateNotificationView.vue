@@ -715,7 +715,7 @@ const handlePublishNow = async () => {
         if (langData.imageFile) {
           try {
             const { file: compressed, dataUrl } = await compressImage(langData.imageFile, {
-              maxBytes: 5 * 1024 * 1024,
+              maxBytes: 10 * 1024 * 1024,
               maxWidth: 2000,
             })
             imagesToUpload.push({ file: compressed, language: langKey })
@@ -775,7 +775,7 @@ const handlePublishNow = async () => {
         console.error('Error uploading images:', error)
         ElNotification({
           title: 'Error',
-          message: 'Failed to upload images. Please ensure each is <= 5MB and try again.',
+          message: 'Failed to upload images. Please ensure each is <= 10MB and try again.',
           type: 'error',
           duration: 2000,
         })
@@ -905,16 +905,29 @@ const handlePublishNow = async () => {
         failedUsers,
       })
       
-      let message = isEditMode.value
-        ? 'Notification updated and published successfully!'
-        : 'Notification created and published successfully!'
+      // Check if this is a flash notification
+      const isFlashNotification = formData.notificationType === NotificationType.FLASH_NOTIFICATION
       
-      // Add user count if available
-      if (successfulCount !== undefined && successfulCount !== null && successfulCount > 0) {
+      let message = isFlashNotification
+        ? isEditMode.value
+          ? 'Flash notification updated and published successfully, and when user open bakongPlatform it will saw it!'
+          : 'Flash notification created and published successfully, and when user open bakongPlatform it will saw it!'
+        : isEditMode.value
+          ? 'Notification updated and published successfully!'
+          : 'Notification created and published successfully!'
+      
+      // Add user count if available (only for non-flash notifications)
+      if (!isFlashNotification && successfulCount !== undefined && successfulCount !== null && successfulCount > 0) {
         const userText = successfulCount === 1 ? 'user' : 'users'
         message = isEditMode.value
           ? `Notification updated and published to ${successfulCount} ${userText} successfully!`
           : `Notification created and published to ${successfulCount} ${userText} successfully!`
+      }
+      
+      // For flash notifications, replace bakongPlatform with bold platform name
+      if (isFlashNotification) {
+        const platformName = formatBakongApp(formData.platform)
+        message = message.replace('bakongPlatform', `<strong>${platformName}</strong>`)
       }
       
       ElNotification({
@@ -922,6 +935,7 @@ const handlePublishNow = async () => {
         message: message,
         type: 'success',
         duration: 2000,
+        dangerouslyUseHTMLString: isFlashNotification,
       })
       
       // Log failed users to console if any
@@ -1008,7 +1022,7 @@ const handleSaveDraft = async () => {
       if (langData.imageFile) {
         try {
           const { file: compressed, dataUrl } = await compressImage(langData.imageFile, {
-            maxBytes: 5 * 1024 * 1024,
+            maxBytes: 10 * 1024 * 1024,
             maxWidth: 2000,
           })
           imagesToUpload.push({ file: compressed, language: langKey })

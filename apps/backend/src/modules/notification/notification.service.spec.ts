@@ -743,9 +743,9 @@ describe('NotificationService', () => {
       expect(result.data).toHaveProperty('successfulCount')
       expect(result.data).toHaveProperty('failedCount')
       expect(result.data).toHaveProperty('failedUsers')
-      expect(result.data.successfulCount).toBe(1)
-      expect(result.data.failedCount).toBeGreaterThanOrEqual(0)
-      expect(Array.isArray(result.data.failedUsers)).toBe(true)
+      expect((result.data as any).successfulCount).toBe(1)
+      expect((result.data as any).failedCount).toBeGreaterThanOrEqual(0)
+      expect(Array.isArray((result.data as any).failedUsers)).toBe(true)
 
       getFCMSpy.mockRestore()
       updateNotificationRecordSpy.mockRestore()
@@ -816,14 +816,16 @@ describe('NotificationService', () => {
 
       expect(result.responseCode).toBe(0)
       expect(result.data).toHaveProperty('whatnews')
-      expect(result.data.successfulCount).toBe(1)
-      expect(result.data.failedCount).toBe(1)
-      expect(result.data.failedUsers).toContain('wrongusertoken@bkrt.com')
+      expect((result.data as any).successfulCount).toBe(1)
+      expect((result.data as any).failedCount).toBe(1)
+      expect((result.data as any).failedUsers).toContain('wrongusertoken@bkrt.com')
 
       // Verify failed users were logged
       const logCalls = consoleSpy.mock.calls
       const failedUsersLog = logCalls.find((call) =>
-        call[0]?.includes('Failed to send notification to'),
+        call[0]?.includes('❌ [sendFCM] Failed to send to user:') ||
+        call[0]?.includes('FAILED USERS SUMMARY') ||
+        call[0]?.includes('Failed to send to user:'),
       )
       expect(failedUsersLog).toBeDefined()
 

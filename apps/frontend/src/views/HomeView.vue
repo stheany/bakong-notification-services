@@ -850,27 +850,77 @@ const handlePublishNotification = async (notification: Notification) => {
           // Successfully published and sent to users
           const successfulCount = result?.data?.successfulCount ?? 0
           const userText = successfulCount === 1 ? 'user' : 'users'
-          ElNotification({
-            title: 'Success',
-            message: `Notification published and sent to ${successfulCount} ${userText} successfully!`,
-            type: 'success',
-            duration: 2000,
-          })
-          const notificationIndex = notifications.value.findIndex((n) => n.id === notification.id)
-          if (notificationIndex !== -1) {
-            notifications.value[notificationIndex].status = 'published'
-            notifications.value[notificationIndex].isSent = true
+          
+          // Check if this is a flash notification - check result data first, then template, then notification
+          const notificationType = result?.data?.notificationType || template?.notificationType || notification.type
+          const isFlashNotification = notificationType === NotificationType.FLASH_NOTIFICATION
+          
+          let message = isFlashNotification
+            ? 'Flash notification published successfully, and when user open bakongPlatform it will saw it!'
+            : `Notification published and sent to ${successfulCount} ${userText} successfully!`
+          
+          // For flash notifications, replace bakongPlatform with bold platform name
+          if (isFlashNotification) {
+            const platformName = getFormattedPlatformName({
+              platformName: result?.data?.platformName,
+              bakongPlatform: result?.data?.bakongPlatform || template?.bakongPlatform,
+              notification: notification as any,
+            })
+            message = message.replace('bakongPlatform', `<strong>${platformName}</strong>`)
           }
-          activeTab.value = 'published'
+          
+        ElNotification({
+          title: 'Success',
+            message: message,
+          type: 'success',
+          duration: 2000,
+          dangerouslyUseHTMLString: isFlashNotification,
+        })
+        const notificationIndex = notifications.value.findIndex((n) => n.id === notification.id)
+        if (notificationIndex !== -1) {
+          notifications.value[notificationIndex].status = 'published'
+          notifications.value[notificationIndex].isSent = true
+        }
+        activeTab.value = 'published'
         } else {
-          // No users received the notification - show warning and keep in draft
-          ElNotification({
-            title: 'Info',
-            message: 'Notification could not be sent. No users received the notification. It has been kept as a draft.',
-            type: 'info',
-            duration: 3000,
-          })
-          activeTab.value = 'draft'
+          // Check if this is a flash notification - even if no successfulCount, show flash message
+          const notificationType = result?.data?.notificationType || template?.notificationType || notification.type
+          const isFlashNotification = notificationType === NotificationType.FLASH_NOTIFICATION
+          
+          if (isFlashNotification) {
+            // For flash notifications, show success message even if no user count
+            let message = 'Flash notification published successfully, and when user open bakongPlatform it will saw it!'
+            const platformName = getFormattedPlatformName({
+              platformName: result?.data?.platformName,
+              bakongPlatform: result?.data?.bakongPlatform || template?.bakongPlatform,
+              notification: notification as any,
+            })
+            message = message.replace('bakongPlatform', `<strong>${platformName}</strong>`)
+            
+            ElNotification({
+              title: 'Success',
+              message: message,
+              type: 'success',
+              duration: 2000,
+              dangerouslyUseHTMLString: true,
+            })
+            
+            const notificationIndex = notifications.value.findIndex((n) => n.id === notification.id)
+            if (notificationIndex !== -1) {
+              notifications.value[notificationIndex].status = 'published'
+              notifications.value[notificationIndex].isSent = true
+            }
+            activeTab.value = 'published'
+          } else {
+            // No users received the notification - show warning and keep in draft
+            ElNotification({
+              title: 'Info',
+              message: 'Notification could not be sent. No users received the notification. It has been kept as a draft.',
+              type: 'info',
+              duration: 3000,
+            })
+            activeTab.value = 'draft'
+          }
         }
         cachedNotifications = null
         cacheTimestamp = 0
