@@ -17,7 +17,7 @@
           />
         </div>
         <p
-          class="text-[#011246] font-normal text-base leading-[150%] tracking-[0%] font-['IBM_Plex_Sans']"
+          class="text-[#011246] font-normal text-base leading-[150%] tracking-[0%] font-['IBM_Plex_Sans']     "
         >
           Drag & drop here or choose files
         </p>
@@ -30,7 +30,7 @@
         />
         <button
           @click.stop="removeFile"
-          class="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-500 text-white border-none cursor-pointer flex items-center justify-center transition-colors duration-200 hover:bg-red-600"
+          class="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-500 text-white border-none cursor-pointer flex items-center justify-center transition-black duration-200 hover:bg-red-600"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -184,7 +184,7 @@ const processFileSuccess = (file: File, previewUrl: string, wasConverted?: boole
   emit('update:modelValue', file)
   emit('file-selected', file)
   filePreview.value = previewUrl
-  
+
   // Show success message if image was converted
   if (wasConverted) {
     ElNotification({

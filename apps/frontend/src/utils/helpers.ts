@@ -327,38 +327,44 @@ export const processFile = async (
       // Check if conversion is needed
       const needsSizeConversion = file.size > maxSize
       let needsAspectRatioConversion = false
-      
+
       if (validateAspectRatio) {
-        const imageCheck = await new Promise<{ needsConversion: boolean; aspectRatio: number }>((resolve) => {
-          const reader = new FileReader()
-          reader.onload = (e) => {
-            const img = new Image()
-            img.onload = () => {
-              const aspectRatio = img.width / img.height
-              const acceptableRatios = [4 / 3, 3 / 2, 16 / 9, 2 / 1, 21 / 9]
-              const tolerance = 0.1
-              const isAcceptable = acceptableRatios.some(
-                (ratio) => Math.abs(aspectRatio - ratio) <= tolerance,
-              )
-              resolve({ needsConversion: !isAcceptable, aspectRatio })
+        const imageCheck = await new Promise<{ needsConversion: boolean; aspectRatio: number }>(
+          (resolve) => {
+            const reader = new FileReader()
+            reader.onload = (e) => {
+              const img = new Image()
+              img.onload = () => {
+                const aspectRatio = img.width / img.height
+                const acceptableRatios = [4 / 3, 3 / 2, 16 / 9, 2 / 1, 21 / 9]
+                const tolerance = 0.1
+                const isAcceptable = acceptableRatios.some(
+                  (ratio) => Math.abs(aspectRatio - ratio) <= tolerance,
+                )
+                resolve({ needsConversion: !isAcceptable, aspectRatio })
+              }
+              img.onerror = () => resolve({ needsConversion: false, aspectRatio: 1 })
+              img.src = e.target?.result as string
             }
-            img.onerror = () => resolve({ needsConversion: false, aspectRatio: 1 })
-            img.src = e.target?.result as string
-          }
-          reader.readAsDataURL(file)
-        })
+            reader.readAsDataURL(file)
+          },
+        )
         needsAspectRatioConversion = imageCheck.needsConversion
       }
 
       // If conversion is needed, process the image
       if (needsSizeConversion || needsAspectRatioConversion) {
-        const { file: convertedFile, dataUrl, wasConverted } = await compressImage(file, {
+        const {
+          file: convertedFile,
+          dataUrl,
+          wasConverted,
+        } = await compressImage(file, {
           maxBytes: maxSize,
           maxWidth: 2000,
           targetAspectRatio,
           correctAspectRatio: validateAspectRatio && needsAspectRatioConversion,
         })
-        
+
         onSuccess(convertedFile, dataUrl, wasConverted)
         return
       } else {
@@ -384,7 +390,7 @@ export const processFile = async (
     )
     return
   }
-  
+
   if (validateAspectRatio && file.type.startsWith('image/') && !autoConvert) {
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -423,7 +429,7 @@ export const processFile = async (
 export const correctAspectRatio = async (
   img: HTMLImageElement,
   targetRatio: number = 2 / 1,
-): Promise<{ 
+): Promise<{
   canvasWidth: number
   canvasHeight: number
   imageDrawX: number
@@ -490,7 +496,13 @@ export const correctAspectRatio = async (
 
 export const compressImage = async (
   file: File,
-  options?: { maxBytes?: number; maxWidth?: number; qualityStep?: number; targetAspectRatio?: number; correctAspectRatio?: boolean },
+  options?: {
+    maxBytes?: number
+    maxWidth?: number
+    qualityStep?: number
+    targetAspectRatio?: number
+    correctAspectRatio?: boolean
+  },
 ): Promise<{ file: File; dataUrl: string; wasConverted?: boolean }> => {
   const maxBytes = options?.maxBytes ?? 5 * 1024 * 1024
   const maxWidth = options?.maxWidth ?? 2000
@@ -530,14 +542,14 @@ export const compressImage = async (
     imageDrawWidth = corrected.imageDrawWidth
     imageDrawHeight = corrected.imageDrawHeight
     usePadding = corrected.usePadding
-    
+
     // Check if aspect ratio was actually corrected
     const currentRatio = img.width / img.height
     if (Math.abs(currentRatio - targetAspectRatio) > 0.05) {
       wasConverted = true
     }
   }
-  
+
   // Scale down if canvas is too wide
   const scale = Math.min(1, maxWidth / (canvasWidth || maxWidth))
   if (scale < 1) {
@@ -546,7 +558,7 @@ export const compressImage = async (
     const originalCanvasHeight = canvasHeight
     canvasWidth = Math.max(1, Math.floor(canvasWidth * scale))
     canvasHeight = Math.max(1, Math.floor(canvasHeight * scale))
-    
+
     // Scale image draw dimensions proportionally
     if (usePadding) {
       const scaleX = canvasWidth / originalCanvasWidth
@@ -559,7 +571,7 @@ export const compressImage = async (
       imageDrawWidth = canvasWidth
       imageDrawHeight = canvasHeight
     }
-    
+
     wasConverted = true
   }
 
@@ -581,15 +593,15 @@ export const compressImage = async (
   canvas.height = canvasHeight
   const ctx = canvas.getContext('2d')
   if (!ctx) return { file, dataUrl: originalDataUrl, wasConverted: false }
-  
+
   // Fill canvas with white background (for padding areas)
   ctx.fillStyle = '#FFFFFF'
   ctx.fillRect(0, 0, canvasWidth, canvasHeight)
-  
+
   // Use high-quality image smoothing
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  
+
   // Draw the full image (with padding if aspect ratio was corrected)
   if (usePadding) {
     // Draw full image centered with padding (letterboxing/pillarboxing)
@@ -613,6 +625,8 @@ export const compressImage = async (
 
   // Further reduce size if still too large
   if (blob.size > maxBytes) {
+    let targetW = canvasWidth
+    let targetH = canvasHeight
     const altCanvas = document.createElement('canvas')
     altCanvas.width = Math.max(1, Math.floor(targetW * 0.8))
     altCanvas.height = Math.max(1, Math.floor(targetH * 0.8))

@@ -19,7 +19,8 @@
         </div>
         <div class="form-fields">
           <div class="form-row">
-            <div class="form-group">
+            <!-- Commented out: Type field - no longer used -->
+            <!-- <div class="form-group">
               <label class="form-label">Type <span class="required">*</span></label>
               <el-dropdown
                 @command="(command: NotificationType) => (formData.notificationType = command)"
@@ -44,9 +45,9 @@
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
-            </div>
+            </div> -->
             <div class="form-group">
-              <label class="form-label">Category Type<span class="required">*</span></label>
+              <label class="form-label">Category <span class="required">*</span></label>
               <el-dropdown
                 @command="(command: CategoryType) => (formData.categoryType = command)"
                 trigger="click"
@@ -66,6 +67,32 @@
                       :command="category"
                     >
                       {{ formatCategoryType(category) }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Push to OS Platforms <span class="required">*</span></label>
+              <el-dropdown
+                @command="(command: Platform) => (formData.pushToPlatforms = command)"
+                trigger="click"
+                class="custom-dropdown"
+              >
+                <span class="dropdown-trigger">
+                  {{ formatPlatform(formData.pushToPlatforms) }}
+                  <el-icon class="dropdown-icon">
+                    <ArrowDown />
+                  </el-icon>
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-for="platform in Object.values(Platform)"
+                      :key="platform"
+                      :command="platform"
+                    >
+                      {{ formatPlatform(platform) }}
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -104,59 +131,31 @@
               >{{ descriptionError }}</span
             >
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">OS Platforms <span class="required">*</span></label>
-              <el-dropdown
-                @command="(command: Platform) => (formData.pushToPlatforms = command)"
-                trigger="click"
-                class="custom-dropdown"
-              >
-                <span class="dropdown-trigger">
-                  {{ formatPlatform(formData.pushToPlatforms) }}
-                  <el-icon class="dropdown-icon">
-                    <ArrowDown />
-                  </el-icon>
-                </span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item
-                      v-for="platform in Object.values(Platform)"
-                      :key="platform"
-                      :command="platform"
-                    >
-                      {{ formatPlatform(platform) }}
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Bakong Platform <span class="required">*</span></label>
-              <el-dropdown
-                @command="(command: BakongApp) => (formData.platform = command)"
-                trigger="click"
-                class="custom-dropdown"
-              >
-                <span class="dropdown-trigger">
-                  {{ formatBakongApp(formData.platform) }}
-                  <el-icon class="dropdown-icon">
-                    <ArrowDown />
-                  </el-icon>
-                </span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item
-                      v-for="app in Object.values(BakongApp)"
-                      :key="app"
-                      :command="app"
-                    >
-                      {{ formatBakongApp(app) }}
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </div>
+          <div class="form-group">
+            <label class="form-label">Bakong Platform <span class="required">*</span></label>
+            <el-dropdown
+              @command="(command: BakongApp) => (formData.platform = command)"
+              trigger="click"
+              class="custom-dropdown full-width-dropdown"
+            >
+              <span class="dropdown-trigger full-width-trigger">
+                {{ formatBakongApp(formData.platform) }}
+                <el-icon class="dropdown-icon">
+                  <ArrowDown />
+                </el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    v-for="app in Object.values(BakongApp)"
+                    :key="app"
+                    :command="app"
+                  >
+                    {{ formatBakongApp(app) }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
           <div class="form-group">
             <label class="form-label">Link to see more (optional)</label>
@@ -179,7 +178,7 @@
             <div class="schedule-options">
               <div class="schedule-options-header">
                 <div class="schedule-option-left">
-                  <span class="option-title">Schedule Options</span>
+                  <span class="option-title">Posting Schedule</span>
                 </div>
                 <div class="schedule-option-right">
                   <span class="option-label">Set time and date</span>
@@ -450,11 +449,11 @@ const getTodayDateString = (): string => {
 }
 
 const formData = reactive({
-  notificationType: NotificationType.NOTIFICATION,
-  categoryType: CategoryType.OTHER,
+  notificationType: NotificationType.ANNOUNCEMENT,
+  categoryType: CategoryType.PRODUCT_AND_FEATURE,
   pushToPlatforms: Platform.ALL,
   showPerDay: 1, // Default: 1 time per day (disabled for first version)
-  maxDayShowing: 3, // Default: 3 days maximum (disabled for first version)
+  maxDayShowing: 1, // Default: 1 days maximum (disabled for first version)
   platform: BakongApp.BAKONG,
   scheduleEnabled: false,
   scheduleDate: getTodayDateString(),
@@ -526,7 +525,7 @@ const loadNotificationData = async () => {
     isEditingPublished.value = fromTab.value === 'published' || template.isSent === true
 
     formData.notificationType =
-      mapNotificationTypeToFormType(template.notificationType) || NotificationType.NOTIFICATION
+      mapNotificationTypeToFormType(template.notificationType) || NotificationType.ANNOUNCEMENT
     formData.categoryType = mapTypeToCategoryType(template.categoryType) || CategoryType.OTHER
     formData.platform = (template.bakongPlatform as BakongApp) || BakongApp.BAKONG
 
@@ -591,6 +590,20 @@ onMounted(async () => {
 })
 
 const showConfirmationDialog = ref(false)
+
+// Watch splashEnabled toggle to update notificationType
+watch(
+  () => formData.splashEnabled,
+  (isEnabled) => {
+    if (isEnabled) {
+      // When "Show as flash" is turned ON, set to FLASH_NOTIFICATION
+      formData.notificationType = NotificationType.FLASH_NOTIFICATION
+    } else {
+      // When "Show as flash" is turned OFF, set to ANNOUNCEMENT
+      formData.notificationType = NotificationType.ANNOUNCEMENT
+    }
+  },
+)
 
 const titleError = ref('')
 const descriptionError = ref('')
@@ -989,15 +1002,46 @@ const handlePublishNow = async () => {
     }
   } catch (error: any) {
     console.error('Error creating notification:', error)
+    console.error('Error details:', {
+      message: error.message,
+      response: error.response,
+      responseData: error.response?.data,
+      status: error.response?.status,
+    })
 
     loadingNotification.close()
-    const errorMessage =
-      error.response?.data?.responseMessage || error.response?.data?.message || error.message
+    
+    // Extract error message with better fallbacks
+    let errorMessage = 
+      error.response?.data?.responseMessage || 
+      error.response?.data?.message || 
+      error.message ||
+      'An unexpected error occurred while creating the notification'
+    
+    // If we still don't have a message, provide a status-based message
+    if (!errorMessage || errorMessage === 'undefined' || errorMessage === 'null') {
+      const status = error.response?.status
+      if (status === 500) {
+        errorMessage = 'Internal server error. Please try again or contact support if the problem persists.'
+      } else if (status === 400) {
+        errorMessage = 'Invalid request. Please check your input and try again.'
+      } else if (status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.'
+      } else if (status === 403) {
+        errorMessage = 'You do not have permission to perform this action.'
+      } else if (status === 404) {
+        errorMessage = 'The requested resource was not found.'
+      } else {
+        errorMessage = `Request failed with status ${status || 'unknown'}. Please try again.`
+      }
+    }
+    
     ElNotification({
       title: 'Error',
-      message: `${errorMessage}`,
+      message: errorMessage,
       type: 'error',
-      duration: 2000,
+      duration: 5000, // Increased from 2000ms to 5000ms for better visibility
+      showClose: true, // Allow user to manually close
     })
   }
 }
@@ -1228,15 +1272,46 @@ const handleSaveDraft = async () => {
     }
   } catch (error: any) {
     console.error('Error saving draft:', error)
+    console.error('Error details:', {
+      message: error.message,
+      response: error.response,
+      responseData: error.response?.data,
+      status: error.response?.status,
+    })
 
     loadingNotification.close()
-    const errorMessage =
-      error.response?.data?.responseMessage || error.response?.data?.message || error.message
+    
+    // Extract error message with better fallbacks
+    let errorMessage = 
+      error.response?.data?.responseMessage || 
+      error.response?.data?.message || 
+      error.message ||
+      'An unexpected error occurred while saving the draft'
+    
+    // If we still don't have a message, provide a status-based message
+    if (!errorMessage || errorMessage === 'undefined' || errorMessage === 'null') {
+      const status = error.response?.status
+      if (status === 500) {
+        errorMessage = 'Internal server error. Please try again or contact support if the problem persists.'
+      } else if (status === 400) {
+        errorMessage = 'Invalid request. Please check your input and try again.'
+      } else if (status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.'
+      } else if (status === 403) {
+        errorMessage = 'You do not have permission to perform this action.'
+      } else if (status === 404) {
+        errorMessage = 'The requested resource was not found.'
+      } else {
+        errorMessage = `Request failed with status ${status || 'unknown'}. Please try again.`
+      }
+    }
+    
     ElNotification({
       title: 'Error',
-      message: `${errorMessage}`,
+      message: errorMessage,
       type: 'error',
-      duration: 2000,
+      duration: 5000, // Increased from 2000ms to 5000ms for better visibility
+      showClose: true, // Allow user to manually close
     })
   }
 }
@@ -1507,6 +1582,14 @@ body::-webkit-scrollbar {
 
 .custom-dropdown:hover .dropdown-icon {
   transform: rotate(180deg);
+}
+
+.full-width-dropdown {
+  width: 100%;
+}
+
+.full-width-trigger {
+  width: 603px !important;
 }
 
 .schedule-options {

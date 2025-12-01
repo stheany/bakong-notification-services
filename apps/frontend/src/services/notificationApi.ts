@@ -325,8 +325,15 @@ export const notificationApi = {
     try {
       const response = await api.post('/api/v1/template/create', templateData)
       return response.data
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating template:', error)
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response,
+        responseData: error.response?.data,
+        status: error.response?.status,
+      })
+      // Re-throw to let the calling component handle the error display
       throw error
     }
   },
@@ -429,8 +436,15 @@ export const notificationApi = {
     try {
       const response = await api.post(`/api/v1/template/${id}/update`, templateData)
       return response.data
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error updating template ${id}:`, error)
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response,
+        responseData: error.response?.data,
+        status: error.response?.status,
+      })
+      // Re-throw to let the calling component handle the error display
       throw error
     }
   },
