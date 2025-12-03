@@ -109,7 +109,7 @@ fi
 
 # Run unified migration if database is available
 if [ "$DB_RUNNING" = true ]; then
-    MIGRATION_FILE="apps/backend/unified-migration.sql"
+    MIGRATION_FILE="apps/backend/scripts/unified-migration.sql"
     
     if [ ! -f "$MIGRATION_FILE" ]; then
         echo "   ❌ Migration file not found: $MIGRATION_FILE"
@@ -154,6 +154,52 @@ if [ "$DB_RUNNING" = true ]; then
     fi
 else
     echo "   ⚠️  Database not running - migration will run on first startup"
+fi
+
+echo ""
+
+# ============================================================================
+# Step 4.5: Cascade Delete Migration (Fix notification cascade delete)
+# ============================================================================
+echo "🔄 Step 4.5: Running cascade delete migration..."
+
+if [ "$DB_RUNNING" = true ]; then
+    CASCADE_MIGRATION_FILE="apps/backend/scripts/fix-notification-cascade-delete.sql"
+    
+    if [ -f "$CASCADE_MIGRATION_FILE" ]; then
+        echo "   Running cascade delete migration from: $CASCADE_MIGRATION_FILE"
+        echo "   Database: $DB_NAME"
+        echo "   User: $DB_USER"
+        echo ""
+        
+        DB_PASSWORD="${POSTGRES_PASSWORD:-0101bkns_sit}"
+        export PGPASSWORD="$DB_PASSWORD"
+        if docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" < "$CASCADE_MIGRATION_FILE"; then
+            echo ""
+            echo "   ✅ Cascade delete migration completed!"
+            
+            # Verify cascade constraint
+            if docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'notification'::regclass AND conname = 'FK_notification_template';" | grep -q "ON DELETE CASCADE"; then
+                echo "   ✅ Verified: FK_notification_template has ON DELETE CASCADE"
+            else
+                echo "   ⚠️  Warning: CASCADE constraint not verified (may need manual check)"
+            fi
+        else
+            echo ""
+            echo "   ⚠️  Cascade delete migration had warnings (may be normal if already applied)"
+            # Check if already applied
+            if docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'notification'::regclass AND conname = 'FK_notification_template';" | grep -q "ON DELETE CASCADE"; then
+                echo "   ✅ Migration already applied (CASCADE constraint exists)"
+            else
+                echo "   ⚠️  Migration may have failed - unified-migration.sql should handle it"
+            fi
+        fi
+        unset PGPASSWORD
+    else
+        echo "   ℹ️  Cascade delete migration file not found (unified-migration.sql should handle it)"
+    fi
+else
+    echo "   ⚠️  Database not running - cascade delete migration will be handled by unified-migration.sql"
 fi
 
 echo ""

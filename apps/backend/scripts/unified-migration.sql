@@ -471,21 +471,41 @@ BEGIN
     END IF;
 END$$;
 
--- Add FK: notification -> template
+-- Add FK: notification -> template (with CASCADE delete)
+-- First, drop existing constraint if it exists and recreate with CASCADE
 DO $$
+DECLARE
+    constraint_name TEXT;
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.table_constraints 
-        WHERE constraint_name = 'FK_notification_template'
-        AND table_name = 'notification'
-    ) THEN
-        ALTER TABLE notification 
-        ADD CONSTRAINT "FK_notification_template" 
-        FOREIGN KEY ("templateId") REFERENCES template(id) ON DELETE SET NULL;
-        RAISE NOTICE '✅ Added FK_notification_template';
-    ELSE
-        RAISE NOTICE 'ℹ️  FK_notification_template already exists';
+    -- Find the existing foreign key constraint name
+    SELECT conname INTO constraint_name
+    FROM pg_constraint
+    WHERE conrelid = 'notification'::regclass
+      AND contype = 'f'
+      AND confrelid = 'template'::regclass;
+    
+    -- Drop the constraint if it exists (to update it to CASCADE)
+    IF constraint_name IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE notification DROP CONSTRAINT %I', constraint_name);
+        RAISE NOTICE '✅ Dropped existing FK_notification_template to update to CASCADE';
     END IF;
+    
+    -- Clean up orphaned notification records (those with NULL templateId or invalid templateId)
+    DELETE FROM notification
+    WHERE "templateId" IS NULL 
+       OR "templateId" NOT IN (SELECT id FROM template);
+    
+    IF (SELECT COUNT(*) FROM notification WHERE "templateId" IS NULL OR "templateId" NOT IN (SELECT id FROM template)) > 0 THEN
+        RAISE NOTICE '✅ Cleaned up orphaned notification records';
+    ELSE
+        RAISE NOTICE 'ℹ️  No orphaned notification records found';
+    END IF;
+    
+    -- Recreate the constraint with CASCADE delete
+    ALTER TABLE notification 
+    ADD CONSTRAINT "FK_notification_template" 
+    FOREIGN KEY ("templateId") REFERENCES template(id) ON DELETE CASCADE;
+    RAISE NOTICE '✅ Added FK_notification_template with CASCADE delete';
 END$$;
 
 -- Add FK: template -> category_type

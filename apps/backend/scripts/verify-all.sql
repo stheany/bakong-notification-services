@@ -449,6 +449,48 @@ WHERE table_schema = 'public'
 ORDER BY ordinal_position;
 
 \echo ''
+\echo '🔗 Checking notification foreign key constraint (CASCADE delete)...'
+DO $$
+DECLARE
+    fk_exists BOOLEAN;
+    fk_cascade BOOLEAN;
+    constraint_def TEXT;
+BEGIN
+    -- Check if FK constraint exists
+    SELECT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'notification'::regclass
+          AND conname = 'FK_notification_template'
+          AND contype = 'f'
+    ) INTO fk_exists;
+    
+    IF fk_exists THEN
+        -- Get constraint definition
+        SELECT pg_get_constraintdef(oid) INTO constraint_def
+        FROM pg_constraint
+        WHERE conrelid = 'notification'::regclass
+          AND conname = 'FK_notification_template';
+        
+        -- Check if it has CASCADE
+        fk_cascade := constraint_def LIKE '%ON DELETE CASCADE%';
+        
+        RAISE NOTICE 'Foreign Key Constraint Check:';
+        RAISE NOTICE '  Constraint: FK_notification_template';
+        RAISE NOTICE '  Definition: %', constraint_def;
+        
+        IF fk_cascade THEN
+            RAISE NOTICE '  ✅ Foreign key has ON DELETE CASCADE (correct!)';
+        ELSE
+            RAISE WARNING '  ❌ Foreign key does NOT have ON DELETE CASCADE!';
+            RAISE WARNING '     Expected: ON DELETE CASCADE';
+            RAISE WARNING '     Current: %', constraint_def;
+        END IF;
+    ELSE
+        RAISE WARNING '❌ Foreign key FK_notification_template does not exist!';
+    END IF;
+END $$;
+
+\echo ''
 
 -- ============================================
 -- PART 2: SCHEMA MATCHES ENTITY DEFINITIONS

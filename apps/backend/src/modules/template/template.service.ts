@@ -1403,7 +1403,6 @@ export class TemplateService implements OnModuleInit {
         ? template.translations.map((translation) => ({
             id: translation.id,
             language: translation.language,
-            type: template.notificationType,
             title: translation.title,
             content: translation.content,
             linkPreview: translation.linkPreview,
