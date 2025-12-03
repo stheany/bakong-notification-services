@@ -185,13 +185,16 @@ export class TemplateService implements OnModuleInit {
         ? dto.isSent !== false // Send if not explicitly false (true or undefined)
         : dto.isSent === true
 
+    // Normalize platforms: ["IOS", "ANDROID"] -> ["ALL"]
+    const normalizedPlatforms = ValidationHelper.parsePlatforms(dto.platforms)
+
     let template = this.repo.create({
       platforms: normalizedPlatforms,
       bakongPlatform: dto.bakongPlatform,
       sendType: dto.sendType,
       isSent: initialIsSent,
       notificationType: dto.notificationType || NotificationType.FLASH_NOTIFICATION,
-      categoryTypeId: categoryTypeId,
+      categoryTypeId: dto.categoryTypeId,
       priority: dto.priority || 0,
       sendSchedule: dto.sendSchedule ? moment.utc(dto.sendSchedule).toDate() : null,
       sendInterval: dto.sendInterval
@@ -1871,6 +1874,19 @@ export class TemplateService implements OnModuleInit {
       {} as Record<number, number>,
     )
 
+    // Calculate unique days each template was shown to this user
+    const templateDaysCounts = new Map<number, Set<string>>()
+    userNotifications.forEach((notif) => {
+      if (notif.templateId) {
+        const createdAt = new Date(notif.createdAt)
+        const dayKey = `${createdAt.getFullYear()}-${createdAt.getMonth()}-${createdAt.getDate()}`
+        if (!templateDaysCounts.has(notif.templateId)) {
+          templateDaysCounts.set(notif.templateId, new Set())
+        }
+        templateDaysCounts.get(notif.templateId)?.add(dayKey)
+      }
+    })
+
     // Get all published flash templates to check their limits
     const allTemplatesWhere: any = {
       notificationType: NotificationType.FLASH_NOTIFICATION,
@@ -1891,8 +1907,8 @@ export class TemplateService implements OnModuleInit {
       const templateId = template.id
       const showPerDay = template.showPerDay ?? 1
       const maxDayShowing = template.maxDayShowing ?? 1
-      const todayCount = templateTodayCounts[templateId] || 0
-      const daysCount = templateDaysCounts[templateId]?.size || 0
+      const todayCount = templateViewCounts[templateId] || 0
+      const daysCount = templateDaysCounts.get(templateId)?.size || 0
 
       // Exclude if reached daily limit
       if (todayCount >= showPerDay) {
@@ -1915,7 +1931,7 @@ export class TemplateService implements OnModuleInit {
 
     if (excludedTemplateIds.length > 0) {
       console.log(
-        `📋 [findBestTemplateForUser] Templates sent 2+ times in last 24h (excluding): ${seenTemplateIds.join(
+        `📋 [findBestTemplateForUser] Templates excluded due to limits: ${excludedTemplateIds.join(
           ', ',
         )}`,
       )
@@ -1941,8 +1957,8 @@ export class TemplateService implements OnModuleInit {
     }
 
     console.log(
-      `📋 [findBestTemplateForUser] Excluding templates sent 2+ times in last 24h: ${
-        seenTemplateIds.length > 0 ? seenTemplateIds.join(', ') : 'none'
+      `📋 [findBestTemplateForUser] Excluding templates due to limits: ${
+        excludedTemplateIds.length > 0 ? excludedTemplateIds.join(', ') : 'none'
       }`,
     )
     console.log(`📋 [findBestTemplateForUser] Only including published templates (isSent: true)`)
