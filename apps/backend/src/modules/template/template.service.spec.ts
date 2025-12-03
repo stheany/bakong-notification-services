@@ -12,7 +12,6 @@ import {
   ResponseMessage,
   SendType,
   NotificationType,
-  CategoryType,
   Platform,
   Language,
   BakongApp,
