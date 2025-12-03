@@ -142,15 +142,8 @@ import { Plus, ArrowLeft, ArrowRight, Warning, CirclePlus } from '@element-plus/
 import Breadcrumb from '@/components/common/Breadcrumb.vue'
 
 // Import images properly for production builds
-// Fallback to public folder if LogoNBC.svg is missing
-let nbcLogo: string
-try {
-  nbcLogo = require('@/assets/image/LogoNBC.svg')
-} catch (e) {
-  // Fallback to public folder logo if SVG is missing
-  console.warn('LogoNBC.svg not found, using fallback from public folder')
-  nbcLogo = '/NBC-logo.png'
-}
+// Use fallback to public folder if LogoNBC.svg is missing (handled at build time)
+import nbcLogo from '@/assets/image/LogoNBC.svg'
 import homeIcon from '@/assets/image/Home.svg'
 import calendarIcon from '@/assets/image/Schedule.svg'
 import typeIcon from '@/assets/image/type-pattern.svg'

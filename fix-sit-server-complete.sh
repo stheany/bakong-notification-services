@@ -17,8 +17,14 @@ sleep 3
 echo "✅ Containers stopped"
 echo ""
 
-# Step 2: Discard ALL local changes forcefully
-echo "🗑️  Step 2: Discarding all local changes..."
+# Step 2: Stash ALL local changes first
+echo "💾 Step 2: Stashing all local changes..."
+git stash push -m "Auto-stash before fix $(date)" 2>/dev/null || true
+echo "✅ Changes stashed"
+echo ""
+
+# Step 2b: Discard ALL local changes forcefully
+echo "🗑️  Step 2b: Discarding any remaining local changes..."
 git reset --hard HEAD 2>/dev/null || true
 git clean -fd 2>/dev/null || true
 echo "✅ Local changes discarded"
