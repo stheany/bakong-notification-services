@@ -32,6 +32,8 @@ WORKDIR /app
 COPY apps/frontend/. ./apps/frontend/
 # Verify public folder was copied
 RUN ls -la apps/frontend/ | grep public || echo "WARNING: public folder not found after COPY"
+# Verify LogoNBC.svg exists (required for build)
+RUN ls -la apps/frontend/src/assets/image/LogoNBC.svg || echo "ERROR: LogoNBC.svg not found!"
 RUN rm -rf ./apps/frontend/node_modules ./apps/frontend/dist || true
 
 # Reinstall dependencies to ensure frontend-specific deps are available
