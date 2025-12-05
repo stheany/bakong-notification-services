@@ -5,22 +5,22 @@
         class="change-password-container grid grid-cols-1 lg:grid-cols-3 grid-rows-1 lg:grid-rows-4 gap-4 lg:gap-[60px] w-full h-full"
       >
         <div
-          class="rounded-2xl p-4 sm:p-6 lg:p-8 w-full max-w-[345px] mx-auto lg:mx-0 lg:w-[345px] h-auto lg:h-[232px] opacity-100 lg:row-span-2"
+          class="!rounded-2xl !p-4 sm:!p-6 lg:!pr-5 !w-full !max-w-[340px] lg:!mx-[-25px] lg:!w-[360px] !h-auto lg:!h-[232px] !opacity-100 lg:!row-span-2"
         >
           <form
             ref="changePasswordFormRef"
-            class="grid grid-cols-1 gap-3"
+            class="!grid !grid-cols-1 !gap-3"
             @submit.prevent="handleChangePassword"
           >
-            <div class="flex flex-col gap-1">
-              <div class="flex items-end gap-1">
-                <span class="font-medium text-sm leading-snug text-[#001346]"
+            <div class="!flex !flex-col !gap-1">
+              <div class="!flex !items-end !gap-1">
+                <span class="!font-medium !text-sm !leading-snug !text-[#001346]"
                   >Current password</span
                 >
-                <span class="text-red-500 text-sm">*</span>
+                <span class="!text-red-500 !text-sm">*</span>
               </div>
               <div
-                class="relative flex items-center w-full max-w-[345px] h-[56px] gap-[8px] border border-[rgba(0,19,70,0.1)] rounded-[8px] bg-white transition-all focus-within:border-[#0F4AEA] focus-within:shadow-[0_0_0_3px_rgba(15,74,234,0.1)]"
+                class="!relative !flex !items-center !w-full !max-w-[345px] !h-[56px] !gap-[8px] !border !border-[rgba(0,19,70,0.1)] !rounded-[8px] !bg-white !transition-all focus-within:!border-[#0F4AEA] focus-within:!shadow-[0_0_0_3px_rgba(15,74,234,0.1)]"
               >
                 <input
                   :type="showCurrentPassword ? 'text' : 'password'"
@@ -39,7 +39,7 @@
                 />
                 <button
                   type="button"
-                  class="flex items-center justify-around w-8 h-8 border-none bg-transparent cursor-pointer rounded-md transition-all text-[rgba(0,19,70,0.6)] hover:bg-[rgba(0,19,70,0.05)] hover:text-[#001346]"
+                  class="!flex !items-center !justify-around !w-8 !h-8 !border-none !bg-transparent !cursor-pointer !rounded-md !transition-all !text-[rgba(0,19,70,0.6)] hover:!bg-[rgba(0,19,70,0.05)] hover:!text-[#001346]"
                   @click="toggleCurrentPasswordVisibility"
                   aria-label="Toggle current password visibility"
                 >
@@ -49,17 +49,19 @@
                   </el-icon>
                 </button>
               </div>
-              <div v-if="errors.currentPassword" class="text-xs leading-snug text-red-500 mt-1">
+              <div v-if="errors.currentPassword" class="!text-xs !leading-snug !text-red-500 !mt-1">
                 {{ errors.currentPassword }}
               </div>
             </div>
-            <div class="flex flex-col gap-1">
-              <div class="flex items-center gap-1">
-                <span class="font-medium text-sm leading-snug text-[#001346]">New password</span>
-                <span class="text-red-500 text-sm">*</span>
+            <div class="!flex !flex-col !gap-1">
+              <div class="!flex !items-center !gap-1">
+                <span class="!font-medium !text-sm !leading-snug !text-[#001346]"
+                  >New password</span
+                >
+                <span class="!text-red-500 !text-sm">*</span>
               </div>
               <div
-                class="relative flex items-center w-full max-w-[345px] h-[56px] gap-[8px] pt-[8px] pr-[8px] pb-[8px] pl-[8px] border border-[rgba(0,19,70,0.1)] rounded-[8px] bg-white transition-all focus-within:border-[#0F4AEA] focus-within:shadow-[0_0_0_3px_rgba(15,74,234,0.1)]"
+                class="!relative !flex !items-center !w-full !max-w-[345px] !h-[56px] !gap-[8px] !pt-[8px] !pr-[8px] !pb-[8px] !pl-[8px] !border !border-[rgba(0,19,70,0.1)] !rounded-[8px] !bg-white !transition-all focus-within:!border-[#0F4AEA] focus-within:!shadow-[0_0_0_3px_rgba(15,74,234,0.1)]"
               >
                 <input
                   :type="showNewPassword ? 'text' : 'password'"
@@ -78,7 +80,7 @@
                 />
                 <button
                   type="button"
-                  class="flex items-center justify-center w-8 h-8 border-none bg-transparent cursor-pointer rounded-md transition-all text-[rgba(0,19,70,0.6)] hover:bg-[rgba(0,19,70,0.05)] hover:text-[#001346]"
+                  class="!flex !items-center !justify-center !w-8 !h-8 !border-none !bg-transparent !cursor-pointer !rounded-md !transition-all !text-[rgba(0,19,70,0.6)] hover:!bg-[rgba(0,19,70,0.05)] hover:!text-[#001346]"
                   @click="toggleNewPasswordVisibility"
                   aria-label="Toggle new password visibility"
                 >
@@ -88,19 +90,19 @@
                   </el-icon>
                 </button>
               </div>
-              <div v-if="errors.newPassword" class="text-xs leading-snug text-red-500 mt-1">
+              <div v-if="errors.newPassword" class="!text-xs !leading-snug !text-red-500 !mt-1">
                 {{ errors.newPassword }}
               </div>
             </div>
-            <div class="flex flex-col gap-1">
-              <div class="flex items-center gap-1">
-                <span class="font-medium text-sm leading-snug text-[#001346]"
+            <div class="!flex !flex-col !gap-1">
+              <div class="!flex !items-center !gap-1">
+                <span class="!font-medium !text-sm !leading-snug !text-[#001346]"
                   >Confirm new password</span
                 >
-                <span class="text-red-500 text-sm">*</span>
+                <span class="!text-red-500 !text-sm">*</span>
               </div>
               <div
-                class="relative flex items-center w-full max-w-[345px] h-[56px] gap-[8px] pt-[8px] pr-[8px] pb-[8px] pl-[8px] border border-[rgba(0,19,70,0.1)] rounded-[8px] bg-white transition-all focus-within:border-[#0F4AEA] focus-within:shadow-[0_0_0_3px_rgba(15,74,234,0.1)]"
+                class="!relative !flex !items-center !w-full !max-w-[345px] !h-[56px] !gap-[8px] !pt-[8px] !pr-[8px] !pb-[8px] !pl-[8px] !border !border-[rgba(0,19,70,0.1)] !rounded-[8px] !bg-white !transition-all focus-within:!border-[#0F4AEA] focus-within:!shadow-[0_0_0_3px_rgba(15,74,234,0.1)]"
               >
                 <input
                   :type="showConfirmPassword ? 'text' : 'password'"
@@ -119,7 +121,7 @@
                 />
                 <button
                   type="button"
-                  class="flex items-center justify-center w-8 h-8 border-none bg-transparent cursor-pointer rounded-md transition-all text-[rgba(0,19,70,0.6)] hover:bg-[rgba(0,19,70,0.05)] hover:text-[#001346]"
+                  class="!flex !items-center !justify-center !w-8 !h-8 !border-none !bg-transparent !cursor-pointer !rounded-md !transition-all !text-[rgba(0,19,70,0.6)] hover:!bg-[rgba(0,19,70,0.05)] hover:!text-[#001346]"
                   @click="toggleConfirmPasswordVisibility"
                   aria-label="Toggle confirm password visibility"
                 >
@@ -129,30 +131,31 @@
                   </el-icon>
                 </button>
               </div>
-              <div v-if="errors.confirmPassword" class="text-xs leading-snug text-red-500 mt-1">
+              <div v-if="errors.confirmPassword" class="!text-xs !leading-snug !text-red-500 !mt-1">
                 {{ errors.confirmPassword }}
               </div>
             </div>
           </form>
           <div
-            class="w-full max-w-[259px] h-[56px] lg:absolute lg:w-[259px] lg:top-[355px] lg:left-0 opacity-100 flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-[12px]"
-            style="margin-top: -55px"
+            class="!w-full !mt-4 lg:!absolute lg:!w-[259px] lg:!top-[300px] lg:!left-0 !opacity-100 !flex !flex-col sm:!flex-row sm:!items-center !justify-start sm:!justify-between !gap-3 sm:!gap-[12px]"
           >
             <button
               type="button"
-              class="flex justify-center items-center gap-[8px] w-full sm:w-[285px] h-[56px] pt-[8px] pr-[16px] pb-[8px] pl-[16px] border-none rounded-[32px] bg-[#0F4AEA] text-white font-['IBM_Plex_Sans'] font-semibold text-[16px] cursor-pointer transition-all hover:bg-[#0d3ec7] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(15,74,234,0.3)] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none whitespace-nowrap"
+              class="!flex !justify-center !items-center !gap-[8px] !w-full sm:!w-[285px] !h-[56px] !min-h-[56px] !pt-[8px] !pr-[16px] !pb-[8px] !pl-[16px] !border-none !rounded-[32px] !bg-[#0F4AEA] !text-white font-['IBM_Plex_Sans'] !font-semibold !text-[16px] !leading-none !cursor-pointer !transition-all hover:!bg-[#0d3ec7] hover:!-translate-y-0.5 hover:!shadow-[0_4px_12px_rgba(15,74,234,0.3)] active:!translate-y-0 disabled:!opacity-60 disabled:!cursor-not-allowed disabled:!transform-none disabled:!shadow-none !whitespace-nowrap"
               :disabled="isLoading"
               @click="handleChangePassword"
             >
-              <span v-if="!isLoading" class="text-sm whitespace-nowrap">Change Password</span>
-              <span v-else class="text-sm whitespace-nowrap">Changing...</span>
-              <el-icon v-if="!isLoading" class="text-sm">
+              <span v-if="!isLoading" class="!text-sm !whitespace-nowrap !leading-none"
+                >Change Password</span
+              >
+              <span v-else class="!text-sm !whitespace-nowrap !leading-none">Changing...</span>
+              <el-icon v-if="!isLoading" class="!text-sm !flex-shrink-0">
                 <ArrowRight />
               </el-icon>
             </button>
             <button
               type="button"
-              class="flex justify-center items-center gap-[8px] w-full sm:w-[164px] h-[56px] pt-[8px] pr-[16px] pb-[8px] pl-[16px] border border-[rgba(0,19,70,0.2)] rounded-[32px] bg-white text-[#001346] font-['IBM_Plex_Sans'] font-semibold text-[16px] cursor-pointer transition-all hover:bg-[rgba(0,19,70,0.05)] hover:border-[rgba(0,19,70,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
+              class="!flex !justify-center !items-center !gap-[8px] !w-full sm:!w-[164px] !h-[56px] !min-h-[56px] !pt-[8px] !pr-[16px] !pb-[8px] !pl-[16px] !border !border-[rgba(0,19,70,0.2)] !rounded-[32px] !bg-white !text-[#001346] font-['IBM_Plex_Sans'] !font-semibold !text-[16px] !leading-none !cursor-pointer !transition-all hover:!bg-[rgba(0,19,70,0.05)] hover:!border-[rgba(0,19,70,0.3)] disabled:!opacity-60 disabled:!cursor-not-allowed"
               @click="router.push('/settings')"
               :disabled="isLoading"
             >
