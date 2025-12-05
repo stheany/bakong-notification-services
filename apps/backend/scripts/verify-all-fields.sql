@@ -3,13 +3,13 @@
 -- ============================================================================
 -- This script verifies that all required fields exist in the template table
 -- Compares database schema with entity definition
--- 
--- Usage:
---   psql -U <username> -d <database> -f apps/backend/scripts/verify-all-fields.sql
 -- ============================================================================
 
-\echo '🔍 Verifying template table fields...'
-\echo ''
+DO $$
+BEGIN
+    RAISE NOTICE '🔍 Verifying template table fields...';
+    RAISE NOTICE '';
+END$$;
 
 -- List all columns in template table
 SELECT 
@@ -30,22 +30,22 @@ WHERE table_name = 'template'
   AND table_schema = 'public'
 ORDER BY ordinal_position;
 
-\echo ''
-\echo '📋 Required Fields Checklist:'
-\echo ''
-
 -- Check each required field
 DO $$
 DECLARE
     missing_fields TEXT[] := ARRAY[]::TEXT[];
     field TEXT;
     required_fields TEXT[] := ARRAY[
-        'id', 'platforms', 'sendType', 'notificationType', 'categoryType',
+        'id', 'platforms', 'sendType', 'notificationType', 'categoryTypeid',
         'priority', 'sendInterval', 'isSent', 'sendSchedule',
         'createdBy', 'updatedBy', 'publishedBy', 'bakongPlatform',
         'showPerDay', 'maxDayShowing', 'createdAt', 'updatedAt', 'deletedAt'
     ];
 BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '📋 Required Fields Checklist:';
+    RAISE NOTICE '';
+    
     FOREACH field IN ARRAY required_fields
     LOOP
         IF NOT EXISTS (
@@ -64,9 +64,13 @@ BEGIN
     END IF;
 END$$;
 
-\echo ''
-\echo '📊 Field Type Verification:'
-\echo ''
+-- Field Type Verification
+DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '📊 Field Type Verification:';
+    RAISE NOTICE '';
+END$$;
 
 -- Check specific field types
 SELECT 
@@ -101,7 +105,10 @@ SELECT
 FROM information_schema.columns 
 WHERE table_name = 'template' AND column_name = 'maxDayShowing';
 
-\echo ''
-\echo '✅ Verification complete!'
-\echo ''
-
+-- Summary
+DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '✅ Verification complete!';
+    RAISE NOTICE '';
+END$$;

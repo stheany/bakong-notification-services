@@ -7,24 +7,15 @@
 -- Also fixes sendInterval column type from INTEGER to JSON if needed.
 --
 -- Safe to run multiple times (idempotent)
--- 
--- Usage:
---   psql -U <username> -d <database> -f apps/backend/scripts/add-flash-notification-limits.sql
--- 
--- Or via Docker:
---   docker exec -i <container-name> psql -U <username> -d <database> < apps/backend/scripts/add-flash-notification-limits.sql
 -- ============================================================================
-
-\echo '🔄 Starting flash notification limits migration...'
-\echo ''
 
 -- ============================================================================
 -- Step 1: Add showPerDay column
 -- ============================================================================
-\echo '📊 Step 1: Adding showPerDay column to template table...'
-
 DO $$
 BEGIN
+    RAISE NOTICE '📊 Step 1: Adding showPerDay column to template table...';
+    
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
         WHERE table_name = 'template' 
@@ -35,18 +26,17 @@ BEGIN
     ELSE
         RAISE NOTICE 'ℹ️  template.showPerDay already exists';
     END IF;
+    
+    RAISE NOTICE '   ✅ showPerDay migration completed';
 END$$;
-
-\echo '   ✅ showPerDay migration completed'
-\echo ''
 
 -- ============================================================================
 -- Step 2: Add maxDayShowing column
 -- ============================================================================
-\echo '📊 Step 2: Adding maxDayShowing column to template table...'
-
 DO $$
 BEGIN
+    RAISE NOTICE '📊 Step 2: Adding maxDayShowing column to template table...';
+    
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
         WHERE table_name = 'template' 
@@ -57,18 +47,17 @@ BEGIN
     ELSE
         RAISE NOTICE 'ℹ️  template.maxDayShowing already exists';
     END IF;
+    
+    RAISE NOTICE '   ✅ maxDayShowing migration completed';
 END$$;
-
-\echo '   ✅ maxDayShowing migration completed'
-\echo ''
 
 -- ============================================================================
 -- Step 3: Fix sendInterval column type (INTEGER -> JSON)
 -- ============================================================================
-\echo '📊 Step 3: Fixing sendInterval column type (INTEGER -> JSON)...'
-
 DO $$
 BEGIN
+    RAISE NOTICE '📊 Step 3: Fixing sendInterval column type (INTEGER -> JSON)...';
+    
     -- Check if sendInterval exists and is INTEGER type
     IF EXISTS (
         SELECT 1 FROM information_schema.columns 
@@ -93,18 +82,17 @@ BEGIN
     ELSE
         RAISE NOTICE 'ℹ️  template.sendInterval column does not exist';
     END IF;
+    
+    RAISE NOTICE '   ✅ sendInterval type fix completed';
 END$$;
-
-\echo '   ✅ sendInterval type fix completed'
-\echo ''
 
 -- ============================================================================
 -- Step 4: Update existing templates with default values
 -- ============================================================================
-\echo '📊 Step 4: Updating existing templates with default values...'
-
 DO $$
 BEGIN
+    RAISE NOTICE '📊 Step 4: Updating existing templates with default values...';
+    
     -- Set default values for existing templates that have NULL values
     UPDATE template 
     SET "showPerDay" = 1 
@@ -115,18 +103,17 @@ BEGIN
     WHERE "maxDayShowing" IS NULL;
     
     RAISE NOTICE '✅ Updated existing templates with default values (1, 1)';
+    RAISE NOTICE '   ✅ Default values update completed';
 END$$;
-
-\echo '   ✅ Default values update completed'
-\echo ''
 
 -- ============================================================================
 -- Step 5: Verification
 -- ============================================================================
-\echo '✅ Migration completed successfully!'
-\echo ''
-\echo '📋 Verification:'
-\echo ''
+DO $$
+BEGIN
+    RAISE NOTICE '✅ Migration completed successfully!';
+    RAISE NOTICE '📋 Verification:';
+END$$;
 
 -- Check if columns exist
 SELECT 
@@ -154,12 +141,14 @@ SELECT
         ELSE '⚠️  sendInterval type check failed'
     END as sendInterval_status;
 
-\echo ''
-\echo '📊 Summary:'
-\echo '   - showPerDay: Number of times to show flash notification per day (default: 1)'
-\echo '   - maxDayShowing: Maximum number of days to show flash notification (default: 1)'
-\echo '   - sendInterval: Changed from INTEGER to JSON type'
-\echo ''
-\echo '🚀 Flash notification limits are now configurable!'
-\echo ''
-
+-- Summary
+DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '📊 Summary:';
+    RAISE NOTICE '   - showPerDay: Number of times to show flash notification per day (default: 1)';
+    RAISE NOTICE '   - maxDayShowing: Maximum number of days to show flash notification (default: 1)';
+    RAISE NOTICE '   - sendInterval: Changed from INTEGER to JSON type';
+    RAISE NOTICE '';
+    RAISE NOTICE '🚀 Flash notification limits are now configurable!';
+END$$;

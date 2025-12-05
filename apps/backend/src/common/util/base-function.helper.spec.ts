@@ -1,5 +1,5 @@
 import { BaseFunctionHelper } from './base-function.helper'
-import { BakongApp } from '@bakong/shared'
+import { BakongApp, Platform } from '@bakong/shared'
 import { Repository } from 'typeorm'
 import { BakongUser } from 'src/entities/bakong-user.entity'
 import { Logger } from '@nestjs/common'
@@ -98,7 +98,7 @@ describe('BaseFunctionHelper - inferBakongPlatform', () => {
         accountId: 'test@bkrt',
         participantCode: 'BKRTKHPPXXX',
         fcmToken: 'token123',
-        platform: 'ANDROID',
+        platform: Platform.ANDROID,
         language: 'KM',
         bakongPlatform: BakongApp.BAKONG,
       } as any)
@@ -111,7 +111,7 @@ describe('BaseFunctionHelper - inferBakongPlatform', () => {
         accountId: 'test@bkrt',
         participantCode: 'BKRTKHPPXXX',
         fcmToken: 'token123',
-        platform: 'ANDROID',
+        platform: Platform.ANDROID,
         language: 'KM',
       })
 
@@ -129,7 +129,7 @@ describe('BaseFunctionHelper - inferBakongPlatform', () => {
       mockRepo.create.mockReturnValue({
         accountId: 'user@bkjr',
         fcmToken: 'token123',
-        platform: 'IOS',
+        platform: Platform.IOS,
         language: 'EN',
         bakongPlatform: BakongApp.BAKONG_JUNIOR,
       } as any)
@@ -141,7 +141,7 @@ describe('BaseFunctionHelper - inferBakongPlatform', () => {
       const result = await helper.syncUser({
         accountId: 'user@bkjr',
         fcmToken: 'token123',
-        platform: 'IOS',
+        platform: Platform.IOS,
         language: 'EN',
       })
 
@@ -154,7 +154,7 @@ describe('BaseFunctionHelper - inferBakongPlatform', () => {
       mockRepo.create.mockReturnValue({
         accountId: 'user123',
         fcmToken: 'token123',
-        platform: 'ANDROID',
+        platform: Platform.ANDROID,
         language: 'KM',
         bakongPlatform: undefined,
       } as any)
@@ -166,7 +166,7 @@ describe('BaseFunctionHelper - inferBakongPlatform', () => {
       const result = await helper.syncUser({
         accountId: 'user123',
         fcmToken: 'token123',
-        platform: 'ANDROID',
+        platform: Platform.ANDROID,
         language: 'KM',
       })
 

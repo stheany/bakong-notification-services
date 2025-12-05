@@ -52,7 +52,11 @@ export class NotificationService {
     }
 
     // Parse platforms using shared helper function
-    const platformsArray = ValidationHelper.parsePlatforms(template.platforms)
+    // Flatten string[][] to string[] for parsePlatforms
+    const platformsFlat = Array.isArray(template.platforms) && template.platforms.length > 0 && Array.isArray(template.platforms[0])
+      ? (template.platforms as string[][]).flat()
+      : template.platforms
+    const platformsArray = ValidationHelper.parsePlatforms(platformsFlat as string | string[])
 
     console.log('📤 [sendWithTemplate] Parsed platforms:', {
       raw: template.platforms,
@@ -219,7 +223,7 @@ export class NotificationService {
       undefined,
       'individual',
     )) as {
-      notificationId: number | null
+      notificationId: string | null
       successfulCount: number
       failedCount: number
       failedUsers?: string[]
@@ -601,9 +605,9 @@ export class NotificationService {
     validUsers: BakongUser[],
     req?: any,
     mode: 'individual' | 'shared' = 'individual',
-    sharedNotificationId?: number,
+    sharedNotificationId?: string,
   ): Promise<{
-    notificationId: number | null
+    notificationId: string | null
     successfulCount: number
     failedCount: number
     failedUsers?: string[]
@@ -646,20 +650,20 @@ export class NotificationService {
             fcmToken: user.fcmToken ? `${user.fcmToken.substring(0, 30)}...` : 'NO TOKEN',
           })
 
-          let notificationId = sharedNotificationId ?? 0
+          let notificationId: string | null = sharedNotificationId ?? null
           if (mode === 'individual') {
             const saved = await this.storeNotification({
               accountId: user.accountId,
               templateId: template.id,
               fcmToken: user.fcmToken,
               sendCount: 1,
-              firebaseMessageId: 0,
+              firebaseMessageId: null,
             })
             notificationId = saved.id
             console.log('📨 [sendFCM] Created notification record:', notificationId)
           }
 
-          const notificationIdStr = String(notificationId)
+          const notificationIdStr = notificationId ? String(notificationId) : ''
 
           // FLASH_NOTIFICATION now sends FCM push like other notification types
           // Mobile app will display it differently (as popup/flash screen)
@@ -1482,7 +1486,7 @@ export class NotificationService {
     templateId: number
     fcmToken?: string
     sendCount?: number
-    firebaseMessageId?: number
+    firebaseMessageId?: string | null
   }): Promise<Notification> {
     // NOTE: Deduplication removed - we now allow multiple records for the same template
     // The limit check (2 times per 24h) is handled in handleFlashNotification BEFORE calling this method
@@ -1493,7 +1497,7 @@ export class NotificationService {
       templateId: params.templateId,
       fcmToken: params.fcmToken ?? '',
       sendCount: params.sendCount ?? 1,
-      firebaseMessageId: params.firebaseMessageId ?? 0,
+      firebaseMessageId: params.firebaseMessageId ?? null,
     })
     return this.notiRepo.save(entity)
   }
@@ -1501,7 +1505,7 @@ export class NotificationService {
   private async updateNotificationRecord(
     user: BakongUser,
     template: Template,
-    notificationId: number,
+    notificationId: string,
     response: string,
     mode: 'individual' | 'shared',
   ): Promise<void> {
@@ -1509,19 +1513,19 @@ export class NotificationService {
 
     if (mode === 'individual') {
       try {
-        await this.notiRepo.update({ id: notificationId }, { firebaseMessageId })
+        await this.notiRepo.update({ id: notificationId }, { firebaseMessageId: firebaseMessageId || null })
         return
       } catch (error) {
         throw error
       }
     }
     try {
-      if (notificationId > 0) {
+      if (notificationId) {
         const notification = await this.notiRepo.findOne({
           where: { id: notificationId, accountId: user.accountId },
         })
         if (notification) {
-          await this.notiRepo.update({ id: notificationId }, { firebaseMessageId })
+          await this.notiRepo.update({ id: notificationId }, { firebaseMessageId: firebaseMessageId || null })
           return
         }
       }

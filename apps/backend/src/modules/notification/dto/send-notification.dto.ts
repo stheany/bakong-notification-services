@@ -77,8 +77,8 @@ export default class SentNotificationDto {
   categoryType?: string
 
   @IsOptional()
-  @IsNumber()
-  notificationId?: number
+  @IsString()
+  notificationId?: string
 
   @IsOptional()
   @IsEnum(BakongApp, {

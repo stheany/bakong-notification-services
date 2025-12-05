@@ -18,7 +18,12 @@ export class UpdateTemplateDto {
   @IsString({ each: true })
   @Transform(({ value }) => {
     if (Array.isArray(value)) {
-      return value.map((platform) => ValidationHelper.normalizeEnum(platform))
+      return value.map((platform) => {
+        if (typeof platform === 'string') {
+          return ValidationHelper.normalizeEnum(platform)
+        }
+        return platform
+      })
     }
     return value
   })
