@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -5,6 +6,9 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm'
+=======
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm'
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 import { Language } from '@bakong/shared'
 import { Template } from './template.entity'
 import { Image } from './image.entity'

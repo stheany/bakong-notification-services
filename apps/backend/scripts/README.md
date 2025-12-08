@@ -9,6 +9,10 @@ Export your database schema to track changes visually in draw.io.
 ### Quick Start
 
 **PowerShell (Windows):**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 ```powershell
 # Export development database schema
 .\export-schema.ps1 dev sql
@@ -21,6 +25,10 @@ Export your database schema to track changes visually in draw.io.
 ```
 
 **Bash/Shell (Linux/Mac):**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 ```bash
 # Make script executable
 chmod +x export-schema.sh
@@ -38,6 +46,7 @@ chmod +x export-schema.sh
 ### Prerequisites
 
 1. **Docker containers must be running:**
+<<<<<<< HEAD
    ```powershell
    # For development
    docker compose up -d
@@ -45,6 +54,16 @@ chmod +x export-schema.sh
    # For SIT
    docker compose -f docker-compose.sit.yml up -d
    
+=======
+
+   ```powershell
+   # For development
+   docker compose up -d
+
+   # For SIT
+   docker compose -f docker-compose.sit.yml up -d
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
    # For production
    docker compose -f docker-compose.production.yml up -d
    ```
@@ -94,10 +113,18 @@ Example: `schema_dev_20250115_143022.sql`
 To track database changes over time:
 
 1. **Export schema regularly:**
+<<<<<<< HEAD
    ```powershell
    # Before making changes
    .\export-schema.ps1 dev sql
    
+=======
+
+   ```powershell
+   # Before making changes
+   .\export-schema.ps1 dev sql
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
    # After making changes
    .\export-schema.ps1 dev sql
    ```
@@ -128,20 +155,36 @@ To track database changes over time:
 ### Troubleshooting
 
 **Error: Container not found**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 - Ensure Docker containers are running
 - Check container name matches your environment
 - Verify docker-compose file is correct
 
 **Error: Permission denied**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 - On Linux/Mac: `chmod +x export-schema.sh`
 - On Windows: Run PowerShell as Administrator if needed
 
 **Error: Database connection failed**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 - Check database container is healthy: `docker compose ps db`
 - Verify database credentials in script match docker-compose.yml
 - Wait a few seconds after starting containers
 
 **Empty or incomplete export**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 - Ensure database has been initialized
 - Check if tables exist: `docker compose exec db psql -U bkns_dev -d bakong_notification_services_dev -c "\dt"`
 
@@ -175,4 +218,7 @@ To track database changes over time:
 ---
 
 **Note**: Schema exports contain only structure (tables, columns, constraints), not data. This is safe to commit and share.
+<<<<<<< HEAD
 
+=======
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3

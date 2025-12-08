@@ -31,6 +31,10 @@ This guide will help you set up the complete database structure for Bakong Notif
    - Or press `Ctrl+Shift+C` (Windows/Linux) or `Cmd+Shift+C` (Mac)
 
 3. **Enter Connection Details:**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
    ```
    Connection Type: PostgreSQL
    Server: <your-server-address>
@@ -69,6 +73,10 @@ This guide will help you set up the complete database structure for Bakong Notif
 - **Creates indexes** (for performance)
 
 **This script is designed for:**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 - ✅ Fresh database setup
 - ✅ Development environments
 - ✅ Testing environments
@@ -85,7 +93,10 @@ This guide will help you set up the complete database structure for Bakong Notif
    - **Option A: Run Entire Script**
      - Press `F5` or click the **"Run"** button (▶️)
      - This executes the entire script at once
+<<<<<<< HEAD
    
+=======
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
    - **Option B: Run Selected Text**
      - Select a portion of the script
      - Press `F5` or click **"Run"**
@@ -99,6 +110,7 @@ This guide will help you set up the complete database structure for Bakong Notif
 ### Step 5: Verify the Setup
 
 1. **Check Tables:**
+<<<<<<< HEAD
    ```sql
    SELECT table_name 
    FROM information_schema.tables 
@@ -107,6 +119,17 @@ This guide will help you set up the complete database structure for Bakong Notif
    ORDER BY table_name;
    ```
    
+=======
+
+   ```sql
+   SELECT table_name
+   FROM information_schema.tables
+   WHERE table_schema = 'public'
+   AND table_type = 'BASE TABLE'
+   ORDER BY table_name;
+   ```
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
    **Expected Tables:**
    - bakong_user
    - category_type
@@ -118,14 +141,25 @@ This guide will help you set up the complete database structure for Bakong Notif
    - verification_token
 
 2. **Check Enums:**
+<<<<<<< HEAD
    ```sql
    SELECT typname as enum_name
    FROM pg_type 
+=======
+
+   ```sql
+   SELECT typname as enum_name
+   FROM pg_type
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
    WHERE typnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
    AND typtype = 'e'
    ORDER BY typname;
    ```
+<<<<<<< HEAD
    
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
    **Expected Enums:**
    - bakong_user_bakongplatform_enum
    - template_bakongplatform_enum
@@ -135,6 +169,10 @@ This guide will help you set up the complete database structure for Bakong Notif
    - user_role_enum
 
 3. **Check Foreign Keys:**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
    ```sql
    SELECT
        tc.table_name,
@@ -168,25 +206,44 @@ Run this single query to get a summary:
 
 ```sql
 -- Quick verification summary
+<<<<<<< HEAD
 SELECT 
     'Tables' as type,
     COUNT(*) as count
 FROM information_schema.tables 
 WHERE table_schema = 'public' 
+=======
+SELECT
+    'Tables' as type,
+    COUNT(*) as count
+FROM information_schema.tables
+WHERE table_schema = 'public'
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 AND table_type = 'BASE TABLE'
 
 UNION ALL
 
+<<<<<<< HEAD
 SELECT 
     'Enums' as type,
     COUNT(*) as count
 FROM pg_type 
+=======
+SELECT
+    'Enums' as type,
+    COUNT(*) as count
+FROM pg_type
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 WHERE typnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
 AND typtype = 'e'
 
 UNION ALL
 
+<<<<<<< HEAD
 SELECT 
+=======
+SELECT
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
     'Foreign Keys' as type,
     COUNT(*) as count
 FROM information_schema.table_constraints
@@ -195,6 +252,10 @@ AND table_schema = 'public';
 ```
 
 **Expected Results:**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 - Tables: 8
 - Enums: 6
 - Foreign Keys: 6
@@ -206,6 +267,10 @@ AND table_schema = 'public';
 **Problem:** Your user doesn't have permission to create/drop tables.
 
 **Solution:**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 - Contact your database administrator
 - Or run as a superuser (not recommended for production)
 
@@ -214,6 +279,10 @@ AND table_schema = 'public';
 **Problem:** Tables or enums already exist.
 
 **Solution:**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 - The script should handle this with `DROP IF EXISTS`
 - If you still get errors, manually drop conflicting objects first
 - Or use a fresh database
@@ -223,6 +292,10 @@ AND table_schema = 'public';
 **Problem:** SQL syntax issue or PostgreSQL version incompatibility.
 
 **Solution:**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 - Ensure you're using PostgreSQL 12+ (recommended: 14+)
 - Check that you copied the entire script correctly
 - Verify no special characters were corrupted
@@ -232,6 +305,10 @@ AND table_schema = 'public';
 **Problem:** Cannot connect to database server.
 
 **Solution:**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 - Verify server address and port
 - Check network connectivity
 - Ensure database server is running
@@ -242,6 +319,10 @@ AND table_schema = 'public';
 **Problem:** Script executed but tables are missing.
 
 **Solution:**
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 - Check if you're connected to the correct database
 - Look for error messages in the "Messages" tab
 - Verify the script completed without errors
@@ -254,7 +335,13 @@ AND table_schema = 'public';
 **⚠️ DO NOT run this script directly on production!**
 
 Instead:
+<<<<<<< HEAD
 1. **Backup your database first:**
+=======
+
+1. **Backup your database first:**
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
    ```bash
    pg_dump -h <host> -U <user> -d <database> > backup.sql
    ```
@@ -272,6 +359,10 @@ Instead:
 ### Schema Changes
 
 If you need to modify the schema after initial setup:
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 - Use migration scripts (see `apps/backend/scripts/` directory)
 - Don't modify this setup script directly
 - Create new migration scripts for changes
@@ -309,4 +400,7 @@ If you encounter issues:
 **Last Updated:** 2025-01-XX  
 **Script Version:** 1.0  
 **Compatible with:** PostgreSQL 12+, Azure Data Studio 1.40+
+<<<<<<< HEAD
 
+=======
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3

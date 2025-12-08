@@ -81,11 +81,19 @@ COPY apps/packages/shared/package*.json ./apps/packages/shared/
 COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
 COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./apps/packages/shared/dist
 
+<<<<<<< HEAD
 # Configure npm for better network reliability
 RUN npm config set fetch-retries 5 \
   && npm config set fetch-retry-mintimeout 20000 \
   && npm config set fetch-retry-maxtimeout 120000 \
   && npm config set fetch-timeout 300000
+=======
+# Copy category type images (needed for seeding default category types)
+# These images are used by CategoryTypeService to seed default category types on startup
+# Copy to both root assets and apps/backend/assets for path compatibility
+COPY --from=builder /opt/bk_notification_service/apps/backend/assets ./assets
+COPY --from=builder /opt/bk_notification_service/apps/backend/assets ./apps/backend/assets
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 
 # Install production dependencies (rebuilds native modules like bcrypt for correct architecture)
 # Try workspace install first, fallback to installing all deps if needed (ensures @nestjs/core is available)

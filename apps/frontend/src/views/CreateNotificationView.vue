@@ -19,35 +19,8 @@
         </div>
         <div class="form-fields">
           <div class="form-row">
-            <!-- Commented out: Type field - no longer used -->
-            <!-- <div class="form-group">
-              <label class="form-label">Type <span class="required">*</span></label>
-              <el-dropdown
-                @command="(command: NotificationType) => (formData.notificationType = command)"
-                trigger="click"
-                class="custom-dropdown"
-              >
-                <span class="dropdown-trigger">
-                  {{ formatNotificationType(formData.notificationType) }}
-                  <el-icon class="dropdown-icon">
-                    <ArrowDown />
-                  </el-icon>
-                </span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item
-                      v-for="type in Object.values(NotificationType)"
-                      :key="type"
-                      :command="type"
-                    >
-                      {{ formatNotificationType(type) }}
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </div> -->
             <div class="form-group">
-              <label class="form-label">Category <span class="required">*</span></label>
+              <label class="form-label">Type <span class="required">*</span></label>
               <el-dropdown
                 @command="(command: number) => (formData.categoryTypeId = command)"
                 trigger="click"
@@ -185,6 +158,12 @@
               <div class="schedule-options-header">
                 <div class="schedule-option-left">
                   <span class="option-title">Posting Schedule</span>
+                  <span class="option-description">
+                    <template v-if="formData.scheduleEnabled">
+                      Notifications will be sent according to schedule.
+                    </template>
+                    <template v-else> </template>
+                  </span>
                 </div>
                 <div class="schedule-option-right">
                   <span class="option-label">Set time and date</span>
@@ -230,7 +209,7 @@
               </div>
             </div>
           </div>
-          <div class="schedule-options-container">
+          <div class="schedule-options-container" style="display: none;">
             <div class="splash-options">
               <div class="schedule-options-header">
                 <div class="schedule-option-left">
@@ -245,7 +224,7 @@
                 <div class="schedule-option-right">
                   <span class="option-label">Set number of showing</span>
                   <label class="toggle-switch">
-                    <input v-model="formData.splashEnabled" type="checkbox" />
+                    <input v-model="formData.splashEnabled" type="checkbox" disabled />
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
@@ -332,11 +311,33 @@
     @confirm="handleConfirmationDialogConfirm"
     @cancel="handleConfirmationDialogCancel"
   />
+  <ConfirmationDialog
+    v-model="showLeaveDialog"
+    title="Are you sure you want to leave?"
+    message="If you leave now, your progress will be saved as a draft. You can resume and complete it anytime."
+    :confirm-text="isEditMode ? 'Update and leave' : 'Save as draft & leave'"
+    cancel-text="Stay on page"
+    type="warning"
+    confirm-button-type="primary"
+    @confirm="handleLeaveDialogConfirm"
+    @cancel="handleLeaveDialogCancel"
+  />
+  <ConfirmationDialog
+    v-model="showUpdateConfirmationDialog"
+    title="You want to update?"
+    message="Updating will immediately change the announcement for all users."
+    confirm-text="Continue"
+    cancel-text="Cancel"
+    type="warning"
+    confirm-button-type="primary"
+    @confirm="handleUpdateConfirmationConfirm"
+    @cancel="handleUpdateConfirmationCancel"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { ElNotification, ElInputNumber } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { MobilePreview, ImageUpload, Tabs, Button } from '@/components/common'
@@ -354,7 +355,8 @@ import {
   formatCategoryType,
   getNoUsersAvailableMessage,
 } from '@/utils/helpers'
-import { categoryTypeApi, type CategoryType as CategoryTypeData } from '@/services/categoryTypeApi'
+import { useCategoryTypesStore } from '@/stores/categoryTypes'
+import type { CategoryType as CategoryTypeData } from '@/services/categoryTypeApi'
 import { DateUtils } from '@bakong/shared'
 import {
   getCurrentDateTimeInCambodia,
@@ -459,11 +461,13 @@ const getTodayDateString = (): string => {
   return `${month}/${day}/${year}`
 }
 
-const categoryTypes = ref<CategoryTypeData[]>([])
-const loadingCategoryTypes = ref(false)
+// Use category types store
+const categoryTypesStore = useCategoryTypesStore()
+const categoryTypes = computed(() => categoryTypesStore.categoryTypes)
+const loadingCategoryTypes = computed(() => categoryTypesStore.loading)
 
 const formData = reactive({
-  notificationType: NotificationType.NOTIFICATION,
+  notificationType: NotificationType.ANNOUNCEMENT, // Default to ANNOUNCEMENT when flash is off
   categoryTypeId: null as number | null,
   pushToPlatforms: Platform.ALL,
   showPerDay: 1, // Default: 1 time per day (disabled for first version)
@@ -475,26 +479,24 @@ const formData = reactive({
   splashEnabled: false,
 })
 
-// Fetch category types on mount
-const fetchCategoryTypes = async () => {
-  loadingCategoryTypes.value = true
+// Initialize category types from store
+const initializeCategoryTypes = async () => {
   try {
-    const types = await categoryTypeApi.getAll()
-    categoryTypes.value = types
+    await categoryTypesStore.initialize()
     // Set default to first category or NEWS if available
-    if (types.length > 0) {
-      const newsCategory = types.find((ct) => ct.name === 'NEWS')
-      formData.categoryTypeId = newsCategory?.id || types[0].id
+    if (categoryTypes.value.length > 0) {
+      const newsCategory = categoryTypes.value.find(
+        (ct) => ct.name === 'News' || ct.name === 'NEWS',
+      )
+      formData.categoryTypeId = newsCategory?.id || categoryTypes.value[0].id
     }
   } catch (error) {
-    console.error('Failed to fetch category types:', error)
-  } finally {
-    loadingCategoryTypes.value = false
+    console.error('Failed to initialize category types:', error)
   }
 }
 
 onMounted(() => {
-  fetchCategoryTypes()
+  initializeCategoryTypes()
   // ... existing onMounted code
 })
 
@@ -627,6 +629,10 @@ onMounted(async () => {
 })
 
 const showConfirmationDialog = ref(false)
+const showLeaveDialog = ref(false)
+const showUpdateConfirmationDialog = ref(false)
+let pendingNavigation: (() => void) | null = null
+let isSavingOrPublishing = ref(false) // Flag to prevent blocking during save/publish
 
 // Watch splashEnabled toggle to update notificationType
 watch(
@@ -746,6 +752,33 @@ const handlePublishNow = async () => {
     return
   }
 
+<<<<<<< HEAD
+=======
+  // If editing a published notification, show confirmation dialog first
+  if (isEditMode.value && isEditingPublished.value) {
+    showUpdateConfirmationDialog.value = true
+    return
+  }
+
+  // Otherwise, proceed with publish/update
+  await handlePublishNowInternal()
+}
+
+const handlePublishNowInternal = async () => {
+  isSavingOrPublishing.value = true
+
+  // Validate categoryTypeId
+  if (formData.categoryTypeId == null || formData.categoryTypeId === undefined) {
+    ElNotification({
+      title: 'Error',
+      message: 'Please select a category',
+      type: 'error',
+      duration: 2000,
+    })
+    return
+  }
+
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
   const loadingNotification = ElNotification({
     title: isEditMode.value ? 'Updating notification...' : 'Creating notification...',
     message: isEditMode.value
@@ -783,6 +816,7 @@ const handlePublishNow = async () => {
             duration: 2000,
           })
           loadingNotification.close()
+          isSavingOrPublishing.value = false
           return
         }
         sendType = SendType.SEND_SCHEDULE
@@ -805,6 +839,7 @@ const handlePublishNow = async () => {
             duration: 2000,
           })
           loadingNotification.close()
+          isSavingOrPublishing.value = false
           return
         }
         let imageId: string | undefined = undefined
@@ -829,6 +864,7 @@ const handlePublishNow = async () => {
               duration: 2000,
             })
             loadingNotification.close()
+            isSavingOrPublishing.value = false
             return
           }
         } else if (isEditMode.value && existingImageIds[langKey] && langData.imageUrl !== null) {
@@ -914,6 +950,7 @@ const handlePublishNow = async () => {
             duration: 2000,
           })
           loadingNotification.close()
+          isSavingOrPublishing.value = false
           return
         }
       }
@@ -926,6 +963,7 @@ const handlePublishNow = async () => {
           duration: 2000,
         })
         loadingNotification.close()
+        isSavingOrPublishing.value = false
         return
       }
       translations.push({
@@ -980,6 +1018,20 @@ const handlePublishNow = async () => {
         type: 'info',
         duration: 3000,
         dangerouslyUseHTMLString: true,
+      })
+      redirectTab = 'draft'
+    } else if (
+      result?.data?.successfulCount !== undefined &&
+      result?.data?.successfulCount === 0 &&
+      result?.data?.failedCount !== undefined &&
+      result?.data?.failedCount > 0
+    ) {
+      // All sends failed - show warning message
+      ElNotification({
+        title: 'Warning',
+        message: `Failed to send notification to ${result.data.failedCount} user(s). The notification has been saved as a draft.`,
+        type: 'warning',
+        duration: 5000,
       })
       redirectTab = 'draft'
     } else if (redirectTab === 'scheduled') {
@@ -1057,14 +1109,30 @@ const handlePublishNow = async () => {
       console.warn('Failed to clear cache:', error)
     }
 
+    // Close any open dialogs before navigation
+    showLeaveDialog.value = false
+    showConfirmationDialog.value = false
+    pendingNavigation = null
+
     if (isEditMode.value) {
       setTimeout(() => {
         window.location.href = `/?tab=${redirectTab}`
+        // Reset flag after navigation starts (full page reload)
+        isSavingOrPublishing.value = false
       }, 500)
     } else {
-      router.push(`/?tab=${redirectTab}`)
+      // Keep flag true until navigation completes
+      router
+        .push(`/?tab=${redirectTab}`)
+        .then(() => {
+          isSavingOrPublishing.value = false
+        })
+        .catch(() => {
+          isSavingOrPublishing.value = false
+        })
     }
   } catch (error: any) {
+    isSavingOrPublishing.value = false
     console.error('Error creating notification:', error)
     console.error('Error details:', {
       message: error.message,
@@ -1116,6 +1184,8 @@ const handleFinishLater = () => {
 }
 
 const handleSaveDraft = async () => {
+  isSavingOrPublishing.value = true
+
   titleError.value = ''
   descriptionError.value = ''
 
@@ -1127,6 +1197,7 @@ const handleSaveDraft = async () => {
       type: 'error',
       duration: 2000,
     })
+    isSavingOrPublishing.value = false
     router.push('/login')
     return
   }
@@ -1187,6 +1258,7 @@ const handleSaveDraft = async () => {
             duration: 2000,
           })
           loadingNotification.close()
+          isSavingOrPublishing.value = false
           return
         }
       } else if (isEditMode.value && existingImageIds[langKey] && langData.imageUrl !== null) {
@@ -1245,6 +1317,7 @@ const handleSaveDraft = async () => {
           duration: 2000,
         })
         loadingNotification.close()
+        isSavingOrPublishing.value = false
         return
       }
     }
@@ -1339,14 +1412,32 @@ const handleSaveDraft = async () => {
       console.warn('Failed to clear cache:', error)
     }
 
+    // Close any open dialogs before navigation
+    showLeaveDialog.value = false
+    showConfirmationDialog.value = false
+    pendingNavigation = null
+
+    // Keep isSavingOrPublishing true until navigation completes
+    // This prevents the navigation guard from blocking the navigation
     if (isEditMode.value) {
       setTimeout(() => {
         window.location.href = `/?tab=${draftRedirectTab}`
+        // Reset flag after navigation starts (full page reload)
+        isSavingOrPublishing.value = false
       }, 500)
     } else {
-      router.push(`/?tab=${draftRedirectTab}`)
+      // For router.push, reset flag after navigation
+      router
+        .push(`/?tab=${draftRedirectTab}`)
+        .then(() => {
+          isSavingOrPublishing.value = false
+        })
+        .catch(() => {
+          isSavingOrPublishing.value = false
+        })
     }
   } catch (error: any) {
+    isSavingOrPublishing.value = false
     console.error('Error saving draft:', error)
     console.error('Error details:', {
       message: error.message,
@@ -1405,6 +1496,92 @@ const handleConfirmationDialogConfirm = () => {
 const handleConfirmationDialogCancel = () => {
   showConfirmationDialog.value = false
   handleDiscard()
+}
+
+// Check if form has unsaved changes
+const hasUnsavedChanges = computed(() => {
+  // Check if any language has title or description filled
+  const hasContent = Object.values(languageFormData).some(
+    (langData) => langData.title?.trim() || langData.description?.trim(),
+  )
+
+  // Check if any image has been uploaded
+  const hasImage = Object.values(languageFormData).some(
+    (langData) => langData.imageFile || langData.imageUrl,
+  )
+
+  // Check if any existing image IDs are set (for edit mode)
+  const hasExistingImage = Object.values(existingImageIds).some((id) => id !== null)
+
+  return hasContent || hasImage || hasExistingImage
+})
+
+// Navigation guard - intercept navigation attempts
+onBeforeRouteLeave((to, from, next) => {
+  // Don't block navigation if currently saving/publishing
+  if (isSavingOrPublishing.value) {
+    next()
+    return
+  }
+
+  // Don't block navigation if no unsaved changes
+  if (!hasUnsavedChanges.value) {
+    next()
+    return
+  }
+
+  // Show leave dialog and block navigation
+  showLeaveDialog.value = true
+  pendingNavigation = () => next()
+
+  // Prevent navigation for now
+  next(false)
+})
+
+const handleLeaveDialogConfirm = async () => {
+  // Close dialog immediately to prevent it from showing again
+  showLeaveDialog.value = false
+  pendingNavigation = null
+
+  // Save as draft and then navigate
+  try {
+    await handleSaveDraft()
+    // Navigation will happen in handleSaveDraft
+    // Reset flag will happen in handleSaveDraft after navigation
+  } catch (error) {
+    // If save fails, show error but don't reopen dialog
+    console.error('Failed to save draft:', error)
+    // Reset flag on error
+    isSavingOrPublishing.value = false
+  }
+}
+
+const handleLeaveDialogCancel = () => {
+  showLeaveDialog.value = false
+  pendingNavigation = null
+  // Stay on page - navigation was already blocked by next(false)
+}
+
+const handleUpdateConfirmationConfirm = async () => {
+  // Close dialog and proceed with update
+  showUpdateConfirmationDialog.value = false
+  await handlePublishNowInternal()
+}
+
+const handleUpdateConfirmationCancel = () => {
+  // Close dialog and navigate to home without updating
+  showUpdateConfirmationDialog.value = false
+  isSavingOrPublishing.value = false
+
+  // Navigate to home screen based on tab
+  const redirectTab = fromTab.value || 'published'
+  if (isEditMode.value) {
+    setTimeout(() => {
+      window.location.href = `/?tab=${redirectTab}`
+    }, 100)
+  } else {
+    router.push(`/?tab=${redirectTab}`)
+  }
 }
 
 const formatBakongApp = (app: BakongApp | undefined): string => {
@@ -2116,6 +2293,10 @@ input:checked + .toggle-slider:before {
   flex-direction: row;
   gap: 16px;
   order: 4;
+}
+
+.dialog-content {
+  gap: 5px !important;
 }
 
 @media (max-width: 1024px) {

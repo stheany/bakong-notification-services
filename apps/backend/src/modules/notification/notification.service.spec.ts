@@ -106,14 +106,20 @@ describe('NotificationService', () => {
   } as BakongUser
 
   const sampleTemplate = {
+<<<<<<< HEAD
     id: 1,
     categoryTypeId: 1,
+=======
+    id: '1',
+    notificationType: NotificationType.ANNOUNCEMENT,
+    categoryType: 'NEWS' as any,
+>>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
     bakongPlatform: BakongApp.BAKONG,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
     translations: [
       {
-        id: 1,
+        id: '1',
         language: Language.EN,
         title: 'Test Notification',
         content: 'Test content',
@@ -124,7 +130,7 @@ describe('NotificationService', () => {
   } as any
 
   const sampleTranslation = {
-    id: 1,
+    id: '1',
     language: Language.EN,
     title: 'Test Notification',
     content: 'Test content',
@@ -133,7 +139,7 @@ describe('NotificationService', () => {
 
   const sampleNotification = {
     id: 1,
-    templateId: 1,
+    templateId: '1',
     accountId: 'test@bkrt.com',
     sendCount: 1,
     firebaseMessageId: 0,
@@ -432,7 +438,9 @@ describe('NotificationService', () => {
 
       const result = await service.sendNow(dto)
 
-      expect(mockBaseFunctionHelper.updateUserData).toHaveBeenCalled()
+      // Note: updateUserData is called in controller, not in sendNow
+      // When accountId is provided, sendNow just fetches user to get bakongPlatform
+      expect(mockBaseFunctionHelper.findUserByAccountId).toHaveBeenCalled()
       expect(result.responseCode).toBe(0)
 
       handleFlashNotificationSpy.mockRestore()
@@ -525,6 +533,8 @@ describe('NotificationService', () => {
     it('should return notification center data successfully', async () => {
       const dto = {
         accountId: 'test@bkrt.com',
+        fcmToken: 'test-fcm-token-123',
+        bakongPlatform: BakongApp.BAKONG,
         language: Language.EN,
         page: 1,
         size: 10,
@@ -540,7 +550,9 @@ describe('NotificationService', () => {
       }
 
       mockBaseFunctionHelper.updateUserData.mockResolvedValue({ isNewUser: false })
-      mockBaseFunctionHelper.findUserByAccountId.mockResolvedValue(sampleUser)
+      mockBaseFunctionHelper.findUserByAccountId
+        .mockResolvedValueOnce(sampleUser) // After sync check
+        .mockResolvedValueOnce(sampleUser) // After sync verification
       mockNotificationRepo.findAndCount.mockResolvedValue([[notificationWithTemplateId], 1])
       mockTemplateRepo.findOne.mockResolvedValue({
         ...sampleTemplate,
@@ -560,6 +572,8 @@ describe('NotificationService', () => {
     it('should return error if user not found', async () => {
       const dto = {
         accountId: 'nonexistent@bkrt.com',
+        fcmToken: 'test-fcm-token-123',
+        bakongPlatform: BakongApp.BAKONG,
         language: Language.EN,
       } as any
 
@@ -575,6 +589,8 @@ describe('NotificationService', () => {
     it('should filter notifications by bakongPlatform', async () => {
       const dto = {
         accountId: 'test@bkrt.com',
+        fcmToken: 'test-fcm-token-123',
+        bakongPlatform: BakongApp.BAKONG,
         language: Language.EN,
         page: 1,
         size: 10,
@@ -607,7 +623,9 @@ describe('NotificationService', () => {
       }
 
       mockBaseFunctionHelper.updateUserData.mockResolvedValue({ isNewUser: false })
-      mockBaseFunctionHelper.findUserByAccountId.mockResolvedValue(userWithPlatform)
+      mockBaseFunctionHelper.findUserByAccountId
+        .mockResolvedValueOnce(userWithPlatform) // After sync check
+        .mockResolvedValueOnce(userWithPlatform) // After sync verification
       mockNotificationRepo.findAndCount.mockResolvedValue([[notification1, notification2], 2])
       mockTemplateRepo.findOne
         .mockResolvedValueOnce({ ...templateMatching, translations: [sampleTranslation] })
