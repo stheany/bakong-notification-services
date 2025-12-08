@@ -218,10 +218,7 @@ export class NotificationController {
   @Post('test-token')
   @ApiKeyRequired()
   @Roles(UserRole.ADMIN_USER, UserRole.NORMAL_USER)
-  async testToken(
-    @Body() dto: { token: string; bakongPlatform?: BakongApp },
-    @Req() req: any,
-  ) {
+  async testToken(@Body() dto: { token: string; bakongPlatform?: BakongApp }, @Req() req: any) {
     console.log('🧪 [testToken] Testing token validation:', {
       tokenPrefix: dto.token ? `${dto.token.substring(0, 30)}...` : 'NO TOKEN',
       tokenLength: dto.token?.length || 0,
@@ -258,7 +255,7 @@ export class NotificationController {
 
     try {
       const result = await this.baseFunctionHelper.syncAllUsers()
-      
+
       console.log('✅ [syncUsers] User sync completed:', {
         totalCount: result.totalCount,
         updatedCount: result.updatedCount,

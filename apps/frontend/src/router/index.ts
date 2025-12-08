@@ -164,7 +164,7 @@ const router = createRouter({
           path: 'test',
           name: 'test',
           component: () => import('../views/TestView.vue'),
-          meta: { 
+          meta: {
             breadcrumb: { label: 'Testing Tools' },
             devOnly: true, // Only available in development environment
           },

@@ -12,20 +12,21 @@
         <p class="section-description">
           Test if an FCM token is valid. This will send a test notification to verify the token.
         </p>
-        
+
         <div class="platform-info-box">
           <el-icon class="info-icon"><InfoFilled /></el-icon>
           <div class="info-content">
             <strong>Platform Selection Note:</strong>
             <p>
-              In <strong>development</strong> environment, all platforms (BAKONG, BAKONG_JUNIOR, BAKONG_TOURIST) 
-              use the same Firebase project. Therefore, any valid token from that project will work regardless 
-              of which platform you select. In <strong>production/SIT</strong>, each platform has its own Firebase 
-              project, so platform selection matters.
+              In <strong>development</strong> environment, all platforms (BAKONG, BAKONG_JUNIOR,
+              BAKONG_TOURIST) use the same Firebase project. Therefore, any valid token from that
+              project will work regardless of which platform you select. In
+              <strong>production/SIT</strong>, each platform has its own Firebase project, so
+              platform selection matters.
             </p>
           </div>
         </div>
-        
+
         <div class="token-input-group">
           <el-form :model="tokenTestForm" label-width="140px">
             <el-form-item label="FCM Token" required>
@@ -43,9 +44,9 @@
               </div>
             </el-form-item>
             <el-form-item label="Platform">
-              <el-select 
-                v-model="tokenTestForm.bakongPlatform" 
-                placeholder="Select platform (optional)" 
+              <el-select
+                v-model="tokenTestForm.bakongPlatform"
+                placeholder="Select platform (optional)"
                 clearable
                 style="width: 100%"
               >
@@ -54,7 +55,8 @@
                 <el-option label="BAKONG_TOURIST" value="BAKONG_TOURIST" />
               </el-select>
               <div class="input-hint">
-                ℹ️ Platform selection determines which Firebase project to use (only matters in production/SIT)
+                ℹ️ Platform selection determines which Firebase project to use (only matters in
+                production/SIT)
               </div>
             </el-form-item>
             <el-form-item>
@@ -66,7 +68,7 @@
                 size="large"
                 class="test-token-btn"
               >
-                <el-icon v-if="!testingToken" style="margin-right: 8px;"><Check /></el-icon>
+                <el-icon v-if="!testingToken" style="margin-right: 8px"><Check /></el-icon>
                 {{ testingToken ? 'Testing Token...' : 'Test Token' }}
               </el-button>
             </el-form-item>
@@ -114,58 +116,72 @@
       <div class="test-section">
         <h2 class="section-title">🔄 Sync User Data</h2>
         <p class="section-description">
-          Manually sync all user data from the database. This normalizes user fields, validates tokens, and updates platform/language information.
+          Manually sync all user data from the database. This normalizes user fields, validates
+          tokens, and updates platform/language information.
         </p>
-        
+
         <div class="sync-info-box">
           <h3 class="info-box-title">When does user sync happen automatically?</h3>
           <ul class="sync-scenarios">
             <li>
               <strong>1. When mobile app calls API endpoints:</strong>
               <p>
-                <strong>✅ Syncs individual user data:</strong> When mobile app calls <code>/notification/send</code> or 
-                <code>/notification/inbox</code>, that specific user's data (FCM token, platform, language) is synced immediately.
+                <strong>✅ Syncs individual user data:</strong> When mobile app calls
+                <code>/notification/send</code> or <code>/notification/inbox</code>, that specific
+                user's data (FCM token, platform, language) is synced immediately.
               </p>
               <p class="warning-note">
-                ⚠️ <strong>Important:</strong> If mobile app only receives FCM push notifications without calling any API, 
-                user data won't be synced. The mobile app must call at least one API endpoint to update their data.
+                ⚠️ <strong>Important:</strong> If mobile app only receives FCM push notifications
+                without calling any API, user data won't be synced. The mobile app must call at
+                least one API endpoint to update their data.
               </p>
             </li>
             <li>
               <strong>2. When sending notifications via template:</strong>
               <p>
-                Before sending notifications, the system automatically normalizes all existing user data in the database 
-                (platform, language, token format validation). This only works with data already in the database - it doesn't 
-                fetch new data from external sources.
+                Before sending notifications, the system automatically normalizes all existing user
+                data in the database (platform, language, token format validation). This only works
+                with data already in the database - it doesn't fetch new data from external sources.
               </p>
             </li>
             <li>
               <strong>3. Manual sync (this page):</strong>
               <p>
-                You can manually trigger a sync to normalize all user data, validate tokens, and update platform/language fields. 
-                This also only works with existing database data.
+                You can manually trigger a sync to normalize all user data, validate tokens, and
+                update platform/language fields. This also only works with existing database data.
               </p>
             </li>
           </ul>
-          
+
           <div class="sync-improvement-box">
             <strong>✅ Backend Auto-Cleanup Feature:</strong>
             <p>
-              The backend now <strong>automatically cleans up invalid tokens</strong> when FCM sends fail:
+              The backend now <strong>automatically cleans up invalid tokens</strong> when FCM sends
+              fail:
             </p>
             <ul class="auto-cleanup-list">
-              <li>When sending notifications fails with invalid token errors, the backend automatically clears those tokens</li>
-              <li>When syncing users, the backend automatically removes tokens that are too short or malformed</li>
-              <li>This helps keep the database clean even if mobile apps don't call APIs frequently</li>
+              <li>
+                When sending notifications fails with invalid token errors, the backend
+                automatically clears those tokens
+              </li>
+              <li>
+                When syncing users, the backend automatically removes tokens that are too short or
+                malformed
+              </li>
+              <li>
+                This helps keep the database clean even if mobile apps don't call APIs frequently
+              </li>
             </ul>
             <p class="note-text">
-              <strong>Note:</strong> While backend auto-cleanup helps maintain data quality, mobile apps should still call 
-              <code>/notification/send</code> or <code>/notification/inbox</code> to sync NEW tokens and updated user information 
-              (platform, language). Backend cleanup only removes invalid tokens - it doesn't fetch new data from external sources.
+              <strong>Note:</strong> While backend auto-cleanup helps maintain data quality, mobile
+              apps should still call <code>/notification/send</code> or
+              <code>/notification/inbox</code> to sync NEW tokens and updated user information
+              (platform, language). Backend cleanup only removes invalid tokens - it doesn't fetch
+              new data from external sources.
             </p>
           </div>
         </div>
-        
+
         <div class="sync-actions">
           <el-button
             type="primary"
@@ -174,7 +190,7 @@
             size="large"
             class="sync-users-btn"
           >
-            <el-icon v-if="!syncingUsers" style="margin-right: 8px;"><Check /></el-icon>
+            <el-icon v-if="!syncingUsers" style="margin-right: 8px"><Check /></el-icon>
             {{ syncingUsers ? 'Syncing Users...' : 'Sync All Users' }}
           </el-button>
         </div>
@@ -206,7 +222,10 @@
                 {{ syncResult.invalidTokens }}
               </el-tag>
             </div>
-            <div v-if="syncResult.updatedIds && syncResult.updatedIds.length > 0" class="result-item">
+            <div
+              v-if="syncResult.updatedIds && syncResult.updatedIds.length > 0"
+              class="result-item"
+            >
               <span class="result-label">Updated Account IDs:</span>
               <div class="updated-ids-list">
                 <el-tag
@@ -233,7 +252,12 @@
 import { ref } from 'vue'
 import { Check, InfoFilled } from '@element-plus/icons-vue'
 import { ElNotification, ElMessage } from 'element-plus'
-import { testFCMToken, syncUsers, type TestTokenResponse, type SyncUsersResponse } from '@/services/notificationApi'
+import {
+  testFCMToken,
+  syncUsers,
+  type TestTokenResponse,
+  type SyncUsersResponse,
+} from '@/services/notificationApi'
 
 // Token testing
 const testingToken = ref(false)
@@ -281,7 +305,7 @@ const handleTestToken = async () => {
       ElNotification({
         title: 'Token Test Successful ✅',
         type: 'success',
-        message: result.messageId 
+        message: result.messageId
           ? `Token is valid! Test notification sent (ID: ${result.messageId.substring(0, 20)}...)`
           : 'Token is valid! A test notification has been sent.',
         duration: 5000,
@@ -299,16 +323,20 @@ const handleTestToken = async () => {
   } catch (err: any) {
     console.error('❌ [handleTestToken] Token test error:', err)
     console.error('❌ [handleTestToken] Error response:', err.response?.data)
-    
-    const errorMessage = err.response?.data?.responseMessage || err.response?.data?.message || err.message || 'Failed to test token'
-    
+
+    const errorMessage =
+      err.response?.data?.responseMessage ||
+      err.response?.data?.message ||
+      err.message ||
+      'Failed to test token'
+
     ElNotification({
       title: 'Test Error',
       type: 'error',
       message: errorMessage,
       duration: 5000,
     })
-    
+
     // Set error result for display
     tokenTestResult.value = {
       isValid: false,
@@ -753,4 +781,3 @@ const handleSyncUsers = async () => {
   }
 }
 </style>
-

@@ -322,7 +322,7 @@ export class BaseFunctionHelper {
 
     for (const user of users) {
       let userChanged = false
-      
+
       // Normalize user fields (platform, language, etc.)
       const changed = ValidationHelper.normalizeUserFields(user, stats)
       if (changed) {
@@ -336,12 +336,10 @@ export class BaseFunctionHelper {
       if (user.fcmToken?.trim()) {
         const isTooShort = user.fcmToken.length < 50
         const hasInvalidFormat = !ValidationHelper.isValidFCMTokenFormat(user.fcmToken)
-        
+
         if (isTooShort || hasInvalidFormat) {
           stats.invalidTokens++
-          const reason = isTooShort 
-            ? `too short (${user.fcmToken.length} chars)` 
-            : 'invalid format'
+          const reason = isTooShort ? `too short (${user.fcmToken.length} chars)` : 'invalid format'
           console.log(
             `🧹 [syncAllUsers] Clearing obviously invalid token for user ${user.accountId} (${reason})`,
           )

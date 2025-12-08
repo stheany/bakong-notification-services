@@ -542,9 +542,7 @@ describe('TemplateService', () => {
 
       // The validation should throw immediately when sendSchedule is invalid
       // moment.utc('invalid-date-format') will create an invalid moment, and isValid() will return false
-      await expect(service.update(1, updateDto, currentUser)).rejects.toThrow(
-        BadRequestException,
-      )
+      await expect(service.update(1, updateDto, currentUser)).rejects.toThrow(BadRequestException)
     })
   })
 

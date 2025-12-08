@@ -1,9 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  OneToMany,
-} from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm'
 import { Exclude } from 'class-transformer'
 import { TemplateTranslation } from './template-translation.entity'
 
@@ -28,9 +23,6 @@ export class Image {
   @Column({ type: 'timestamp', default: () => 'now()' })
   createdAt: Date
 
-  @OneToMany(
-    () => TemplateTranslation,
-    (tt) => tt.image,
-  )
+  @OneToMany(() => TemplateTranslation, (tt) => tt.image)
   templateTranslations: TemplateTranslation[]
 }

@@ -1528,7 +1528,7 @@ const handleLeaveDialogConfirm = async () => {
   // Close dialog immediately to prevent it from showing again
   showLeaveDialog.value = false
   pendingNavigation = null
-  
+
   // Save as draft and then navigate
   try {
     await handleSaveDraft()
@@ -1558,7 +1558,7 @@ const handleUpdateConfirmationCancel = () => {
   // Close dialog and navigate to home without updating
   showUpdateConfirmationDialog.value = false
   isSavingOrPublishing.value = false
-  
+
   // Navigate to home screen based on tab
   const redirectTab = fromTab.value || 'published'
   if (isEditMode.value) {

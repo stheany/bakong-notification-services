@@ -186,12 +186,13 @@ export class TemplateService implements OnModuleInit {
         : dto.isSent === true
 
     // Normalize platforms: handle string[][] from database or string[] from DTO
-    const platformsInput = Array.isArray(dto.platforms) && dto.platforms.length > 0 && Array.isArray(dto.platforms[0]) 
-      ? (dto.platforms as unknown as string[][]).flat() 
-      : dto.platforms
+    const platformsInput =
+      Array.isArray(dto.platforms) && dto.platforms.length > 0 && Array.isArray(dto.platforms[0])
+        ? (dto.platforms as unknown as string[][]).flat()
+        : dto.platforms
     const normalizedPlatforms = ValidationHelper.parsePlatforms(platformsInput as string | string[])
     // Convert 1D array to 2D array format for database: ["ALL"] -> [["ALL"]]
-    const platforms2D: string[][] = normalizedPlatforms.map(p => [p])
+    const platforms2D: string[][] = normalizedPlatforms.map((p) => [p])
 
     const templateData: any = {
       platforms: platforms2D,
@@ -527,11 +528,11 @@ export class TemplateService implements OnModuleInit {
         } else {
           // No users received the notification - keep as draft
           console.warn('⚠️ No notifications were sent (successfulCount = 0) - keeping as draft')
-          
+
           // Only set savedAsDraftNoUsers if there were NO users attempted (failedCount === 0)
           // If failedCount > 0, it means users existed but all sends failed (not "no users available")
           const hasNoUsers = sendResult.failedCount === 0 && sendResult.successfulCount === 0
-          
+
           if (hasNoUsers) {
             console.warn('⚠️ This might indicate:')
             console.warn('   1. No users have FCM tokens')
@@ -548,7 +549,7 @@ export class TemplateService implements OnModuleInit {
             }
             // Don't set savedAsDraftNoUsers - this is a send failure, not "no users available"
           }
-          
+
           await this.repo.update(template.id, { isSent: false })
         }
 
@@ -582,7 +583,7 @@ export class TemplateService implements OnModuleInit {
 
         this.addScheduleNotification(template)
         break
-      case (SendType.SEND_INTERVAL as SendType):
+      case SendType.SEND_INTERVAL as SendType:
         console.log('Executing SEND_INTERVAL for template:', template.id)
         this.addIntervalNotification(template)
         break
@@ -655,7 +656,7 @@ export class TemplateService implements OnModuleInit {
           existing: template.platforms,
         })
         // Convert 1D array to 2D array format for database
-        updateFields.platforms = normalizedPlatforms.map(p => [p])
+        updateFields.platforms = normalizedPlatforms.map((p) => [p])
       } else {
         console.log(
           `🔵 [UPDATE] Platforms NOT provided in update request - preserving existing:`,
@@ -859,7 +860,10 @@ export class TemplateService implements OnModuleInit {
       const updatedTemplate = await this.findOneRaw(id)
 
       // Check if trying to publish a draft (SEND_NOW with isSent=true)
-      if ((updatedTemplate.sendType as SendType) === SendType.SEND_NOW && updatedTemplate.isSent === true) {
+      if (
+        (updatedTemplate.sendType as SendType) === SendType.SEND_NOW &&
+        updatedTemplate.isSent === true
+      ) {
         // FLASH_NOTIFICATION now sends FCM push like other notification types
         // Mobile app will display it differently (as popup/flash screen)
         console.log(
@@ -1119,7 +1123,10 @@ export class TemplateService implements OnModuleInit {
         console.log(`📝 [editPublishedNotification] Template updated and kept as draft`)
       }
 
-      if ((newTemplate.sendType as SendType) === SendType.SEND_SCHEDULE && newTemplate.sendSchedule) {
+      if (
+        (newTemplate.sendType as SendType) === SendType.SEND_SCHEDULE &&
+        newTemplate.sendSchedule
+      ) {
         console.log(
           `Scheduling updated notification for template ${newTemplate.id} at ${newTemplate.sendSchedule}`,
         )
@@ -1139,7 +1146,10 @@ export class TemplateService implements OnModuleInit {
         }
 
         this.addScheduleNotification(newTemplate)
-      } else if ((newTemplate.sendType as SendType) === SendType.SEND_INTERVAL && newTemplate.sendInterval) {
+      } else if (
+        (newTemplate.sendType as SendType) === SendType.SEND_INTERVAL &&
+        newTemplate.sendInterval
+      ) {
         console.log(`Scheduling updated notification with interval for template ${newTemplate.id}`)
         this.addIntervalNotification(newTemplate)
       }
