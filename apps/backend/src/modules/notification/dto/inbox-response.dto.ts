@@ -5,12 +5,13 @@ import { Message, ApnsConfig } from 'firebase-admin/messaging'
 import { TemplateService } from '../../template/template.service'
 import { ImageService } from '../../image/image.service'
 import { PaginationMeta } from '@bakong/shared'
-import { Language } from '@bakong/shared'
+import { Language, NotificationType } from '@bakong/shared'
 
 export interface NotificationData {
   id: number
   templateId: number
   language: string
+  notificationType: NotificationType
   categoryType: string
   bakongPlatform?: string
   createdDate: string
@@ -26,6 +27,7 @@ export class InboxResponseDto implements NotificationData {
   id: number
   templateId: number
   language: string
+  notificationType: NotificationType
   title: string
   content: string
   imageUrl: string
@@ -55,10 +57,7 @@ export class InboxResponseDto implements NotificationData {
     this.id = Number(data.id)
     this.templateId = data.templateId || 0
     this.language = language
-<<<<<<< HEAD
-=======
     this.notificationType = data.template?.notificationType || NotificationType.ANNOUNCEMENT
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
     this.categoryType = data.template?.categoryType?.name || 'NEWS'
     this.bakongPlatform = data.template?.bakongPlatform
 
@@ -124,10 +123,7 @@ export class InboxResponseDto implements NotificationData {
       id: Number(notificationId),
       templateId: Number(template.id),
       language: translation.language,
-<<<<<<< HEAD
-=======
       notificationType: template.notificationType,
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
       categoryType: template.categoryType?.name || template.categoryTypeId?.toString() || '',
       bakongPlatform: template.bakongPlatform,
       createdDate: DateFormatter.formatDateByLanguage(template.createdAt, language as Language),

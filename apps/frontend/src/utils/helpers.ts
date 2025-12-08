@@ -1,10 +1,7 @@
-import { DateUtils } from '@bakong/shared'
+import { DateUtils, NotificationType } from '@bakong/shared'
 
-export enum NotificationType {
-  NOTIFICATION = 'NOTIFICATION',
-  ANNOUNCEMENT = 'ANNOUNCEMENT',
-  FLASH_NOTIFICATION = 'FLASH_NOTIFICATION',
-}
+// Re-export NotificationType for convenience
+export { NotificationType }
 
 // CategoryType enum removed - use categoryTypeId from API instead
 

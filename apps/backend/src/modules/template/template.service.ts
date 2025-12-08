@@ -22,7 +22,7 @@ import { UpdateTemplateDto } from './dto/update-template.dto'
 import { CreateTemplateDto } from './dto/create-template.dto'
 import { ImageService } from '../image/image.service'
 import { PaginationUtils } from '@bakong/shared'
-import { ErrorCode, ResponseMessage, SendType, TimezoneUtils, Language } from '@bakong/shared'
+import { ErrorCode, ResponseMessage, SendType, NotificationType, TimezoneUtils, Language } from '@bakong/shared'
 import { ValidationHelper } from 'src/common/util/validation.helper'
 
 @Injectable()
@@ -173,7 +173,6 @@ export class TemplateService implements OnModuleInit {
         ? dto.isSent !== false // Send if not explicitly false (true or undefined)
         : dto.isSent === true
 
-<<<<<<< HEAD
     // Normalize platforms: handle string[][] from database or Platform[]/string[] from DTO
     let platformsInput: string | string[]
     if (Array.isArray(dto.platforms) && dto.platforms.length > 0) {
@@ -196,23 +195,7 @@ export class TemplateService implements OnModuleInit {
       bakongPlatform: dto.bakongPlatform,
       sendType: dto.sendType,
       isSent: initialIsSent,
-=======
-    // Normalize platforms: handle string[][] from database or string[] from DTO
-    const platformsInput =
-      Array.isArray(dto.platforms) && dto.platforms.length > 0 && Array.isArray(dto.platforms[0])
-        ? (dto.platforms as unknown as string[][]).flat()
-        : dto.platforms
-    const normalizedPlatforms = ValidationHelper.parsePlatforms(platformsInput as string | string[])
-    // Convert 1D array to 2D array format for database: ["ALL"] -> [["ALL"]]
-    const platforms2D: string[][] = normalizedPlatforms.map((p) => [p])
-
-    const templateData: any = {
-      platforms: platforms2D,
-      bakongPlatform: dto.bakongPlatform,
-      sendType: dto.sendType,
-      isSent: initialIsSent,
       notificationType: dto.notificationType || NotificationType.FLASH_NOTIFICATION,
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
       categoryTypeId: dto.categoryTypeId,
       priority: dto.priority || 0,
       sendSchedule: dto.sendSchedule ? moment.utc(dto.sendSchedule).toDate() : null,
@@ -229,16 +212,9 @@ export class TemplateService implements OnModuleInit {
 
       createdBy: currentUser?.id,
       updatedBy: currentUser?.id,
-<<<<<<< HEAD
     })
 
     const savedTemplate = await this.repo.save(templateData)
-=======
-    }
-    const templateEntity = this.repo.create(templateData)
-
-    const savedTemplate = await this.repo.save(templateEntity)
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
     let template: Template = Array.isArray(savedTemplate) ? savedTemplate[0] : savedTemplate
     console.log('🔵 [TEMPLATE CREATE] Template saved with ID:', template.id)
 
@@ -865,20 +841,12 @@ export class TemplateService implements OnModuleInit {
       const updatedTemplate = await this.findOneRaw(id)
 
       // Check if trying to publish a draft (SEND_NOW with isSent=true)
-<<<<<<< HEAD
       if (updatedTemplate.sendType === SendType.SEND_NOW && updatedTemplate.isSent === true) {
-        console.log(`🔵 [UPDATE] Publishing notification - will send FCM push`)
-=======
-      if (
-        (updatedTemplate.sendType as SendType) === SendType.SEND_NOW &&
-        updatedTemplate.isSent === true
-      ) {
         // FLASH_NOTIFICATION now sends FCM push like other notification types
         // Mobile app will display it differently (as popup/flash screen)
         console.log(
           `🔵 [UPDATE] Publishing notification (type: ${updatedTemplate.notificationType}) - will send FCM push`,
         )
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
         console.log(
           `🔵 [UPDATE] Template platforms when publishing:`,
           updatedTemplate.platforms,
@@ -1022,11 +990,7 @@ export class TemplateService implements OnModuleInit {
         publishedBy: currentUser?.id || oldTemplate.publishedBy,
       }
 
-<<<<<<< HEAD
       const newTemplate = await this.repo.save(newTemplateData as Template)
-=======
-      const newTemplate = (await this.repo.save(newTemplateData as any)) as Template
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 
       if (dto.translations && dto.translations.length > 0) {
         for (const translation of dto.translations) {
@@ -1099,11 +1063,7 @@ export class TemplateService implements OnModuleInit {
         await this.forceDeleteTemplate(id)
         const templateToReturn = await this.findOneRaw(newTemplate.id)
         return this.formatTemplateResponse(templateToReturn)
-<<<<<<< HEAD
       } else if (newTemplate.sendType === SendType.SEND_NOW && dto.isSent === true) {
-=======
-      } else if ((newTemplate.sendType as SendType) === SendType.SEND_NOW && dto.isSent === true) {
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
         // This shouldn't happen in editPublishedNotification (only drafts go through update method)
         // But handle it just in case - this would be publishing a draft for the first time
         console.log(
@@ -1158,14 +1118,7 @@ export class TemplateService implements OnModuleInit {
         console.log(`📝 [editPublishedNotification] Template updated and kept as draft`)
       }
 
-<<<<<<< HEAD
       if (newTemplate.sendType === SendType.SEND_SCHEDULE && newTemplate.sendSchedule) {
-=======
-      if (
-        (newTemplate.sendType as SendType) === SendType.SEND_SCHEDULE &&
-        newTemplate.sendSchedule
-      ) {
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
         console.log(
           `Scheduling updated notification for template ${newTemplate.id} at ${newTemplate.sendSchedule}`,
         )
@@ -1185,14 +1138,7 @@ export class TemplateService implements OnModuleInit {
         }
 
         this.addScheduleNotification(newTemplate)
-<<<<<<< HEAD
       } else if (newTemplate.sendType === SendType.SEND_INTERVAL && newTemplate.sendInterval) {
-=======
-      } else if (
-        (newTemplate.sendType as SendType) === SendType.SEND_INTERVAL &&
-        newTemplate.sendInterval
-      ) {
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
         console.log(`Scheduling updated notification with interval for template ${newTemplate.id}`)
         this.addIntervalNotification(newTemplate)
       }
@@ -1453,10 +1399,7 @@ export class TemplateService implements OnModuleInit {
       platforms: parsedPlatforms, // Always return as array for frontend
       bakongPlatform: template.bakongPlatform,
       sendType: template.sendType,
-<<<<<<< HEAD
-=======
       notificationType: template.notificationType,
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
       categoryType: template.categoryType?.name,
       categoryTypeId: template.categoryTypeId,
       priority: template.priority,
@@ -1859,8 +1802,6 @@ export class TemplateService implements OnModuleInit {
   }
 
   async findNotificationTemplate(dto: any): Promise<any> {
-<<<<<<< HEAD
-=======
     if (dto.notificationType === NotificationType.FLASH_NOTIFICATION) {
       // IMPORTANT: Only include published templates (isSent: true), exclude drafts
       const templates = await this.repo.find({
@@ -1879,8 +1820,6 @@ export class TemplateService implements OnModuleInit {
       }
       return { template, notificationType: NotificationType.FLASH_NOTIFICATION }
     }
-
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
     if (dto.templateId) {
       const template = await this.findTemplateById(dto.templateId.toString())
       // Verify template is published (not draft)
@@ -1951,27 +1890,12 @@ export class TemplateService implements OnModuleInit {
       return acc
     }, {} as Record<number, number>)
 
-<<<<<<< HEAD
-    // Calculate days count for each template (unique days sent)
-    const templateDaysCounts: Record<number, Set<string>> = {}
-    userNotifications.forEach((notif) => {
-      const templateId = notif.templateId
-      if (templateId) {
-        if (!templateDaysCounts[templateId]) {
-          templateDaysCounts[templateId] = new Set()
-        }
-        const dateKey = new Date(notif.createdAt).toISOString().split('T')[0]
-        templateDaysCounts[templateId].add(dateKey)
-      }
-    })
 
     // Get templates sent 2+ times today
     const seenTemplateIds = Object.keys(templateTodayCounts)
       .filter((id) => templateTodayCounts[Number(id)] >= 2)
       .map(Number)
 
-    // Get all published templates to check their limits
-=======
     // Calculate unique days each template was shown to this user
     const templateDaysCounts = new Map<number, Set<string>>()
     userNotifications.forEach((notif) => {
@@ -1986,7 +1910,6 @@ export class TemplateService implements OnModuleInit {
     })
 
     // Get all published flash templates to check their limits
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
     const allTemplatesWhere: any = {
       isSent: true,
     }
@@ -2005,7 +1928,7 @@ export class TemplateService implements OnModuleInit {
       const templateId = template.id
       const showPerDay = template.showPerDay ?? 1
       const maxDayShowing = template.maxDayShowing ?? 1
-      const todayCount = templateViewCounts[templateId] || 0
+      const todayCount = templateTodayCounts[templateId] || 0
       const daysCount = templateDaysCounts.get(templateId)?.size || 0
 
       // Exclude if reached daily limit
@@ -2095,10 +2018,7 @@ export class TemplateService implements OnModuleInit {
         )
         const fallbackTemplates = await this.repo.find({
           where: {
-<<<<<<< HEAD
-=======
             notificationType: NotificationType.FLASH_NOTIFICATION as any,
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
             isSent: true, // Still exclude drafts
             ...(excludedTemplateIds.length > 0 && { id: Not(In(excludedTemplateIds)) }),
           },

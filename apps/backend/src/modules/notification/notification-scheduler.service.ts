@@ -99,11 +99,7 @@ export class NotificationSchedulerService {
       const now = new Date()
       const activeIntervalTemplates = await this.templateRepo.find({
         where: {
-<<<<<<< HEAD
           sendType: SendType.SEND_INTERVAL,
-=======
-          sendType: 'SEND_INTERVAL' as SendType as any,
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
           isSent: false,
         },
         relations: ['translations'],

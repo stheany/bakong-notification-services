@@ -17,6 +17,7 @@ import {
   ErrorCode,
   ResponseMessage,
   PaginationUtils,
+  NotificationType,
 } from '@bakong/shared'
 import { BaseResponseDto } from 'src/common/base-response.dto'
 import { InboxResponseDto } from './dto/inbox-response.dto'
@@ -106,14 +107,9 @@ describe('NotificationService', () => {
   } as BakongUser
 
   const sampleTemplate = {
-<<<<<<< HEAD
     id: 1,
     categoryTypeId: 1,
-=======
-    id: '1',
     notificationType: NotificationType.ANNOUNCEMENT,
-    categoryType: 'NEWS' as any,
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
     bakongPlatform: BakongApp.BAKONG,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),

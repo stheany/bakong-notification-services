@@ -7,10 +7,6 @@ import { TemplateTranslation } from 'src/entities/template-translation.entity'
 import { Image } from 'src/entities/image.entity'
 import { User } from 'src/entities/user.entity'
 import { BaseResponseDto } from 'src/common/base-response.dto'
-<<<<<<< HEAD
-import { ErrorCode, ResponseMessage, SendType, Platform, Language, BakongApp } from '@bakong/shared'
-import { CategoryType } from 'src/entities/category-type.entity'
-=======
 import {
   ErrorCode,
   ResponseMessage,
@@ -20,7 +16,7 @@ import {
   Language,
   BakongApp,
 } from '@bakong/shared'
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
+import { CategoryType } from 'src/entities/category-type.entity'
 import { plainToClass } from 'class-transformer'
 import { CreateTemplateDto } from './dto/create-template.dto'
 import { UpdateTemplateDto } from './dto/update-template.dto'
@@ -36,6 +32,7 @@ describe('TemplateService', () => {
   let schedulerRegistry: SchedulerRegistry
 
   const currentUser = { username: 'testuser', id: 1 }
+  const templateId = 1
 
   // Sample translation data
   const sampleTranslations: TemplateTranslation[] = [
@@ -64,7 +61,6 @@ describe('TemplateService', () => {
   ]
 
   // Sample template data
-<<<<<<< HEAD
   const mockCategoryType: CategoryType = {
     id: 1,
     name: 'NEWS',
@@ -78,17 +74,9 @@ describe('TemplateService', () => {
     platforms: [Platform.IOS, Platform.ANDROID],
     bakongPlatform: BakongApp.BAKONG_JUNIOR,
     sendType: SendType.SEND_NOW,
+    notificationType: NotificationType.ANNOUNCEMENT,
     categoryTypeId: 1,
     categoryType: mockCategoryType,
-=======
-  const draftTemplate: any = {
-    id: 1,
-    platforms: [Platform.IOS, Platform.ANDROID],
-    bakongPlatform: BakongApp.BAKONG_JUNIOR,
-    sendType: SendType.SEND_NOW,
-    notificationType: NotificationType.ANNOUNCEMENT,
-    categoryTypeId: 1, // Mock categoryTypeId (NEWS category)
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
     priority: 1,
     isSent: false,
     sendSchedule: null,
@@ -99,13 +87,9 @@ describe('TemplateService', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
-<<<<<<< HEAD
     showPerDay: 1,
     maxDayShowing: 1,
   } as Template
-=======
-  } as any
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
 
   const scheduledTemplate: any = {
     ...draftTemplate,
@@ -252,12 +236,8 @@ describe('TemplateService', () => {
         bakongPlatform: BakongApp.BAKONG_JUNIOR,
         sendType: SendType.SEND_NOW,
         isSent: true,
-<<<<<<< HEAD
-        categoryTypeId: 1,
-=======
         notificationType: NotificationType.ANNOUNCEMENT,
-        categoryTypeId: 1, // Mock categoryTypeId (NEWS category)
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
+        categoryTypeId: 1,
         priority: 1,
         translations: [
           {
@@ -301,12 +281,8 @@ describe('TemplateService', () => {
         sendType: SendType.SEND_SCHEDULE,
         isSent: false,
         sendSchedule: futureDate.toISOString(),
-<<<<<<< HEAD
-        categoryTypeId: 1,
-=======
         notificationType: NotificationType.ANNOUNCEMENT,
-        categoryTypeId: 1, // Mock categoryTypeId (NEWS category)
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
+        categoryTypeId: 1,
         translations: [
           {
             language: Language.EN,
@@ -348,12 +324,8 @@ describe('TemplateService', () => {
         platforms: [Platform.ANDROID],
         sendType: SendType.SEND_NOW,
         isSent: false, // Draft
-<<<<<<< HEAD
-        categoryTypeId: 1,
-=======
         notificationType: NotificationType.ANNOUNCEMENT,
-        categoryTypeId: 1, // Mock categoryTypeId (NEWS category)
->>>>>>> 19b672971341da41a8cf014849e5ecd0e00438f3
+        categoryTypeId: 1,
         translations: [
           {
             language: Language.KM,
