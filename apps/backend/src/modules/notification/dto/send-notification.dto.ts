@@ -8,7 +8,7 @@ import {
   ValidateNested,
   ValidateIf,
 } from 'class-validator'
-import { Language, NotificationType, Platform, BakongApp } from '@bakong/shared'
+import { Language, Platform, BakongApp } from '@bakong/shared'
 import { ValidationHelper } from 'src/common/util/validation.helper'
 
 export default class SentNotificationDto {
@@ -56,21 +56,6 @@ export default class SentNotificationDto {
   @IsOptional()
   @IsNumber()
   templateId?: number
-
-  @IsOptional()
-  @IsString()
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      const validation = ValidationHelper.validateNotificationType(value)
-      return validation.isValid ? validation.normalizedValue : value
-    }
-    return value
-  })
-  @IsEnum(NotificationType, {
-    message:
-      'NotificationType must be a valid notification type : FLASH_NOTIFICATION, ANNOUNCEMENT, NOTIFICATION',
-  })
-  notificationType?: NotificationType
 
   @IsOptional()
   @IsString()

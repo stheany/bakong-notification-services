@@ -3,7 +3,6 @@ import { ErrorCode, ResponseMessage } from '../enums/error.enums'
 import { Platform } from '../enums/platform.enum'
 import { NotificationStatus } from '../enums/notification-status.enum'
 import { Language } from '../enums/language.enum'
-import { NotificationType } from '../enums/notification-type.enum'
 import { SendType } from '../enums/send-type.enum'
 
 export interface ValidationResult<T> {
@@ -154,38 +153,6 @@ export class ValidationUtils {
       normalizedValue: null,
       originalValue: value,
       errorMessage: `Invalid platform. Must be one of: ${validPlatforms.join(', ')}`,
-    }
-  }
-
-  static validateNotificationType(value: string): ValidationResult<NotificationType> {
-    if (!value || typeof value !== 'string') {
-      return {
-        isValid: false,
-        normalizedValue: null,
-        originalValue: value,
-        errorMessage: 'Notification type is required and must be a string',
-      }
-    }
-
-    const normalizedValue = this.normalizeEnum(value)
-    const validTypes = Object.values(NotificationType)
-
-    const matchedType = validTypes.find((type) => this.normalizeEnum(type) === normalizedValue)
-
-    if (matchedType) {
-      return {
-        isValid: true,
-        normalizedValue: matchedType,
-        originalValue: value,
-        errorMessage: undefined,
-      }
-    }
-
-    return {
-      isValid: false,
-      normalizedValue: null,
-      originalValue: value,
-      errorMessage: `Invalid notification type. Must be one of: ${validTypes.join(', ')}`,
     }
   }
 

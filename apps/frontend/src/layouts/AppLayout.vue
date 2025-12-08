@@ -21,7 +21,7 @@
           </el-button>
           <div class="user-avatar">
             <img
-              :src="avatarImage"
+              :src="avatarUrl"
               alt="User Avatar"
               class="user-image"
               @click="handleGoToSettings"
@@ -142,13 +142,22 @@ import { Plus, ArrowLeft, ArrowRight, Warning, CirclePlus } from '@element-plus/
 import Breadcrumb from '@/components/common/Breadcrumb.vue'
 
 // Import images properly for production builds
-import nbcLogo from '@/assets/image/LogoNBC.svg'
-import homeIcon from '@/assets/image/Home.svg'
-import calendarIcon from '@/assets/image/Schedule.svg'
-import typeIcon from '@/assets/image/type-pattern.svg'
-import chartIcon from '@/assets/image/chart--bar-target.svg'
-import settingsIcon from '@/assets/image/settings_16.svg'
-import avatarImage from '@/assets/image/avatar.svg'
+import nbcLogoSrc from '@/assets/image/LogoNBC.svg'
+import homeIconSrc from '@/assets/image/Home.svg'
+import calendarIconSrc from '@/assets/image/Schedule.svg'
+import typeIconSrc from '@/assets/image/type-pattern.svg'
+import chartIconSrc from '@/assets/image/chart--bar-target.svg'
+import settingsIconSrc from '@/assets/image/settings_16.svg'
+import avatarImageSrc from '@/assets/image/avatar.svg'
+
+// Type image imports as strings for TypeScript template checking
+const nbcLogo: string = nbcLogoSrc
+const homeIcon: string = homeIconSrc
+const calendarIcon: string = calendarIconSrc
+const typeIcon: string = typeIconSrc
+const chartIcon: string = chartIconSrc
+const settingsIcon: string = settingsIconSrc
+const avatarImage: string = avatarImageSrc
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -162,9 +171,10 @@ const toggleSidebar = () => {
   isSidebarCollapsed.value = !isSidebarCollapsed.value
 }
 
-const userAvatar = ref(
-  'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=40&h=40&fit=crop&crop=face',
-)
+// Computed property to get avatar URL, fallback to default avatar image
+const avatarUrl = computed(() => {
+  return authStore.userAvatar || avatarImage
+})
 
 const pageTitle = computed(() => {
   switch (route.name) {

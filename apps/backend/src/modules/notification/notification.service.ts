@@ -17,7 +17,7 @@ import { TemplateService } from '../template/template.service'
 import { ImageService } from '../image/image.service'
 import { DateFormatter } from '@bakong/shared'
 import { ResponseMessage, ErrorCode, BakongApp } from '@bakong/shared'
-import { Language, NotificationType } from '@bakong/shared'
+import { Language } from '@bakong/shared'
 import { InboxResponseDto } from './dto/inbox-response.dto'
 
 @Injectable()
@@ -53,9 +53,12 @@ export class NotificationService {
 
     // Parse platforms using shared helper function
     // Flatten string[][] to string[] for parsePlatforms
-    const platformsFlat = Array.isArray(template.platforms) && template.platforms.length > 0 && Array.isArray(template.platforms[0])
-      ? (template.platforms as string[][]).flat()
-      : template.platforms
+    const platformsFlat =
+      Array.isArray(template.platforms) &&
+      template.platforms.length > 0 &&
+      Array.isArray(template.platforms[0])
+        ? (template.platforms as unknown as string[][]).flat()
+        : template.platforms
     const platformsArray = ValidationHelper.parsePlatforms(platformsFlat as string | string[])
 
     console.log('📤 [sendWithTemplate] Parsed platforms:', {
@@ -95,11 +98,11 @@ export class NotificationService {
       // Check if no users found for this bakongPlatform
       if (users.length === 0) {
         const platformName =
-          template.bakongPlatform === 'BAKONG_TOURIST'
+          template.bakongPlatform === BakongApp.BAKONG_TOURIST
             ? 'Bakong Tourist'
-            : template.bakongPlatform === 'BAKONG_JUNIOR'
-              ? 'Bakong Junior'
-              : 'Bakong'
+            : template.bakongPlatform === BakongApp.BAKONG_JUNIOR
+            ? 'Bakong Junior'
+            : 'Bakong'
         throw new Error(
           `No users found for ${platformName} app. Please ensure there are registered users for this platform before sending notifications.`,
         )
@@ -284,20 +287,20 @@ export class NotificationService {
           trans,
           dto.language,
           typeof imageUrl === 'string' ? imageUrl : '',
-          notification.id,
+          Number(notification.id),
           notification.sendCount,
         )
 
         return BaseResponseDto.success({
           data: { whatnews: result },
-          message: `Send ${notification.template.notificationType} to users successfully.`,
+          message: `Send notification to users successfully.`,
         })
       }
 
-      // For flash notifications: User data was already synced in controller when app opened
+      // User data was already synced in controller when app opened
       // Just fetch the user to get bakongPlatform (already synced in controller)
       let userBakongPlatform: string | undefined = undefined
-      if (dto.accountId && dto.notificationType === NotificationType.FLASH_NOTIFICATION) {
+      if (dto.accountId) {
         // User data was already synced in controller - just fetch to get bakongPlatform
         const user = await this.baseFunctionHelper.findUserByAccountId(dto.accountId)
 
@@ -322,20 +325,14 @@ export class NotificationService {
         }
       }
 
-      // For flash notifications: If user has bakongPlatform, find template matching it
+      // If user has bakongPlatform, find template matching it
       let template: Template | null = null
-      let notificationType: NotificationType
 
-      if (
-        dto.accountId &&
-        dto.notificationType === NotificationType.FLASH_NOTIFICATION &&
-        userBakongPlatform
-      ) {
+      if (dto.accountId && userBakongPlatform) {
         // Find template matching user's bakongPlatform
         // IMPORTANT: Only include published templates (isSent: true), exclude drafts
         const templates = await this.templateRepo.find({
           where: {
-            notificationType: NotificationType.FLASH_NOTIFICATION,
             bakongPlatform: userBakongPlatform as any,
             isSent: true, // Only published templates, exclude drafts
           },
@@ -343,7 +340,6 @@ export class NotificationService {
           order: { priority: 'DESC', createdAt: 'DESC' },
         })
         template = templates.find((t) => t.translations && t.translations.length > 0) || null
-        notificationType = NotificationType.FLASH_NOTIFICATION
 
         if (template) {
           console.log(
@@ -360,7 +356,6 @@ export class NotificationService {
       if (!template) {
         const result = await this.templateService.findNotificationTemplate(dto)
         template = result.template
-        notificationType = result.notificationType
       }
 
       if (!template) throw new Error(ResponseMessage.TEMPLATE_NOT_FOUND)
@@ -369,15 +364,10 @@ export class NotificationService {
       if (!translationValidation.isValid) throw new Error(translationValidation.errorMessage)
       const translation = translationValidation.translation
 
-      // For flash notifications: If user doesn't have bakongPlatform, infer it from template
+      // If user doesn't have bakongPlatform, infer it from template
       // This is a fallback for users who call /send before /inbox
       // IMPORTANT: Only update if user doesn't have bakongPlatform set (don't overwrite existing value)
-      if (
-        dto.accountId &&
-        notificationType === NotificationType.FLASH_NOTIFICATION &&
-        template.bakongPlatform &&
-        !userBakongPlatform
-      ) {
+      if (dto.accountId && template.bakongPlatform && !userBakongPlatform) {
         const user = await this.baseFunctionHelper.findUserByAccountId(dto.accountId)
         if (user && !user.bakongPlatform) {
           // User exists but doesn't have bakongPlatform set - infer it from template
@@ -408,17 +398,14 @@ export class NotificationService {
         )
 
         // Check if no users found for this bakongPlatform
-        // Skip this check for flash notifications with accountId (they target a specific user)
-        if (
-          allUsers.length === 0 &&
-          !(notificationType === NotificationType.FLASH_NOTIFICATION && dto.accountId)
-        ) {
+        // Skip this check for notifications with accountId (they target a specific user)
+        if (allUsers.length === 0 && !dto.accountId) {
           const platformName =
-            template.bakongPlatform === 'BAKONG_TOURIST'
+            template.bakongPlatform === BakongApp.BAKONG_TOURIST
               ? 'Bakong Tourist'
-              : template.bakongPlatform === 'BAKONG_JUNIOR'
-                ? 'Bakong Junior'
-                : 'Bakong'
+              : template.bakongPlatform === BakongApp.BAKONG_JUNIOR
+              ? 'Bakong Junior'
+              : 'Bakong'
 
           // Mark template as draft if templateId is provided
           if (dto.templateId) {
@@ -444,7 +431,8 @@ export class NotificationService {
 
       const usersWithTokens = allUsers.filter((u) => u.fcmToken?.trim())
 
-      if (notificationType === NotificationType.FLASH_NOTIFICATION) {
+      // If accountId is provided, handle as individual notification
+      if (dto.accountId) {
         return await this.handleFlashNotification(template, translation, dto, req)
       }
 
@@ -466,11 +454,11 @@ export class NotificationService {
         // Check again if no users found after sync
         if (refreshedUsers.length === 0) {
           const platformName =
-            template.bakongPlatform === 'BAKONG_TOURIST'
+            template.bakongPlatform === BakongApp.BAKONG_TOURIST
               ? 'Bakong Tourist'
-              : template.bakongPlatform === 'BAKONG_JUNIOR'
-                ? 'Bakong Junior'
-                : 'Bakong'
+              : template.bakongPlatform === BakongApp.BAKONG_JUNIOR
+              ? 'Bakong Junior'
+              : 'Bakong'
 
           // Mark template as draft if templateId is provided
           if (dto.templateId) {
@@ -511,7 +499,7 @@ export class NotificationService {
             templateId: template.id,
             fcmToken: u.fcmToken,
             sendCount: 1,
-            firebaseMessageId: 0,
+            firebaseMessageId: null,
           }),
         ),
       )
@@ -574,7 +562,7 @@ export class NotificationService {
         responseTranslation,
         dto.language,
         typeof imageUrl === 'string' ? imageUrl : '',
-        firstRecord.id,
+        Number(firstRecord.id),
         firstRecord.sendCount,
       )
 
@@ -588,7 +576,7 @@ export class NotificationService {
 
       return BaseResponseDto.success({
         data: responseData,
-        message: `Send ${template.notificationType} to users successfully`,
+        message: `Send notification to users successfully`,
       })
     } catch (error: any) {
       return BaseResponseDto.error({
@@ -693,7 +681,7 @@ export class NotificationService {
             )
             console.log('✅ [sendFCM] Successfully sent to user:', user.accountId)
             if (mode === 'individual') {
-              successfulNotifications.push({ id: notificationId })
+              successfulNotifications.push({ id: Number(notificationId) })
             } else if (mode === 'shared') {
               sharedSuccessfulCount++
             }
@@ -771,7 +759,7 @@ export class NotificationService {
         successfulNotifications,
         failedUsers,
         fcmUsers,
-        sharedNotificationId,
+        sharedNotificationId ? Number(sharedNotificationId) : undefined,
         sharedSuccessfulCount,
         sharedFailedCount,
         sharedFailedUsers,
@@ -856,10 +844,6 @@ export class NotificationService {
         parseInt(notificationIdStr),
       )
 
-      // Note: Mobile app will determine redirect screen based on notificationType:
-      // - FLASH_NOTIFICATION → Home screen
-      // - ANNOUNCEMENT → Notification Center screen
-
       const iosPayloadResponse =
         mode === 'individual'
           ? InboxResponseDto.buildIOSAlertPayload(
@@ -871,7 +855,6 @@ export class NotificationService {
             )
           : InboxResponseDto.buildIOSPayload(
               user.fcmToken,
-              template.notificationType,
               title,
               body,
               notificationIdStr,
@@ -916,7 +899,6 @@ export class NotificationService {
 
       const extraData = {
         templateId: String(template.id),
-        notificationType: String(template.notificationType),
         categoryType: String(template.categoryTypeId || ''),
         language: String(translation.language),
         accountId: String(user.accountId),
@@ -930,10 +912,6 @@ export class NotificationService {
         notification_title: title,
         notification_body: body,
       }
-
-      // Note: Mobile app will determine redirect screen based on notificationType:
-      // - FLASH_NOTIFICATION → Home screen
-      // - ANNOUNCEMENT → Notification Center screen
 
       const msg = InboxResponseDto.buildAndroidDataOnlyPayload(
         user.fcmToken,
@@ -1020,7 +998,7 @@ export class NotificationService {
 
     if (templateId) {
       selectedTemplate = await this.templateRepo.findOne({
-        where: { id: templateId, notificationType: NotificationType.FLASH_NOTIFICATION },
+        where: { id: templateId },
         relations: ['translations'],
       })
 
@@ -1070,7 +1048,6 @@ export class NotificationService {
 
         // Get all available templates for this user's platform
         const allTemplatesWhere: any = {
-          notificationType: NotificationType.FLASH_NOTIFICATION,
           isSent: true,
         }
         if (userBakongPlatform) {
@@ -1092,15 +1069,12 @@ export class NotificationService {
           return createdAt >= last24Hours && createdAt <= now
         })
 
-        const templateCounts = todayNotifications.reduce(
-          (acc, notif) => {
-            if (notif.templateId) {
-              acc[notif.templateId] = (acc[notif.templateId] || 0) + 1
-            }
-            return acc
-          },
-          {} as Record<number, number>,
-        )
+        const templateCounts = todayNotifications.reduce((acc, notif) => {
+          if (notif.templateId) {
+            acc[notif.templateId] = (acc[notif.templateId] || 0) + 1
+          }
+          return acc
+        }, {} as Record<number, number>)
 
         const templatesAtLimit = Object.entries(templateCounts)
           .filter(([_, count]) => count >= 2)
@@ -1254,7 +1228,7 @@ export class NotificationService {
       templateId: selectedTemplate.id,
       fcmToken: user?.fcmToken,
       sendCount: newSendCount,
-      firebaseMessageId: 0,
+      firebaseMessageId: null,
     })
 
     await this.templateService.markAsPublished(selectedTemplate.id, req?.user)
@@ -1267,7 +1241,7 @@ export class NotificationService {
       selectedTranslation,
       language,
       typeof imageUrl === 'string' ? imageUrl : '',
-      saved.id,
+      Number(saved.id),
       saved.sendCount,
     )
     return BaseResponseDto.success({
@@ -1295,8 +1269,8 @@ export class NotificationService {
         fcmToken: fcmToken
           ? `${fcmToken.substring(0, 30)}...`
           : fcmToken === ''
-            ? 'EMPTY (explicitly cleared)'
-            : 'NOT PROVIDED',
+          ? 'EMPTY (explicitly cleared)'
+          : 'NOT PROVIDED',
         platform: platform || 'N/A',
         language: language || 'N/A',
         bakongPlatform: bakongPlatform || 'N/A',
@@ -1334,8 +1308,8 @@ export class NotificationService {
         fcmTokenValue: fcmToken
           ? `${fcmToken.substring(0, 30)}... (length: ${fcmToken.length})`
           : fcmToken === ''
-            ? 'EMPTY STRING'
-            : 'UNDEFINED',
+          ? 'EMPTY STRING'
+          : 'UNDEFINED',
         fcmTokenType: typeof fcmToken,
       })
       console.log(`🔄 [getNotificationCenter] Calling updateUserData with:`, {
@@ -1343,8 +1317,8 @@ export class NotificationService {
         fcmToken: fcmToken
           ? `${fcmToken.substring(0, 30)}... (length: ${fcmToken.length}, type: ${typeof fcmToken})`
           : fcmToken === ''
-            ? 'EMPTY STRING'
-            : 'UNDEFINED',
+          ? 'EMPTY STRING'
+          : 'UNDEFINED',
         participantCode: participantCode || 'NOT PROVIDED',
         platform: platform || 'NOT PROVIDED',
         language: language || 'NOT PROVIDED',
@@ -1403,7 +1377,7 @@ export class NotificationService {
       // Get user's bakongPlatform from database (stored when user called API)
       const userPlatform = user.bakongPlatform
 
-      const [notifications, totalCount] = await this.notiRepo.findAndCount({
+      const [notifications] = await this.notiRepo.findAndCount({
         where: { accountId: accountId.trim() },
         order: { createdAt: 'DESC' },
         skip,
@@ -1509,11 +1483,12 @@ export class NotificationService {
     response: string,
     mode: 'individual' | 'shared',
   ): Promise<void> {
-    const firebaseMessageId = ValidationHelper.validateFirebaseMessageId(response)
+    const firebaseMessageIdNum = ValidationHelper.validateFirebaseMessageId(response)
+    const firebaseMessageId = firebaseMessageIdNum ? String(firebaseMessageIdNum) : null
 
     if (mode === 'individual') {
       try {
-        await this.notiRepo.update({ id: notificationId }, { firebaseMessageId: firebaseMessageId || null })
+        await this.notiRepo.update({ id: notificationId }, { firebaseMessageId: firebaseMessageId })
         return
       } catch (error) {
         throw error
@@ -1525,7 +1500,10 @@ export class NotificationService {
           where: { id: notificationId, accountId: user.accountId },
         })
         if (notification) {
-          await this.notiRepo.update({ id: notificationId }, { firebaseMessageId: firebaseMessageId || null })
+          await this.notiRepo.update(
+            { id: notificationId },
+            { firebaseMessageId: firebaseMessageId },
+          )
           return
         }
       }
@@ -1535,7 +1513,7 @@ export class NotificationService {
         .select('notification.id')
         .where('notification.accountId = :accountId', { accountId: user.accountId })
         .andWhere('notification.templateId = :templateId', { templateId: template.id })
-        .andWhere('notification.firebaseMessageId = 0')
+        .andWhere('notification.firebaseMessageId = :zero', { zero: '0' })
         .orderBy('notification.createdAt', 'DESC')
         .getOne()
 

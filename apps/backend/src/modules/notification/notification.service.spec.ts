@@ -12,7 +12,6 @@ import { FirebaseManager } from 'src/common/services/firebase-manager.service'
 import SentNotificationDto from './dto/send-notification.dto'
 import {
   Language,
-  NotificationType,
   Platform,
   BakongApp,
   ErrorCode,
@@ -81,27 +80,34 @@ describe('NotificationService', () => {
 
   // Sample data
   const sampleUser = {
-    id: 1,
+    id: '1',
     accountId: 'test@bkrt.com',
     bakongPlatform: BakongApp.BAKONG,
     fcmToken: 'test-fcm-token-123',
     platform: Platform.IOS,
     language: Language.EN,
+    participantCode: 'PART001',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    notifications: [],
   } as BakongUser
 
   const sampleUserWithWrongToken = {
-    id: 2,
+    id: '2',
     accountId: 'wrongusertoken@bkrt.com',
     bakongPlatform: BakongApp.BAKONG,
     fcmToken: 'f68-v', // Invalid/short token
     platform: Platform.IOS,
     language: Language.EN,
+    participantCode: 'PART002',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    notifications: [],
   } as BakongUser
 
   const sampleTemplate = {
     id: 1,
-    notificationType: NotificationType.ANNOUNCEMENT,
-    categoryType: 'NEWS' as any,
+    categoryTypeId: 1,
     bakongPlatform: BakongApp.BAKONG,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
@@ -348,7 +354,7 @@ describe('NotificationService', () => {
   describe('sendNow', () => {
     it('should send notification by notificationId successfully', async () => {
       const dto: SentNotificationDto = {
-        notificationId: 1,
+        notificationId: '1',
         language: Language.EN,
       } as SentNotificationDto
 
@@ -377,7 +383,7 @@ describe('NotificationService', () => {
 
     it('should return error if notification not found', async () => {
       const dto: SentNotificationDto = {
-        notificationId: 999,
+        notificationId: '999',
         language: Language.EN,
       } as SentNotificationDto
 
@@ -394,7 +400,6 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         accountId: 'test@bkrt.com',
         language: Language.EN,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         bakongPlatform: BakongApp.BAKONG,
         fcmToken: 'test-token',
         platform: Platform.IOS,
@@ -407,7 +412,6 @@ describe('NotificationService', () => {
       mockTemplateRepo.find.mockResolvedValue([sampleTemplate])
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: sampleTemplate,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -437,7 +441,6 @@ describe('NotificationService', () => {
     it('should return error if no users found for bakongPlatform', async () => {
       const dto: SentNotificationDto = {
         language: Language.EN,
-        notificationType: NotificationType.ANNOUNCEMENT,
       } as SentNotificationDto
 
       const templateWithPlatform = {
@@ -447,7 +450,6 @@ describe('NotificationService', () => {
 
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: templateWithPlatform,
-        notificationType: NotificationType.ANNOUNCEMENT,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -464,12 +466,10 @@ describe('NotificationService', () => {
     it('should handle regular notification send flow', async () => {
       const dto: SentNotificationDto = {
         language: Language.EN,
-        notificationType: NotificationType.ANNOUNCEMENT,
       } as SentNotificationDto
 
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: sampleTemplate,
-        notificationType: NotificationType.ANNOUNCEMENT,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -713,12 +713,10 @@ describe('NotificationService', () => {
     it('should return successful count and failed users list in response', async () => {
       const dto: SentNotificationDto = {
         language: Language.EN,
-        notificationType: NotificationType.ANNOUNCEMENT,
       } as SentNotificationDto
 
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: sampleTemplate,
-        notificationType: NotificationType.ANNOUNCEMENT,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -783,14 +781,12 @@ describe('NotificationService', () => {
     it('should log failed users when some users fail to receive notification', async () => {
       const dto: SentNotificationDto = {
         language: Language.EN,
-        notificationType: NotificationType.ANNOUNCEMENT,
       } as SentNotificationDto
 
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
 
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: sampleTemplate,
-        notificationType: NotificationType.ANNOUNCEMENT,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -872,12 +868,10 @@ describe('NotificationService', () => {
     it('should return successful count of 0 and all failed users when all users fail', async () => {
       const dto: SentNotificationDto = {
         language: Language.EN,
-        notificationType: NotificationType.ANNOUNCEMENT,
       } as SentNotificationDto
 
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: sampleTemplate,
-        notificationType: NotificationType.ANNOUNCEMENT,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -932,7 +926,6 @@ describe('NotificationService', () => {
     const flashTemplateWithLimits = {
       ...sampleTemplate,
       id: 1,
-      notificationType: NotificationType.FLASH_NOTIFICATION,
       showPerDay: 2,
       maxDayShowing: 3,
       bakongPlatform: BakongApp.BAKONG,
@@ -942,7 +935,6 @@ describe('NotificationService', () => {
     const flashTemplateDefaultLimits = {
       ...sampleTemplate,
       id: 2,
-      notificationType: NotificationType.FLASH_NOTIFICATION,
       showPerDay: 1, // Default
       maxDayShowing: 1, // Default
       bakongPlatform: BakongApp.BAKONG,
@@ -963,7 +955,6 @@ describe('NotificationService', () => {
       mockTemplateRepo.find.mockResolvedValue([template])
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: template,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -980,7 +971,6 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         accountId: 'test@bkrt.com',
         language: Language.EN,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         bakongPlatform: BakongApp.BAKONG,
         fcmToken: 'test-token',
         platform: Platform.IOS,
@@ -1021,7 +1011,6 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         accountId: 'test@bkrt.com',
         language: Language.EN,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         bakongPlatform: BakongApp.BAKONG,
         fcmToken: 'test-token',
         platform: Platform.IOS,
@@ -1046,7 +1035,6 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         accountId: 'test@bkrt.com',
         language: Language.EN,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         bakongPlatform: BakongApp.BAKONG,
         fcmToken: 'test-token',
         platform: Platform.IOS,
@@ -1085,7 +1073,6 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         accountId: 'test@bkrt.com',
         language: Language.EN,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         bakongPlatform: BakongApp.BAKONG,
         fcmToken: 'test-token',
         platform: Platform.IOS,
@@ -1108,7 +1095,6 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         accountId: 'test@bkrt.com',
         language: Language.EN,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         bakongPlatform: BakongApp.BAKONG,
         fcmToken: 'test-token',
         platform: Platform.IOS,
@@ -1152,7 +1138,6 @@ describe('NotificationService', () => {
       const customTemplate = {
         ...sampleTemplate,
         id: 3,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         showPerDay: 3,
         maxDayShowing: 5,
         bakongPlatform: BakongApp.BAKONG,
@@ -1162,7 +1147,6 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         accountId: 'test@bkrt.com',
         language: Language.EN,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         bakongPlatform: BakongApp.BAKONG,
         fcmToken: 'test-token',
         platform: Platform.IOS,
@@ -1203,19 +1187,16 @@ describe('NotificationService', () => {
       const announcementTemplate = {
         ...sampleTemplate,
         id: 1,
-        notificationType: NotificationType.ANNOUNCEMENT,
         bakongPlatform: BakongApp.BAKONG,
         translations: [sampleTranslation],
       } as any
 
       const dto: SentNotificationDto = {
         language: Language.EN,
-        notificationType: NotificationType.ANNOUNCEMENT,
       } as SentNotificationDto
 
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: announcementTemplate,
-        notificationType: NotificationType.ANNOUNCEMENT,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -1277,19 +1258,16 @@ describe('NotificationService', () => {
       const announcementTemplate = {
         ...sampleTemplate,
         id: 1,
-        notificationType: NotificationType.ANNOUNCEMENT,
         bakongPlatform: BakongApp.BAKONG,
         translations: [sampleTranslation],
       } as any
 
       const dto: SentNotificationDto = {
         language: Language.EN,
-        notificationType: NotificationType.ANNOUNCEMENT,
       } as SentNotificationDto
 
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: announcementTemplate,
-        notificationType: NotificationType.ANNOUNCEMENT,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -1364,7 +1342,6 @@ describe('NotificationService', () => {
       mockTemplateRepo.find.mockResolvedValue([template])
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: template,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -1381,7 +1358,6 @@ describe('NotificationService', () => {
       const templateWithNullLimits = {
         ...sampleTemplate,
         id: 4,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         showPerDay: null,
         maxDayShowing: undefined,
         bakongPlatform: BakongApp.BAKONG,
@@ -1391,7 +1367,6 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         accountId: 'test@bkrt.com',
         language: Language.EN,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         bakongPlatform: BakongApp.BAKONG,
         fcmToken: 'test-token',
         platform: Platform.IOS,
@@ -1413,7 +1388,6 @@ describe('NotificationService', () => {
       const flashTemplateWithLimits = {
         ...sampleTemplate,
         id: 1,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         showPerDay: 2,
         maxDayShowing: 3,
         bakongPlatform: BakongApp.BAKONG,
@@ -1424,7 +1398,6 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         accountId: 'test@bkrt.com',
         language: Language.EN,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         templateId: 1,
         bakongPlatform: BakongApp.BAKONG,
         fcmToken: 'test-token',
@@ -1439,7 +1412,6 @@ describe('NotificationService', () => {
       // When templateId is provided, sendNow uses findNotificationTemplate which calls findOne
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: flashTemplateWithLimits,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
       })
       // handleFlashNotification also calls findOne when templateId is provided
       mockTemplateRepo.findOne
@@ -1486,7 +1458,6 @@ describe('NotificationService', () => {
       const flashTemplateWithLimits = {
         ...sampleTemplate,
         id: 1,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         showPerDay: 2,
         maxDayShowing: 3,
         bakongPlatform: BakongApp.BAKONG,
@@ -1496,7 +1467,6 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         accountId: 'test@bkrt.com',
         language: Language.EN,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         bakongPlatform: BakongApp.BAKONG,
         fcmToken: 'test-token',
         platform: Platform.IOS,
@@ -1544,7 +1514,6 @@ describe('NotificationService', () => {
       const flashTemplateWithLimits = {
         ...sampleTemplate,
         id: 1,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         showPerDay: 2,
         maxDayShowing: 3,
         bakongPlatform: BakongApp.BAKONG,
@@ -1554,7 +1523,6 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         accountId: 'test@bkrt.com',
         language: Language.EN,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         bakongPlatform: BakongApp.BAKONG,
         fcmToken: 'test-token',
         platform: Platform.IOS,
@@ -1577,7 +1545,6 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         accountId: 'test@bkrt.com',
         language: Language.EN,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         bakongPlatform: BakongApp.BAKONG,
         fcmToken: 'test-token',
         platform: Platform.IOS,
@@ -1591,7 +1558,6 @@ describe('NotificationService', () => {
       mockTemplateRepo.find.mockResolvedValue([])
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: null,
-        notificationType: NotificationType.FLASH_NOTIFICATION,
       })
       mockTemplateService.findBestTemplateForUser.mockResolvedValue(null)
 

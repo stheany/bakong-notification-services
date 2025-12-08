@@ -508,7 +508,6 @@ shared/
     │   ├── index.ts # TypeScript file
     │   ├── language.enum.ts # TypeScript file
     │   ├── notification-status.enum.ts # TypeScript file
-    │   ├── notification-type.enum.ts # TypeScript file
     │   ├── platform.enum.ts # TypeScript file
     │   ├── send-type.enum.ts # TypeScript file
     │   └── user-role.enum.ts # Composable

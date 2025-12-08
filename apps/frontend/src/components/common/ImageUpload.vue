@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col gap-3 w-full">
     <div
-      class="w-full h-[213px] border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-4 p-8 bg-white hover:border-[#001346] hover:bg-gray-50"
+      class="w-full h-[213px] rounded-lg text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-4 py-4 px-8 bg-white hover:bg-gray-50 border-2 border-dashed border-gray-300 hover:border-[#001346]"
       :class="{ 'border-[#001346] bg-gray-50': isDragOver }"
       @click="triggerFileUploadHandler"
       @dragover.prevent="handleDragOver"

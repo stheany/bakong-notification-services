@@ -16,7 +16,6 @@ export class TemplateController {
   async create(@Body() dto: CreateTemplateDto, @Req() req: any) {
     console.log('🎯 [CONTROLLER] /template/create endpoint called')
     console.log('🎯 [CONTROLLER] Request data:', {
-      notificationType: dto.notificationType,
       sendType: dto.sendType,
       isSent: dto.isSent,
       platforms: dto.platforms,
@@ -29,14 +28,10 @@ export class TemplateController {
 
       console.log('🎯 [CONTROLLER] Calling templateService.create...')
       const template = await this.templateService.create(dto, currentUser)
-      console.log(
-        '🎯 [CONTROLLER] Template service returned, notificationType:',
-        template.notificationType,
-      )
 
       return new BaseResponseDto({
         responseCode: 0,
-        responseMessage: `Create ${template.notificationType} successfully`,
+        responseMessage: `Create template successfully`,
         errorCode: 0,
         data: template,
       })
@@ -76,7 +71,7 @@ export class TemplateController {
 
     return new BaseResponseDto({
       responseCode: 0,
-      responseMessage: `Update ${template.notificationType} successfully`,
+      responseMessage: `Update template successfully`,
       errorCode: 0,
       data: template,
     })

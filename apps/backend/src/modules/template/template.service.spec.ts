@@ -7,16 +7,8 @@ import { TemplateTranslation } from 'src/entities/template-translation.entity'
 import { Image } from 'src/entities/image.entity'
 import { User } from 'src/entities/user.entity'
 import { BaseResponseDto } from 'src/common/base-response.dto'
-import {
-  ErrorCode,
-  ResponseMessage,
-  SendType,
-  NotificationType,
-  CategoryType,
-  Platform,
-  Language,
-  BakongApp,
-} from '@bakong/shared'
+import { ErrorCode, ResponseMessage, SendType, Platform, Language, BakongApp } from '@bakong/shared'
+import { CategoryType } from 'src/entities/category-type.entity'
 import { plainToClass } from 'class-transformer'
 import { CreateTemplateDto } from './dto/create-template.dto'
 import { UpdateTemplateDto } from './dto/update-template.dto'
@@ -61,13 +53,21 @@ describe('TemplateService', () => {
   ]
 
   // Sample template data
+  const mockCategoryType: CategoryType = {
+    id: 1,
+    name: 'NEWS',
+    icon: Buffer.from(''),
+    createdAt: new Date(),
+    templates: [],
+  } as CategoryType
+
   const draftTemplate: Template = {
     id: templateId,
     platforms: [Platform.IOS, Platform.ANDROID],
     bakongPlatform: BakongApp.BAKONG_JUNIOR,
     sendType: SendType.SEND_NOW,
-    notificationType: NotificationType.ANNOUNCEMENT,
-    categoryType: CategoryType.NEWS,
+    categoryTypeId: 1,
+    categoryType: mockCategoryType,
     priority: 1,
     isSent: false,
     sendSchedule: null,
@@ -78,6 +78,8 @@ describe('TemplateService', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
+    showPerDay: 1,
+    maxDayShowing: 1,
   } as Template
 
   const scheduledTemplate: Template = {
@@ -225,8 +227,7 @@ describe('TemplateService', () => {
         bakongPlatform: BakongApp.BAKONG_JUNIOR,
         sendType: SendType.SEND_NOW,
         isSent: true,
-        notificationType: NotificationType.ANNOUNCEMENT,
-        categoryType: CategoryType.NEWS,
+        categoryTypeId: 1,
         priority: 1,
         translations: [
           {
@@ -270,8 +271,7 @@ describe('TemplateService', () => {
         sendType: SendType.SEND_SCHEDULE,
         isSent: false,
         sendSchedule: futureDate.toISOString(),
-        notificationType: NotificationType.ANNOUNCEMENT,
-        categoryType: CategoryType.NEWS,
+        categoryTypeId: 1,
         translations: [
           {
             language: Language.EN,
@@ -313,8 +313,7 @@ describe('TemplateService', () => {
         platforms: [Platform.ANDROID],
         sendType: SendType.SEND_NOW,
         isSent: false, // Draft
-        notificationType: NotificationType.ANNOUNCEMENT,
-        categoryType: CategoryType.NEWS,
+        categoryTypeId: 1,
         translations: [
           {
             language: Language.KM,

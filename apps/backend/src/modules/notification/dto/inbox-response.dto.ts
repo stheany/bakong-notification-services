@@ -5,13 +5,12 @@ import { Message, ApnsConfig } from 'firebase-admin/messaging'
 import { TemplateService } from '../../template/template.service'
 import { ImageService } from '../../image/image.service'
 import { PaginationMeta } from '@bakong/shared'
-import { Language, NotificationType } from '@bakong/shared'
+import { Language } from '@bakong/shared'
 
 export interface NotificationData {
   id: number
   templateId: number
   language: string
-  notificationType: string
   categoryType: string
   bakongPlatform?: string
   createdDate: string
@@ -31,7 +30,6 @@ export class InboxResponseDto implements NotificationData {
   content: string
   imageUrl: string
   linkPreview: string
-  notificationType: string
   categoryType: string
   bakongPlatform?: string
   createdDate: string
@@ -57,7 +55,6 @@ export class InboxResponseDto implements NotificationData {
     this.id = Number(data.id)
     this.templateId = data.templateId || 0
     this.language = language
-    this.notificationType = data.template?.notificationType || NotificationType.ANNOUNCEMENT
     this.categoryType = data.template?.categoryType?.name || 'NEWS'
     this.bakongPlatform = data.template?.bakongPlatform
 
@@ -123,7 +120,6 @@ export class InboxResponseDto implements NotificationData {
       id: Number(notificationId),
       templateId: Number(template.id),
       language: translation.language,
-      notificationType: template.notificationType,
       categoryType: template.categoryType?.name || template.categoryTypeId?.toString() || '',
       bakongPlatform: template.bakongPlatform,
       createdDate: DateFormatter.formatDateByLanguage(template.createdAt, language as Language),
@@ -132,10 +128,7 @@ export class InboxResponseDto implements NotificationData {
       content: translation.content,
       imageUrl: imageUrl || '',
       linkPreview: translation.linkPreview || '',
-    }
-
-    if (template.notificationType === NotificationType.FLASH_NOTIFICATION) {
-      baseData.sendCount = sendCount || 1
+      sendCount: sendCount || 1,
     }
 
     return baseData
@@ -157,10 +150,6 @@ export class InboxResponseDto implements NotificationData {
       notificationId,
       sendCount,
     )
-
-    if (template.notificationType === NotificationType.FLASH_NOTIFICATION) {
-      baseData.sendCount = sendCount || 1
-    }
 
     return baseData
   }
@@ -296,7 +285,6 @@ export class InboxResponseDto implements NotificationData {
 
     // Build data payload for iOS (accessible when app is opened from notification)
     // Data fields must be strings for FCM
-    // Note: Mobile app will determine redirect screen based on notificationType field
     const dataPayload: Record<string, string> = {
       notificationId: String(notificationId),
     }
@@ -322,14 +310,11 @@ export class InboxResponseDto implements NotificationData {
 
   static buildIOSPayload(
     token: string,
-    type: NotificationType,
     title: string,
     body: string,
     notificationId: string,
     notification?: Record<string, string | number>,
   ): Message {
-    // FLASH_NOTIFICATION now sends FCM push like other notification types
-    // Mobile app will display it differently (as popup/flash screen)
     return this.buildIOSAlertPayload(token, title, body, notificationId, notification)
   }
 }

@@ -5,7 +5,6 @@ import { NotificationService } from './notification.service'
 import SentNotificationDto from './dto/send-notification.dto'
 import { BaseResponseDto } from 'src/common/base-response.dto'
 import { ErrorCode, ResponseMessage, BakongApp } from '@bakong/shared'
-import { NotificationType } from '@bakong/shared'
 import { BaseFunctionHelper } from 'src/common/util/base-function.helper'
 import { Roles } from 'src/common/middleware/roles.guard'
 import { UserRole } from '@bakong/shared'
@@ -25,7 +24,6 @@ export class NotificationController {
       templateId: dto.templateId,
       notificationId: dto.notificationId,
       language: dto.language,
-      notificationType: dto.notificationType,
       bakongPlatform: dto.bakongPlatform,
       accountId: dto.accountId || 'N/A',
       fcmToken: dto.fcmToken
@@ -39,11 +37,9 @@ export class NotificationController {
       if (dto.accountId) {
         // CRITICAL: Sync user data FIRST when FCM push is received (before any other operations)
         // This ensures we have the latest user data (fcmToken, bakongPlatform, etc.) immediately
-        // Mobile app always provides all data when receiving FCM push (all notification types)
-        // IMPORTANT: Do NOT force notificationType - let it come from mobile's FCM payload
-        const notificationTypeLabel = dto.notificationType || 'UNKNOWN'
+        // Mobile app always provides all data when receiving FCM push
         console.log(
-          `🔄 [sendNotification] FCM push received - Syncing user data FIRST for ${dto.accountId} before processing ${notificationTypeLabel} notification`,
+          `🔄 [sendNotification] FCM push received - Syncing user data FIRST for ${dto.accountId} before processing notification`,
         )
 
         // Mobile app ALWAYS provides bakongPlatform in the request
@@ -61,21 +57,12 @@ export class NotificationController {
           }
         }
 
-        // If notificationType is not provided, default to FLASH_NOTIFICATION for backward compatibility
-        // But prefer to use the type from FCM payload if provided
-        if (!dto.notificationType) {
-          console.warn(
-            `⚠️ [sendNotification] notificationType not provided in request, defaulting to FLASH_NOTIFICATION for backward compatibility`,
-          )
-          dto.notificationType = NotificationType.FLASH_NOTIFICATION
-        }
-
         // Check fcmToken status for logging
         if (dto.fcmToken === undefined) {
           const existingUser = await this.baseFunctionHelper.findUserByAccountId(dto.accountId)
           if (existingUser?.fcmToken) {
             console.warn(
-              `⚠️ [sendNotification] ${dto.notificationType || 'Notification'} for ${
+              `⚠️ [sendNotification] Notification for ${
                 dto.accountId
               } but fcmToken NOT PROVIDED. User has existing token: ${existingUser.fcmToken.substring(
                 0,
@@ -84,20 +71,20 @@ export class NotificationController {
             )
           } else {
             console.warn(
-              `⚠️ [sendNotification] ${dto.notificationType || 'Notification'} for ${
+              `⚠️ [sendNotification] Notification for ${
                 dto.accountId
               } but fcmToken NOT PROVIDED. User has no existing token.`,
             )
           }
         } else if (dto.fcmToken === '') {
           console.log(
-            `ℹ️ [sendNotification] ${dto.notificationType || 'Notification'} for ${
+            `ℹ️ [sendNotification] Notification for ${
               dto.accountId
             } with EMPTY fcmToken (app deleted/reinstalled - will clear old token)`,
           )
         } else {
           console.log(
-            `✅ [sendNotification] ${dto.notificationType || 'Notification'} for ${
+            `✅ [sendNotification] Notification for ${
               dto.accountId
             } with NEW fcmToken: ${dto.fcmToken.substring(0, 30)}...`,
           )
@@ -118,14 +105,8 @@ export class NotificationController {
         })
 
         console.log(
-          `✅ [sendNotification] User data synced successfully for ${
-            dto.accountId
-          }. Proceeding with ${dto.notificationType || 'notification'}...`,
+          `✅ [sendNotification] User data synced successfully for ${dto.accountId}. Proceeding with notification...`,
         )
-      } else {
-        if (!dto.notificationType) {
-          dto.notificationType = NotificationType.ANNOUNCEMENT
-        }
       }
 
       const result = await this.service.sendNow(dto, req)

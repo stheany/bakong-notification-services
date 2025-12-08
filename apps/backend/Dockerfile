@@ -1,7 +1,7 @@
 # -----------------------------------------------------
 # 🏗️ Stage 1 — Build backend and shared packages
 # -----------------------------------------------------
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /opt/bk_notification_service
 ENV NODE_ENV=development
 
@@ -21,10 +21,27 @@ COPY apps/packages/shared/tsconfig*.json ./apps/packages/shared/
 COPY apps/backend/nest-cli.json ./apps/backend/
 
 # -----------------------------------------------------
-# Install dependencies
+# Configure npm for better network reliability
 # -----------------------------------------------------
-RUN npm ci --legacy-peer-deps \
-  && cd apps/backend && npm ci --legacy-peer-deps
+RUN npm config set fetch-retries 5 \
+  && npm config set fetch-retry-mintimeout 20000 \
+  && npm config set fetch-retry-maxtimeout 120000 \
+  && npm config set fetch-timeout 300000
+
+# -----------------------------------------------------
+# Install dependencies with retry logic
+# -----------------------------------------------------
+RUN npm ci --legacy-peer-deps || \
+    (echo "⚠️  First npm ci failed, retrying..." && sleep 5 && npm ci --legacy-peer-deps) || \
+    (echo "⚠️  Second npm ci failed, retrying again..." && sleep 10 && npm ci --legacy-peer-deps)
+
+# Install backend dependencies with retry logic
+WORKDIR /opt/bk_notification_service/apps/backend
+RUN npm ci --legacy-peer-deps || \
+    (echo "⚠️  Backend npm ci failed, retrying..." && sleep 5 && npm ci --legacy-peer-deps) || \
+    (echo "⚠️  Backend npm ci failed again, retrying..." && sleep 10 && npm ci --legacy-peer-deps)
+
+WORKDIR /opt/bk_notification_service
 
 # -----------------------------------------------------
 # Copy full source
@@ -64,15 +81,25 @@ COPY apps/packages/shared/package*.json ./apps/packages/shared/
 COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
 COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./apps/packages/shared/dist
 
+# Configure npm for better network reliability
+RUN npm config set fetch-retries 5 \
+  && npm config set fetch-retry-mintimeout 20000 \
+  && npm config set fetch-retry-maxtimeout 120000 \
+  && npm config set fetch-timeout 300000
+
 # Install production dependencies (rebuilds native modules like bcrypt for correct architecture)
 # Try workspace install first, fallback to installing all deps if needed (ensures @nestjs/core is available)
 WORKDIR /opt/bk_notification_service
 RUN npm ci --legacy-peer-deps --omit=dev --workspace=apps/backend --workspace=apps/packages/shared 2>&1 || \
-    (echo "⚠️  Workspace install with --omit=dev failed, installing all dependencies to ensure availability..." && \
+    (echo "⚠️  Workspace install with --omit=dev failed, retrying..." && sleep 5 && \
+     npm ci --legacy-peer-deps --omit=dev --workspace=apps/backend --workspace=apps/packages/shared 2>&1) || \
+    (echo "⚠️  Workspace install with --omit=dev failed again, installing all dependencies..." && \
      npm ci --legacy-peer-deps --workspace=apps/backend --workspace=apps/packages/shared 2>&1 || \
+     (echo "⚠️  Workspace install failed, retrying..." && sleep 5 && \
+      npm ci --legacy-peer-deps --workspace=apps/backend --workspace=apps/packages/shared 2>&1) || \
      (echo "⚠️  Workspace install failed, trying individual installs..." && \
-      cd apps/backend && npm ci --legacy-peer-deps && \
-      cd ../packages/shared && npm ci --legacy-peer-deps || true))
+      cd apps/backend && (npm ci --legacy-peer-deps || (sleep 5 && npm ci --legacy-peer-deps)) && \
+      cd ../packages/shared && (npm ci --legacy-peer-deps || (sleep 5 && npm ci --legacy-peer-deps)) || true))
 
 # Verify @nestjs/core is actually installed and can be required
 WORKDIR /opt/bk_notification_service

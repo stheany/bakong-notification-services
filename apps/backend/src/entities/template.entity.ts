@@ -1,23 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm'
+import { BakongApp, SendType } from '@bakong/shared'
 import { CategoryType } from './category-type.entity'
 import { TemplateTranslation } from './template-translation.entity'
 import { Notification } from './notification.entity'
-
-// TODO: replace these with your real enums
-export enum BakongPlatform {
-  BAKONG = 'BAKONG',
-  // ...
-}
-
-export enum SendType {
-  SEND_SCHEDULE = 'SEND_SCHEDULE',
-  // ...
-}
-
-export enum NotificationType {
-  FLASH_NOTIFICATION = 'FLASH_NOTIFICATION',
-  // ...
-}
 
 @Entity({ name: 'template' })
 export class Template {
@@ -27,10 +12,10 @@ export class Template {
   @Column({
     name: 'bakongPlatform',
     type: 'enum',
-    enum: BakongPlatform,
+    enum: BakongApp,
     nullable: true,
   })
-  bakongPlatform?: BakongPlatform
+  bakongPlatform?: BakongApp
 
   @Column({
     name: 'sendType',
@@ -75,14 +60,6 @@ export class Template {
     array: true,
   })
   platforms: string[]
-
-  @Column({
-    name: 'notificationType',
-    type: 'enum',
-    enum: NotificationType,
-    default: NotificationType.FLASH_NOTIFICATION,
-  })
-  notificationType: NotificationType
 
   @Column({ name: 'sendInterval', type: 'json', nullable: true })
   sendInterval?: any

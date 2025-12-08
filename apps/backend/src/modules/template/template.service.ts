@@ -22,14 +22,7 @@ import { UpdateTemplateDto } from './dto/update-template.dto'
 import { CreateTemplateDto } from './dto/create-template.dto'
 import { ImageService } from '../image/image.service'
 import { PaginationUtils } from '@bakong/shared'
-import {
-  ErrorCode,
-  ResponseMessage,
-  SendType,
-  NotificationType,
-  TimezoneUtils,
-  Language,
-} from '@bakong/shared'
+import { ErrorCode, ResponseMessage, SendType, TimezoneUtils, Language } from '@bakong/shared'
 import { ValidationHelper } from 'src/common/util/validation.helper'
 
 @Injectable()
@@ -57,7 +50,6 @@ export class TemplateService implements OnModuleInit {
 
   async create(dto: CreateTemplateDto, currentUser?: any) {
     console.log('🔵 [TEMPLATE CREATE] Starting template creation:', {
-      notificationType: dto.notificationType,
       sendType: dto.sendType,
       isSent: dto.isSent,
       platforms: dto.platforms,
@@ -166,11 +158,7 @@ export class TemplateService implements OnModuleInit {
       }
     }
 
-    if (
-      dto.sendType === SendType.SEND_SCHEDULE &&
-      !dto.sendSchedule &&
-      dto.notificationType !== NotificationType.FLASH_NOTIFICATION
-    ) {
+    if (dto.sendType === SendType.SEND_SCHEDULE && !dto.sendSchedule) {
       throw new BaseResponseDto({
         responseCode: 1,
         errorCode: ErrorCode.VALIDATION_FAILED,
@@ -185,20 +173,28 @@ export class TemplateService implements OnModuleInit {
         ? dto.isSent !== false // Send if not explicitly false (true or undefined)
         : dto.isSent === true
 
-    // Normalize platforms: handle string[][] from database or string[] from DTO
-    const platformsInput = Array.isArray(dto.platforms) && dto.platforms.length > 0 && Array.isArray(dto.platforms[0]) 
-      ? (dto.platforms as string[][]).flat() 
-      : dto.platforms
-    const normalizedPlatforms = ValidationHelper.parsePlatforms(platformsInput as string | string[])
-    // Convert 1D array to 2D array format for database: ["ALL"] -> [["ALL"]]
-    const platforms2D: string[][] = normalizedPlatforms.map(p => [p])
+    // Normalize platforms: handle string[][] from database or Platform[]/string[] from DTO
+    let platformsInput: string | string[]
+    if (Array.isArray(dto.platforms) && dto.platforms.length > 0) {
+      // Check if it's a 2D array (array of arrays)
+      if (Array.isArray(dto.platforms[0])) {
+        platformsInput = (dto.platforms as unknown as string[][]).flat()
+      } else {
+        // Convert Platform[] enum array to string[]
+        platformsInput = dto.platforms.map((p) => String(p))
+      }
+    } else {
+      platformsInput = dto.platforms as string | string[]
+    }
+    const normalizedPlatforms = ValidationHelper.parsePlatforms(platformsInput)
+    // Convert to string array format for database
+    const platformsArray: string[] = normalizedPlatforms.map((p: string) => p)
 
-    let template = this.repo.create({
-      platforms: platforms2D,
+    const templateData = this.repo.create({
+      platforms: platformsArray,
       bakongPlatform: dto.bakongPlatform,
       sendType: dto.sendType,
       isSent: initialIsSent,
-      notificationType: dto.notificationType || NotificationType.FLASH_NOTIFICATION,
       categoryTypeId: dto.categoryTypeId,
       priority: dto.priority || 0,
       sendSchedule: dto.sendSchedule ? moment.utc(dto.sendSchedule).toDate() : null,
@@ -217,7 +213,8 @@ export class TemplateService implements OnModuleInit {
       updatedBy: currentUser?.id,
     })
 
-    template = await this.repo.save(template)
+    const savedTemplate = await this.repo.save(templateData)
+    let template: Template = Array.isArray(savedTemplate) ? savedTemplate[0] : savedTemplate
     console.log('🔵 [TEMPLATE CREATE] Template saved with ID:', template.id)
 
     if (dto.translations && dto.translations.length > 0) {
@@ -388,21 +385,11 @@ export class TemplateService implements OnModuleInit {
     }
 
     console.log('🔵 [TEMPLATE CREATE] Ready to check sending logic:', {
-      notificationType: template.notificationType,
-      isFlashNotification: template.notificationType === NotificationType.FLASH_NOTIFICATION,
       sendType: template.sendType,
       isSent: template.isSent,
       hasTranslations: template.translations?.length > 0 || false,
       translationsCount: template.translations?.length || 0,
     })
-
-    // FLASH_NOTIFICATION now sends FCM push like other notification types
-    // Mobile app will display it differently (as popup/flash screen)
-    if (template.notificationType === NotificationType.FLASH_NOTIFICATION) {
-      console.log(
-        '🔵 [TEMPLATE CREATE] FLASH_NOTIFICATION - will send FCM push (mobile displays as popup)',
-      )
-    }
 
     console.log('🔵 [TEMPLATE CREATE] SEND TYPE DEBUG:', {
       sendType: template.sendType,
@@ -467,7 +454,6 @@ export class TemplateService implements OnModuleInit {
           failedCount: 0,
           failedUsers: [],
         }
-        let sendError: any = null
         let noUsersForPlatform = false
         try {
           sendResult = await this.notificationService.sendWithTemplate(templateWithTranslations)
@@ -479,7 +465,6 @@ export class TemplateService implements OnModuleInit {
             code: error?.code,
             fullError: process.env.NODE_ENV === 'development' ? error : 'Hidden in production',
           })
-          sendError = error
           sendResult = { successfulCount: 0, failedCount: 0, failedUsers: [] }
 
           // Check if error is about no users for bakongPlatform
@@ -594,7 +579,6 @@ export class TemplateService implements OnModuleInit {
       platforms,
       bakongPlatform,
       translations,
-      notificationType,
       categoryTypeId,
       sendType,
       sendSchedule,
@@ -638,7 +622,7 @@ export class TemplateService implements OnModuleInit {
           existing: template.platforms,
         })
         // Convert 1D array to 2D array format for database
-        updateFields.platforms = normalizedPlatforms.map(p => [p])
+        updateFields.platforms = normalizedPlatforms.map((p) => [p])
       } else {
         console.log(
           `🔵 [UPDATE] Platforms NOT provided in update request - preserving existing:`,
@@ -647,7 +631,6 @@ export class TemplateService implements OnModuleInit {
         // Preserve existing platforms - don't update this field
       }
       if (bakongPlatform !== undefined) updateFields.bakongPlatform = bakongPlatform
-      if (notificationType !== undefined) updateFields.notificationType = notificationType
       if (categoryTypeId !== undefined) updateFields.categoryTypeId = categoryTypeId
 
       if (sendType !== undefined) {
@@ -843,11 +826,7 @@ export class TemplateService implements OnModuleInit {
 
       // Check if trying to publish a draft (SEND_NOW with isSent=true)
       if (updatedTemplate.sendType === SendType.SEND_NOW && updatedTemplate.isSent === true) {
-        // FLASH_NOTIFICATION now sends FCM push like other notification types
-        // Mobile app will display it differently (as popup/flash screen)
-        console.log(
-          `🔵 [UPDATE] Publishing notification (type: ${updatedTemplate.notificationType}) - will send FCM push`,
-        )
+        console.log(`🔵 [UPDATE] Publishing notification - will send FCM push`)
         console.log(
           `🔵 [UPDATE] Template platforms when publishing:`,
           updatedTemplate.platforms,
@@ -947,8 +926,28 @@ export class TemplateService implements OnModuleInit {
       // Force sendType to SEND_NOW and isSent to true to keep it in published tab
       const isEditingPublished = oldTemplate.isSent === true
 
-      const newTemplateData = {
-        platforms: dto.platforms || oldTemplate.platforms,
+      // Handle platforms conversion if needed
+      let platformsData: string[] = oldTemplate.platforms
+      if (dto.platforms) {
+        let platformsInput: string | string[]
+        if (Array.isArray(dto.platforms) && dto.platforms.length > 0) {
+          // Check if it's a 2D array (array of arrays)
+          if (Array.isArray(dto.platforms[0])) {
+            platformsInput = (dto.platforms as unknown as string[][]).flat()
+          } else {
+            // Convert Platform[] enum array to string[]
+            platformsInput = dto.platforms.map((p) => String(p))
+          }
+        } else {
+          platformsInput = dto.platforms as string | string[]
+        }
+        const normalizedPlatforms = ValidationHelper.parsePlatforms(platformsInput)
+        platformsData = normalizedPlatforms.map((p: string) => p)
+      }
+
+      const newTemplateData: Partial<Template> = {
+        id: id,
+        platforms: platformsData,
         bakongPlatform:
           dto.bakongPlatform !== undefined ? dto.bakongPlatform : oldTemplate.bakongPlatform,
         // Always keep as SEND_NOW when editing published notification, ignore DTO
@@ -959,10 +958,11 @@ export class TemplateService implements OnModuleInit {
         sendSchedule: isEditingPublished
           ? null
           : dto.sendSchedule !== undefined
-            ? dto.sendSchedule
-            : oldTemplate.sendSchedule,
+          ? dto.sendSchedule
+            ? moment.utc(dto.sendSchedule).toDate()
+            : null
+          : oldTemplate.sendSchedule,
         sendInterval: isEditingPublished ? null : oldTemplate.sendInterval,
-        notificationType: dto.notificationType || oldTemplate.notificationType,
         categoryTypeId: dto.categoryTypeId ?? oldTemplate.categoryTypeId,
         priority: oldTemplate.priority,
         createdBy: currentUser?.id || oldTemplate.createdBy,
@@ -970,7 +970,7 @@ export class TemplateService implements OnModuleInit {
         publishedBy: currentUser?.id || oldTemplate.publishedBy,
       }
 
-      const newTemplate = await this.repo.save(newTemplateData)
+      const newTemplate = await this.repo.save(newTemplateData as Template)
 
       if (dto.translations && dto.translations.length > 0) {
         for (const translation of dto.translations) {
@@ -1043,18 +1043,14 @@ export class TemplateService implements OnModuleInit {
         await this.forceDeleteTemplate(id)
         const templateToReturn = await this.findOneRaw(newTemplate.id)
         return this.formatTemplateResponse(templateToReturn)
-      } else if (newTemplate.sendType === 'SEND_NOW' && dto.isSent === true) {
+      } else if (newTemplate.sendType === SendType.SEND_NOW && dto.isSent === true) {
         // This shouldn't happen in editPublishedNotification (only drafts go through update method)
         // But handle it just in case - this would be publishing a draft for the first time
         console.log(
           `⚠️ [editPublishedNotification] Unexpected: Publishing draft in editPublishedNotification`,
         )
 
-        // FLASH_NOTIFICATION now sends FCM push like other notification types
-        // Mobile app will display it differently (as popup/flash screen)
-        console.log(
-          `🔵 [editPublishedNotification] Publishing notification (type: ${newTemplate.notificationType}) - will send FCM push`,
-        )
+        console.log(`🔵 [editPublishedNotification] Publishing notification - will send FCM push`)
 
         const templateWithTranslations = await this.repo.findOne({
           where: { id: newTemplate.id },
@@ -1102,7 +1098,7 @@ export class TemplateService implements OnModuleInit {
         console.log(`📝 [editPublishedNotification] Template updated and kept as draft`)
       }
 
-      if (newTemplate.sendType === 'SEND_SCHEDULE' && newTemplate.sendSchedule) {
+      if (newTemplate.sendType === SendType.SEND_SCHEDULE && newTemplate.sendSchedule) {
         console.log(
           `Scheduling updated notification for template ${newTemplate.id} at ${newTemplate.sendSchedule}`,
         )
@@ -1122,7 +1118,7 @@ export class TemplateService implements OnModuleInit {
         }
 
         this.addScheduleNotification(newTemplate)
-      } else if (newTemplate.sendType === 'SEND_INTERVAL' && newTemplate.sendInterval) {
+      } else if (newTemplate.sendType === SendType.SEND_INTERVAL && newTemplate.sendInterval) {
         console.log(`Scheduling updated notification with interval for template ${newTemplate.id}`)
         this.addIntervalNotification(newTemplate)
       }
@@ -1383,7 +1379,6 @@ export class TemplateService implements OnModuleInit {
       platforms: parsedPlatforms, // Always return as array for frontend
       bakongPlatform: template.bakongPlatform,
       sendType: template.sendType,
-      notificationType: template.notificationType,
       categoryType: template.categoryType?.name,
       categoryTypeId: template.categoryTypeId,
       priority: template.priority,
@@ -1409,7 +1404,6 @@ export class TemplateService implements OnModuleInit {
         ? template.translations.map((translation) => ({
             id: translation.id,
             language: translation.language,
-            type: template.notificationType,
             title: translation.title,
             content: translation.content,
             linkPreview: translation.linkPreview,
@@ -1424,12 +1418,12 @@ export class TemplateService implements OnModuleInit {
                     : null,
                 }
               : translation.imageId
-                ? {
-                    fileId: translation.imageId,
-                    mimeType: null,
-                    originalFileName: null,
-                  }
-                : null,
+              ? {
+                  fileId: translation.imageId,
+                  mimeType: null,
+                  originalFileName: null,
+                }
+              : null,
           }))
         : [],
     }
@@ -1458,7 +1452,10 @@ export class TemplateService implements OnModuleInit {
     let status: string
     if (template.isSent) {
       status = 'published'
-    } else if (template.sendType === 'SEND_SCHEDULE' || template.sendType === 'SEND_INTERVAL') {
+    } else if (
+      template.sendType === SendType.SEND_SCHEDULE ||
+      template.sendType === SendType.SEND_INTERVAL
+    ) {
       status = 'scheduled'
     } else {
       status = 'draft'
@@ -1507,7 +1504,6 @@ export class TemplateService implements OnModuleInit {
       linkPreview: translation.linkPreview,
       date: date,
       status: status,
-      type: template.notificationType,
       createdAt: template.createdAt,
       templateId: template.id,
       isSent: template.isSent,
@@ -1570,9 +1566,6 @@ export class TemplateService implements OnModuleInit {
       }
 
       // Use notificationService to check for matching users
-      // We'll create a temporary template to check users
-      const tempTemplate = { ...template } as Template
-
       // Try to get users through sendWithTemplate logic
       // But we'll use a simpler check - just verify users exist
       const bkUserRepo = (this.notificationService as any).bkUserRepo
@@ -1687,8 +1680,9 @@ export class TemplateService implements OnModuleInit {
             })
 
             if (templateWithTranslations && templateWithTranslations.translations) {
-              const sentCount =
-                await this.notificationService.sendWithTemplate(templateWithTranslations)
+              const sentCount = await this.notificationService.sendWithTemplate(
+                templateWithTranslations,
+              )
 
               if (typeof sentCount === 'number' && sentCount > 0) {
                 await this.markAsPublished(template.id)
@@ -1747,8 +1741,9 @@ export class TemplateService implements OnModuleInit {
           })
 
           if (templateWithTranslations && templateWithTranslations.translations) {
-            const sentCount =
-              await this.notificationService.sendWithTemplate(templateWithTranslations)
+            const sentCount = await this.notificationService.sendWithTemplate(
+              templateWithTranslations,
+            )
 
             if (typeof sentCount === 'number' && sentCount > 0) {
               await this.markAsPublished(template.id)
@@ -1786,25 +1781,6 @@ export class TemplateService implements OnModuleInit {
   }
 
   async findNotificationTemplate(dto: any): Promise<any> {
-    if (dto.notificationType === NotificationType.FLASH_NOTIFICATION) {
-      // IMPORTANT: Only include published templates (isSent: true), exclude drafts
-      const templates = await this.repo.find({
-        where: {
-          notificationType: NotificationType.FLASH_NOTIFICATION,
-          isSent: true, // Only published templates, exclude drafts
-        },
-        relations: ['translations', 'translations.image'],
-        order: { priority: 'DESC', createdAt: 'DESC' },
-      })
-      const template = templates.find((t) => t.translations && t.translations.length > 0) || null
-      if (!template) {
-        throw new Error(
-          `No published templates found for type ${NotificationType.FLASH_NOTIFICATION}`,
-        )
-      }
-      return { template, notificationType: NotificationType.FLASH_NOTIFICATION }
-    }
-
     if (dto.templateId) {
       const template = await this.findTemplateById(dto.templateId.toString())
       // Verify template is published (not draft)
@@ -1813,14 +1789,12 @@ export class TemplateService implements OnModuleInit {
           `Template ${dto.templateId} is a draft and cannot be sent. Please publish it first.`,
         )
       }
-      return { template, notificationType: template.notificationType }
+      return { template }
     }
 
-    const validatedRequest = dto.notificationType || dto.type
     // IMPORTANT: Only include published templates (isSent: true), exclude drafts
     const templates = await this.repo.find({
       where: {
-        notificationType: validatedRequest,
         isSent: true, // Only published templates, exclude drafts
       },
       relations: ['translations', 'translations.image'],
@@ -1828,10 +1802,10 @@ export class TemplateService implements OnModuleInit {
     })
     const template = templates.find((t) => t.translations && t.translations.length > 0) || null
     if (!template) {
-      throw new Error(`No published templates found for type ${validatedRequest}`)
+      throw new Error(`No published templates found`)
     }
 
-    return { template, notificationType: validatedRequest }
+    return { template }
   }
 
   async findTemplateById(templateId: string): Promise<Template> {
@@ -1869,20 +1843,34 @@ export class TemplateService implements OnModuleInit {
       return createdAt >= todayStart && createdAt <= todayEnd
     })
 
-    const templateViewCounts = todayNotifications.reduce(
-      (acc, notif) => {
-        const templateId = notif.templateId
-        if (templateId) {
-          acc[templateId] = (acc[templateId] || 0) + 1
-        }
-        return acc
-      },
-      {} as Record<number, number>,
-    )
+    const templateTodayCounts = todayNotifications.reduce((acc, notif) => {
+      const templateId = notif.templateId
+      if (templateId) {
+        acc[templateId] = (acc[templateId] || 0) + 1
+      }
+      return acc
+    }, {} as Record<number, number>)
 
-    // Get all published flash templates to check their limits
+    // Calculate days count for each template (unique days sent)
+    const templateDaysCounts: Record<number, Set<string>> = {}
+    userNotifications.forEach((notif) => {
+      const templateId = notif.templateId
+      if (templateId) {
+        if (!templateDaysCounts[templateId]) {
+          templateDaysCounts[templateId] = new Set()
+        }
+        const dateKey = new Date(notif.createdAt).toISOString().split('T')[0]
+        templateDaysCounts[templateId].add(dateKey)
+      }
+    })
+
+    // Get templates sent 2+ times today
+    const seenTemplateIds = Object.keys(templateTodayCounts)
+      .filter((id) => templateTodayCounts[Number(id)] >= 2)
+      .map(Number)
+
+    // Get all published templates to check their limits
     const allTemplatesWhere: any = {
-      notificationType: NotificationType.FLASH_NOTIFICATION,
       isSent: true,
     }
     if (userBakongPlatform) {
@@ -1936,7 +1924,6 @@ export class TemplateService implements OnModuleInit {
     // IMPORTANT: Only include published templates (isSent: true), exclude drafts
     // Exclude templates that have reached their limits
     const whereClause: any = {
-      notificationType: NotificationType.FLASH_NOTIFICATION,
       isSent: true, // Only published templates, exclude drafts
       ...(excludedTemplateIds.length > 0 && { id: Not(In(excludedTemplateIds)) }),
     }
@@ -1965,7 +1952,6 @@ export class TemplateService implements OnModuleInit {
     if (availableTemplates.length === 0) {
       // Check if all templates have been sent 2+ times (limit reached)
       const allTemplatesWhere: any = {
-        notificationType: NotificationType.FLASH_NOTIFICATION,
         isSent: true,
       }
       if (userBakongPlatform) {
@@ -1992,7 +1978,6 @@ export class TemplateService implements OnModuleInit {
         )
         const fallbackTemplates = await this.repo.find({
           where: {
-            notificationType: NotificationType.FLASH_NOTIFICATION,
             isSent: true, // Still exclude drafts
             ...(excludedTemplateIds.length > 0 && { id: Not(In(excludedTemplateIds)) }),
           },

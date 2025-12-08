@@ -1,4 +1,4 @@
-import { NotificationType, ResponseMessage, ErrorCode, ValidationUtils } from '@bakong/shared'
+import { ResponseMessage, ErrorCode, ValidationUtils } from '@bakong/shared'
 import SentNotificationDto from 'src/modules/notification/dto/send-notification.dto'
 import { BaseResponseDto } from '../base-response.dto'
 import { getAuth } from 'firebase-admin/auth'
@@ -7,7 +7,7 @@ import { BakongUser } from 'src/entities/bakong-user.entity'
 export class ValidationHelper {
   static validateLanguage = ValidationUtils.validateLanguage
   static validatePlatform = ValidationUtils.validatePlatform
-  static validateNotificationType = ValidationUtils.validateNotificationType
+  // validateNotificationType removed - NotificationType enum deleted
   // validateCategoryType removed - use categoryTypeId from database instead
   static validateUserRole = ValidationUtils.validateUserRole
   static validateSendType = ValidationUtils.validateSendType
@@ -634,18 +634,9 @@ export class ValidationHelper {
     return hasChanges
   }
 
-  static checkValidationViewCount(dto: SentNotificationDto): NotificationType {
-    const { notificationType } = dto
-
-    if (notificationType) {
-      const validation = ValidationHelper.validateNotificationType(notificationType)
-      if (!validation.isValid) {
-        throw new Error(`Notification type validation failed: ${validation.errorMessage}`)
-      }
-      return validation.normalizedValue
-    }
-
-    return NotificationType.NOTIFICATION
+  // checkValidationViewCount removed - NotificationType enum deleted
+  static checkValidationViewCount(dto: SentNotificationDto): string {
+    return 'NOTIFICATION'
   }
 
   static createErrorResponse(error: any, context?: string): any {
