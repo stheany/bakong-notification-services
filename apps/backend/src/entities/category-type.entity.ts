@@ -4,7 +4,7 @@ import { Template } from './template.entity'
 @Entity({ name: 'category_type' })
 export class CategoryType {
   @PrimaryGeneratedColumn()
-  id: number
+  id: number;
 
   @Column({ type: 'varchar', length: 255, unique: true })
   name: string

@@ -1830,7 +1830,7 @@ export class NotificationService {
 
     if (mode === 'individual') {
       try {
-        await this.notiRepo.update({ id: notificationId }, { firebaseMessageId: firebaseMessageId })
+        await this.notiRepo.update({ id: notificationId }, { firebaseMessageId: firebaseMessageId || null })
         return
       } catch (error) {
         throw error

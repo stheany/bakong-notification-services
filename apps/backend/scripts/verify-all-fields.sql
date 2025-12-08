@@ -3,10 +3,13 @@
 -- ============================================================================
 -- This script verifies that all required fields exist in the template table
 -- Compares database schema with entity definition
+<<<<<<< HEAD
 -- Updated to match unified migration schema (categoryTypeId, category_type table, etc.)
 -- 
 -- Usage:
 --   psql -U <username> -d <database> -f apps/backend/scripts/verify-all-fields.sql
+=======
+>>>>>>> origin/feature/setting
 -- ============================================================================
 
 DO $$
@@ -43,7 +46,11 @@ DECLARE
     old_fields TEXT[] := ARRAY[]::TEXT[];
     field TEXT;
     required_fields TEXT[] := ARRAY[
+<<<<<<< HEAD
         'id', 'platforms', 'sendType', 'notificationType', 'categoryTypeId',
+=======
+        'id', 'platforms', 'sendType', 'notificationType', 'categoryTypeid',
+>>>>>>> origin/feature/setting
         'priority', 'sendInterval', 'isSent', 'sendSchedule',
         'createdBy', 'updatedBy', 'publishedBy', 'bakongPlatform',
         'showPerDay', 'maxDayShowing', 'createdAt', 'updatedAt', 'deletedAt'
@@ -161,6 +168,7 @@ SELECT
 FROM information_schema.columns 
 WHERE table_name = 'template' AND column_name = 'maxDayShowing';
 
+<<<<<<< HEAD
 \echo ''
 \echo '📋 Related Schema Verification:'
 \echo ''
@@ -223,3 +231,12 @@ END$$;
 \echo '✅ Verification complete!'
 \echo ''
 
+=======
+-- Summary
+DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '✅ Verification complete!';
+    RAISE NOTICE '';
+END$$;
+>>>>>>> origin/feature/setting

@@ -76,7 +76,13 @@ if docker ps -a --format '{{.Names}}' | grep -q "bakong-notification-services-db
 else
     echo "⚠️  Dev database container not found"
     echo "   Starting dev database..."
-    docker-compose -f docker-compose.yml up -d db
+    if command -v docker > /dev/null 2>&1 && docker compose version > /dev/null 2>&1; then
+        # Use Docker Compose V2 (docker compose)
+        docker compose -f docker-compose.yml up -d db
+    else
+        # Fallback to docker-compose V1
+        docker-compose -f docker-compose.yml up -d db
+    fi
     sleep 10
     CONTAINER_NAME="bakong-notification-services-db-dev"
     DB_NAME="bakong_notification_services_dev"
@@ -105,15 +111,56 @@ if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     done
 else
     echo "⚠️  Starting database container..."
-    # Check if container exists but is stopped
+    # Check if container exists but is stopped or stuck
     if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-        echo "   Container exists but is stopped. Removing old container..."
-        docker rm "$CONTAINER_NAME" 2>/dev/null || true
+        echo "   Container exists but is not running. Removing old container..."
+        docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+        sleep 2
     fi
-    # Start fresh container with docker-compose
-    docker-compose -f docker-compose.yml up -d db
-    echo "   ⏳ Waiting for database to start (15 seconds)..."
-    sleep 15
+    # Start fresh container with docker compose (V2 syntax)
+    echo "   Starting database container..."
+    if command -v docker > /dev/null 2>&1 && docker compose version > /dev/null 2>&1; then
+        # Use Docker Compose V2 (docker compose)
+        echo "   Using Docker Compose V2..."
+        if ! docker compose -f docker-compose.yml up -d db 2>&1; then
+            echo "   ❌ Failed to start container with docker compose"
+            exit 1
+        fi
+    else
+        # Fallback to docker-compose V1
+        echo "   Using Docker Compose V1..."
+        if ! docker-compose -f docker-compose.yml up -d db 2>&1; then
+            echo "   ❌ Failed to start container with docker-compose"
+            exit 1
+        fi
+    fi
+    
+    # Wait a bit for container to start
+    echo "   ⏳ Waiting for container to start (3 seconds)..."
+    sleep 3
+    
+    # Check if container actually started
+    MAX_RETRIES=10
+    RETRY_COUNT=0
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+            echo "   ✅ Container is running"
+            break
+        fi
+        
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            echo "   ❌ Container failed to start after $MAX_RETRIES attempts"
+            echo "   Checking container status..."
+            docker ps -a | grep "$CONTAINER_NAME" || true
+            echo "   Checking logs..."
+            docker logs "$CONTAINER_NAME" --tail 30 2>&1 || true
+            exit 1
+        fi
+        
+        echo "   ⏳ Waiting for container to start... ($RETRY_COUNT/$MAX_RETRIES)"
+        sleep 2
+    done
     
     # Wait for database to be ready
     echo "   Waiting for database to be ready..."

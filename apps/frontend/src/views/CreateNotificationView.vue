@@ -209,7 +209,7 @@
               </div>
             </div>
           </div>
-          <div class="schedule-options-container">
+          <div class="schedule-options-container" style="display: none;">
             <div class="splash-options">
               <div class="schedule-options-header">
                 <div class="schedule-option-left">
@@ -224,7 +224,7 @@
                 <div class="schedule-option-right">
                   <span class="option-label">Set number of showing</span>
                   <label class="toggle-switch">
-                    <input v-model="formData.splashEnabled" type="checkbox" />
+                    <input v-model="formData.splashEnabled" type="checkbox" disabled />
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
@@ -764,6 +764,17 @@ const handlePublishNow = async () => {
 
 const handlePublishNowInternal = async () => {
   isSavingOrPublishing.value = true
+
+  // Validate categoryTypeId
+  if (formData.categoryTypeId == null || formData.categoryTypeId === undefined) {
+    ElNotification({
+      title: 'Error',
+      message: 'Please select a category',
+      type: 'error',
+      duration: 2000,
+    })
+    return
+  }
 
   const loadingNotification = ElNotification({
     title: isEditMode.value ? 'Updating notification...' : 'Creating notification...',
