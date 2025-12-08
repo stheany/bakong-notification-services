@@ -1,41 +1,44 @@
 import { Exclude } from 'class-transformer'
-import {
-  Column,
-  CreateDateColumn,
-  DeleteDateColumn,
-  Entity,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm'
 import { UserRole } from '@bakong/shared'
+import { VerificationToken } from './verification-token.entity'
 
-@Entity()
+@Entity({ name: 'user' })
 export class User {
   @PrimaryGeneratedColumn()
   id: number
 
-  @Column({ nullable: false, length: 255, unique: true })
+  @Column({ type: 'varchar', length: 255, unique: true })
   username: string
 
-  @Column({ nullable: false, length: 255 })
+  @Column({ type: 'varchar', length: 255 })
   @Exclude()
   password: string
 
-  @Column({ nullable: false, length: 255 })
+  @Column({ type: 'varchar', length: 255 })
   displayName: string
 
-  @Column({ nullable: false, type: 'enum', enum: UserRole, default: UserRole.NORMAL_USER })
-  role: UserRole
-
-  @Column({ nullable: false, default: 0 })
+  @Column({ type: 'int', default: 0 })
   failLoginAttempt: number
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    enumName: 'user_role_enum',
+    default: UserRole.NORMAL_USER,
+  })
+  role: UserRole
+
+  @Column({ type: 'timestamp', default: () => 'now()' })
   createdAt: Date
 
-  @UpdateDateColumn({ type: 'timestamp' })
-  updatedAt?: Date
+  @Column({ type: 'timestamp', default: () => 'now()' })
+  updatedAt: Date
 
-  @DeleteDateColumn({ type: 'timestamp' })
-  deletedAt?: Date
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null
+
+  // Relations
+  @OneToMany(() => VerificationToken, (vt) => vt.user)
+  verificationTokens: VerificationToken[]
 }

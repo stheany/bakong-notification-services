@@ -185,11 +185,19 @@ export class TemplateService implements OnModuleInit {
         ? dto.isSent !== false // Send if not explicitly false (true or undefined)
         : dto.isSent === true
 
+    // Normalize platforms: handle string[][] from database or string[] from DTO
+    const platformsInput = Array.isArray(dto.platforms) && dto.platforms.length > 0 && Array.isArray(dto.platforms[0]) 
+      ? (dto.platforms as string[][]).flat() 
+      : dto.platforms
+    const normalizedPlatforms = ValidationHelper.parsePlatforms(platformsInput as string | string[])
+    // Convert 1D array to 2D array format for database: ["ALL"] -> [["ALL"]]
+    const platforms2D: string[][] = normalizedPlatforms.map(p => [p])
+
     // Normalize platforms: ["IOS", "ANDROID"] -> ["ALL"]
     const normalizedPlatforms = ValidationHelper.parsePlatforms(dto.platforms)
 
     let template = this.repo.create({
-      platforms: normalizedPlatforms,
+      platforms: platforms2D,
       bakongPlatform: dto.bakongPlatform,
       sendType: dto.sendType,
       isSent: initialIsSent,
@@ -208,8 +216,8 @@ export class TemplateService implements OnModuleInit {
       showPerDay: dto.showPerDay !== undefined ? dto.showPerDay : 1,
       maxDayShowing: dto.maxDayShowing !== undefined ? dto.maxDayShowing : 1,
 
-      createdBy: currentUser?.username,
-      updatedBy: currentUser?.username,
+      createdBy: currentUser?.id,
+      updatedBy: currentUser?.id,
     })
 
     template = await this.repo.save(template)
@@ -647,7 +655,8 @@ export class TemplateService implements OnModuleInit {
           normalized: normalizedPlatforms,
           existing: template.platforms,
         })
-        updateFields.platforms = normalizedPlatforms
+        // Convert 1D array to 2D array format for database
+        updateFields.platforms = normalizedPlatforms.map(p => [p])
       } else {
         console.log(
           `🔵 [UPDATE] Platforms NOT provided in update request - preserving existing:`,
@@ -707,8 +716,8 @@ export class TemplateService implements OnModuleInit {
         updateFields.maxDayShowing = dto.maxDayShowing
       }
 
-      if (currentUser?.username) {
-        updateFields.updatedBy = currentUser.username
+      if (currentUser?.id) {
+        updateFields.updatedBy = currentUser.id
       }
 
       if (Object.keys(updateFields).length > 0) {
@@ -974,9 +983,9 @@ export class TemplateService implements OnModuleInit {
         notificationType: dto.notificationType || oldTemplate.notificationType,
         categoryTypeId: dto.categoryTypeId ?? oldTemplate.categoryTypeId,
         priority: oldTemplate.priority,
-        createdBy: currentUser?.username || oldTemplate.createdBy,
-        updatedBy: currentUser?.username || oldTemplate.updatedBy,
-        publishedBy: currentUser?.username || oldTemplate.publishedBy,
+        createdBy: currentUser?.id || oldTemplate.createdBy,
+        updatedBy: currentUser?.id || oldTemplate.updatedBy,
+        publishedBy: currentUser?.id || oldTemplate.publishedBy,
       }
 
       const newTemplate = await this.repo.save(newTemplateData)
@@ -1393,7 +1402,7 @@ export class TemplateService implements OnModuleInit {
       bakongPlatform: template.bakongPlatform,
       sendType: template.sendType,
       notificationType: template.notificationType,
-      categoryType: template.categoryTypeEntity?.name,
+      categoryType: template.categoryType?.name,
       categoryTypeId: template.categoryTypeId,
       priority: template.priority,
       sendInterval: template.sendInterval
@@ -2078,7 +2087,7 @@ export class TemplateService implements OnModuleInit {
       updatedAt: new Date(),
     }
     if (currentUser?.username) {
-      updateFields.publishedBy = currentUser.username
+      updateFields.publishedBy = currentUser.id
     }
     await this.repo.update(templateId, updateFields)
   }

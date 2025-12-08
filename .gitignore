@@ -146,6 +146,11 @@ deployment/nginx/ssl/
 backups/
 *.sql.gz
 
+# Schema exports (generated files - optional to track)
+schema-exports/
+# Uncomment to track schema exports in Git:
+# !schema-exports/.gitkeep
+
 # Deployment logs
 deployment/logs/
 

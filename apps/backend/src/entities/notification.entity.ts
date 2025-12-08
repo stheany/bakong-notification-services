@@ -1,39 +1,45 @@
 import {
-  Column,
-  CreateDateColumn,
   Entity,
-  Index,
-  JoinColumn,
-  ManyToOne,
   PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm'
 import { Template } from './template.entity'
+import { BakongUser } from './bakong-user.entity'
 
-@Entity()
+@Entity({ name: 'notification' })
 export class Notification {
   @PrimaryGeneratedColumn({ type: 'bigint' })
-  id: number
+  id: string
 
-  @Column({ nullable: false, length: 32 })
-  @Index()
+  @Column({ type: 'varchar', length: 32 })
   accountId: string
 
-  @Column({ nullable: false, length: 255 })
+  @ManyToOne(() => BakongUser, (bu) => bu.notifications, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'accountId', referencedColumnName: 'accountId' })
+  bakongUser: BakongUser
+
+  @Column({ type: 'varchar', length: 255 })
   fcmToken: string
 
-  @Column({ nullable: false, type: 'bigint' })
+  @Column()
   templateId: number
 
-  @ManyToOne(() => Template, { eager: true, onDelete: 'CASCADE' })
+  @ManyToOne(() => Template, (t) => t.notifications, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'templateId' })
   template: Template
 
-  @CreateDateColumn({ nullable: false, type: 'timestamp' })
-  createdAt: Date
+  @Column({ type: 'bigint', nullable: true })
+  firebaseMessageId: string | null
 
-  @Column({ nullable: true, type: 'bigint' })
-  firebaseMessageId?: number
-
-  @Column({ nullable: false, type: 'int', default: 1 })
+  @Column({ type: 'int', default: 1 })
   sendCount: number
+
+  @Column({ type: 'timestamp', default: () => 'now()' })
+  createdAt: Date
 }

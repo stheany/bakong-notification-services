@@ -29,8 +29,26 @@ export class ValidationHelper {
     let parsedArray: string[] = []
 
     if (Array.isArray(platforms)) {
-      // Already an array - normalize values
-      parsedArray = platforms.map((p) => this.normalizeEnum(p))
+      // Already an array - handle both 1D and 2D arrays
+      // Flatten if it's a 2D array (from database: [["ALL"]] -> ["ALL"])
+      const flatPlatforms: any[] =
+        platforms.length > 0 && Array.isArray(platforms[0])
+          ? (platforms as any[]).flat()
+          : (platforms as any[])
+      // Normalize values, ensuring each is a string
+      parsedArray = flatPlatforms
+        .map((p: any) => {
+          if (typeof p === 'string') {
+            return this.normalizeEnum(p)
+          }
+          // If it's an array, take the first element
+          if (Array.isArray(p) && p.length > 0) {
+            return this.normalizeEnum(String(p[0]))
+          }
+          // Convert to string as fallback
+          return this.normalizeEnum(String(p))
+        })
+        .filter((p: string) => p && p.length > 0)
     } else if (typeof platforms === 'string') {
       const platformsStr = platforms.trim()
 

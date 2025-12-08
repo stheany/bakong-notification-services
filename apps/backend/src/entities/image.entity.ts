@@ -1,46 +1,36 @@
 import {
-  BeforeInsert,
-  Column,
-  CreateDateColumn,
   Entity,
-  OneToMany,
   PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
 } from 'typeorm'
-import { TemplateTranslation } from './template-translation.entity'
 import { Exclude } from 'class-transformer'
-import { randomUUID } from 'crypto'
+import { TemplateTranslation } from './template-translation.entity'
 
-@Entity()
+@Entity({ name: 'image' })
 export class Image {
   @PrimaryGeneratedColumn({ type: 'bigint' })
-  id: number
+  id: string
 
-  @Column({ nullable: false, type: 'varchar', length: 255, unique: true })
+  @Column({ type: 'varchar', length: 255, unique: true })
   fileId: string
 
-  @BeforeInsert()
-  generateFileId() {
-    if (!this.fileId) {
-      this.fileId = randomUUID()
-    }
-  }
-
+  @Column({ type: 'bytea' })
   @Exclude()
-  @Column({ nullable: false, type: 'bytea' })
   file: Buffer
 
-  @Column({ nullable: true, type: 'varchar', length: 32, unique: true })
-  fileHash: string
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  originalFileName: string | null
 
-  @Column({ nullable: false, length: 255 })
+  @Column({ type: 'varchar', length: 255 })
   mimeType: string
 
-  @Column({ nullable: true, length: 255 })
-  originalFileName: string
-
-  @CreateDateColumn({ nullable: false, type: 'timestamp' })
+  @Column({ type: 'timestamp', default: () => 'now()' })
   createdAt: Date
 
-  @OneToMany(() => TemplateTranslation, (translation) => translation.image)
-  translations: TemplateTranslation[]
+  @OneToMany(
+    () => TemplateTranslation,
+    (tt) => tt.image,
+  )
+  templateTranslations: TemplateTranslation[]
 }

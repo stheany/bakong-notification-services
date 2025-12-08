@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { ImageController } from './image.controller'
 import { ImageService } from './image.service'
 import { Response } from 'express'
-import { BaseResponseDto } from '../../common/base-response.dto'
 import { ErrorCode, ResponseMessage } from '@bakong/shared'
 import { NotFoundException } from '@nestjs/common'
 
@@ -18,9 +17,9 @@ describe('ImageController', () => {
   }
 
   const createMockFile = (
-    size: number = 1024,
-    mimetype: string = 'image/jpeg',
-    originalname: string = 'test.jpg',
+    size = 1024,
+    mimetype = 'image/jpeg',
+    originalname = 'test.jpg',
   ): Express.Multer.File => ({
     fieldname: 'file',
     originalname,

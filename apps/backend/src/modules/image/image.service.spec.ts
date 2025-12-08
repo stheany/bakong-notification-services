@@ -40,7 +40,7 @@ describe('ImageService', () => {
     deletedAt: null,
   } as unknown as Image
 
-  const createMockBuffer = (size: number = 1024): Buffer => Buffer.alloc(size, 'test-data')
+  const createMockBuffer = (size = 1024): Buffer => Buffer.alloc(size, 'test-data')
 
   beforeEach(async () => {
     const mockImageRepo = {
@@ -121,7 +121,7 @@ describe('ImageService', () => {
   })
 
   describe('create', () => {
-    const createUploadDto = (fileSize: number = 1024): UploadImageDto => ({
+    const createUploadDto = (fileSize = 1024): UploadImageDto => ({
       file: createMockBuffer(fileSize),
       mimeType: 'image/jpeg',
       originalFileName: 'test.jpg',

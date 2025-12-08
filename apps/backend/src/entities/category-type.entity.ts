@@ -1,37 +1,41 @@
 import {
-  Column,
-  CreateDateColumn,
-  DeleteDateColumn,
   Entity,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm'
-import { Exclude } from 'class-transformer'
+  Column,
+  OneToMany,
+} from 'typeorm';
+import { Template } from './template.entity';
 
 @Entity({ name: 'category_type' })
 export class CategoryType {
   @PrimaryGeneratedColumn()
-  id: number
+  id: number;
 
-  @Column({ nullable: false, length: 255, unique: true })
-  name: string
+  @Column({ type: 'varchar', length: 255, unique: true })
+  name: string;
 
-  @Exclude()
-  @Column({ nullable: false, type: 'bytea' })
-  icon: Buffer
+  @Column({ type: 'bytea' })
+  icon: Buffer;
 
-  @Column({ nullable: true, length: 255 })
-  mimeType?: string
+  @Column({ name: 'mimeType', type: 'varchar', length: 255, nullable: true })
+  mimeType?: string;
 
-  @Column({ nullable: true, length: 255 })
-  originalFileName?: string
+  @Column({ name: 'originalFileName', type: 'varchar', length: 255, nullable: true })
+  originalFileName?: string;
 
-  @CreateDateColumn({ type: 'timestamp' })
-  createdAt: Date
+  @Column({
+    name: 'createdAt',
+    type: 'timestamp',
+    default: () => 'now()',
+  })
+  createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
-  updatedAt?: Date
+  @Column({ name: 'updatedAt', type: 'timestamp', nullable: true })
+  updatedAt?: Date;
 
-  @DeleteDateColumn({ type: 'timestamp' })
-  deletedAt?: Date
+  @Column({ name: 'deletedAt', type: 'timestamp', nullable: true })
+  deletedAt?: Date;
+
+  @OneToMany(() => Template, (template) => template.categoryType)
+  templates: Template[];
 }

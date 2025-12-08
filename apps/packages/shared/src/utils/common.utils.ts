@@ -257,6 +257,10 @@ export class ValidationUtils {
 
   static normalizeEnum(enumValue: string): string {
     if (!enumValue) return ''
+    if (typeof enumValue !== 'string') {
+      // Convert to string if it's not already
+      enumValue = String(enumValue)
+    }
     return enumValue
       .replace(/[^a-zA-Z0-9_]/g, '')
       .toUpperCase()

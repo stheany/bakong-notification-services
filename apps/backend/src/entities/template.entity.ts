@@ -1,87 +1,125 @@
-import {
-  Column,
-  CreateDateColumn,
-  DeleteDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm'
-import { SendType, NotificationType, BakongApp } from '@bakong/shared'
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm'
+import { CategoryType } from './category-type.entity'
 import { TemplateTranslation } from './template-translation.entity'
-import { CategoryType as CategoryTypeEntity } from './category-type.entity'
+import { Notification } from './notification.entity'
 
-export type SendIntervalData = { cron: string; startAt: Date; endAt: Date }
-@Entity()
+// TODO: replace these with your real enums
+export enum BakongPlatform {
+  BAKONG = 'BAKONG',
+  // ...
+}
+
+export enum SendType {
+  SEND_SCHEDULE = 'SEND_SCHEDULE',
+  // ...
+}
+
+export enum NotificationType {
+  FLASH_NOTIFICATION = 'FLASH_NOTIFICATION',
+  // ...
+}
+
+@Entity({ name: 'template' })
 export class Template {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ name: 'id' })
   id: number
 
-  @OneToMany(() => TemplateTranslation, (translation) => translation.template, {
-    eager: true,
-    cascade: ['insert'],
+  @Column({
+    name: 'bakongPlatform',
+    type: 'enum',
+    enum: BakongPlatform,
+    nullable: true,
   })
-  translations: TemplateTranslation[]
-
-  @Column('text', { array: true, nullable: false })
-  platforms?: string[]
-
-  @Column({ nullable: true, type: 'enum', enum: BakongApp })
-  bakongPlatform?: BakongApp
-
-  @Column({ nullable: false, type: 'enum', enum: SendType, default: SendType.SEND_SCHEDULE })
-  sendType?: SendType
+  bakongPlatform?: BakongPlatform
 
   @Column({
-    nullable: false,
+    name: 'sendType',
+    type: 'enum',
+    enum: SendType,
+    default: SendType.SEND_SCHEDULE,
+  })
+  sendType: SendType
+
+  @Column({ name: 'priority', type: 'int', default: 0 })
+  priority: number
+
+  @Column({ name: 'isSent', type: 'boolean', default: false })
+  isSent: boolean
+
+  @Column({ name: 'sendSchedule', type: 'timestamptz', nullable: true })
+  sendSchedule?: Date
+
+  @Column({
+    name: 'createdAt',
+    type: 'timestamptz',
+    default: () => 'now()',
+  })
+  createdAt: Date
+
+  @Column({
+    name: 'updatedAt',
+    type: 'timestamptz',
+    default: () => 'now()',
+  })
+  updatedAt: Date
+
+  @Column({ name: 'deletedAt', type: 'timestamptz', nullable: true })
+  deletedAt?: Date
+
+  // ⚠️ platforms is text[][] in DB
+  // TypeORM does not support 2D array nicely.
+  // If you already mapped this, keep your version.
+  @Column({
+    name: 'platforms',
+    type: 'text',
+    array: true,
+  })
+  platforms: string[]
+
+  @Column({
+    name: 'notificationType',
     type: 'enum',
     enum: NotificationType,
     default: NotificationType.FLASH_NOTIFICATION,
   })
-  notificationType?: NotificationType
+  notificationType: NotificationType
 
-  @Column({ nullable: true, type: 'integer' })
-  categoryTypeId?: number
+  @Column({ name: 'sendInterval', type: 'json', nullable: true })
+  sendInterval?: any
 
-  @ManyToOne(() => CategoryTypeEntity, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'categoryTypeId', referencedColumnName: 'id' })
-  categoryTypeEntity?: CategoryTypeEntity
-
-  @Column({ nullable: false, type: 'integer', default: 0 })
-  priority?: number
-
-  @Column({ type: 'json', nullable: true })
-  sendInterval?: SendIntervalData
-
-  @Column({ type: 'boolean', default: false })
-  isSent?: boolean
-
-  @Column({ type: 'timestamptz', nullable: true })
-  sendSchedule?: Date
-
-  @Column({ nullable: true })
+  @Column({ name: 'createdBy', type: 'varchar', nullable: true })
   createdBy?: string
 
-  @Column({ nullable: true })
+  @Column({ name: 'updatedBy', type: 'varchar', nullable: true })
   updatedBy?: string
 
-  @Column({ nullable: true })
+  @Column({ name: 'publishedBy', type: 'varchar', nullable: true })
   publishedBy?: string
 
-  @Column({ type: 'integer', nullable: true, default: 1 })
-  showPerDay?: number
+  // 🔹 FK column
+  @Column({ name: 'categoryTypeId', type: 'int', nullable: true })
+  categoryTypeId?: number
 
-  @Column({ type: 'integer', nullable: true, default: 1 })
-  maxDayShowing?: number
+  // 🔹 Relation to CategoryType
+  @ManyToOne(() => CategoryType, (category) => category.templates, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'categoryTypeId' })
+  categoryType?: CategoryType
 
-  @CreateDateColumn({ type: 'timestamptz' })
-  createdAt: Date
+  // 🔹 Relation to TemplateTranslations
+  @OneToMany(() => TemplateTranslation, (translation) => translation.template)
+  translations?: TemplateTranslation[]
 
-  @UpdateDateColumn({ type: 'timestamptz' })
-  updatedAt?: Date
+  // 🔹 Relation to Notifications
+  @OneToMany(() => Notification, (notification) => notification.template)
+  notifications?: Notification[]
 
-  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
-  deletedAt?: Date
+  // 🔹 NEW: showPerDay
+  @Column({ name: 'showPerDay', type: 'int', default: 1 })
+  showPerDay: number
+
+  // 🔹 NEW: maxDayShowing
+  @Column({ name: 'maxDayShowing', type: 'int', default: 1 })
+  maxDayShowing: number
 }

@@ -1,42 +1,46 @@
 import {
-  Column,
-  CreateDateColumn,
   Entity,
-  Index,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
+  Column,
+  OneToMany,
 } from 'typeorm'
-import { BakongApp } from '@bakong/shared'
+import { BakongApp, Platform } from '@bakong/shared'
+import { Notification } from './notification.entity'
 
 @Entity({ name: 'bakong_user' })
 export class BakongUser {
   @PrimaryGeneratedColumn({ type: 'bigint' })
-  id: number
+  id: string
 
-  @Column({ nullable: false, length: 32, unique: true })
-  @Index()
+  @Column({ type: 'varchar', length: 32, unique: true })
   accountId: string
 
-  @Column({ nullable: false, length: 255 })
+  @Column({ type: 'varchar', length: 255 })
   fcmToken: string
 
-  @Column({ nullable: true, length: 32 })
-  participantCode?: string
+  @Column({
+    type: 'enum',
+    enum: BakongApp,
+    enumName: 'bakong_user_bakongplatform_enum',
+    nullable: true,
+  })
+  bakongPlatform: BakongApp | null
 
-  @Column({ nullable: true, length: 32 })
-  platform?: string
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  platform: Platform | null
 
-  @Column({ nullable: true, length: 2 })
-  language?: string
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  participantCode: string | null
 
-  @Column({ nullable: true, type: 'enum', enum: BakongApp })
-  @Index()
-  bakongPlatform?: BakongApp
+  @Column({ type: 'varchar', length: 2, nullable: true })
+  language: string | null
 
-  @CreateDateColumn({ nullable: false, type: 'timestamp' })
-  @Index()
+  @Column({ type: 'timestamp', default: () => 'now()' })
   createdAt: Date
 
-  @UpdateDateColumn({ nullable: true, type: 'timestamp' })
-  updatedAt?: Date
+  @Column({ type: 'timestamp', default: () => 'now()' })
+  updatedAt: Date
+
+  @OneToMany(() => Notification, (n) => n.bakongUser)
+  notifications: Notification[]
 }

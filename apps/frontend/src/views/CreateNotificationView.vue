@@ -741,6 +741,17 @@ const handlePublishNow = async () => {
     return
   }
 
+  // Validate categoryTypeId
+  if (formData.categoryTypeId == null || formData.categoryTypeId === undefined) {
+    ElNotification({
+      title: 'Error',
+      message: 'Please select a category',
+      type: 'error',
+      duration: 2000,
+    })
+    return
+  }
+
   // If editing a published notification, show confirmation dialog first
   if (isEditMode.value && isEditingPublished.value) {
     showUpdateConfirmationDialog.value = true
@@ -957,7 +968,7 @@ const handlePublishNowInternal = async () => {
       isSent: isSent,
       translations: translations,
       notificationType: mapTypeToNotificationType(formData.notificationType),
-      categoryTypeId: formData.categoryTypeId ?? undefined,
+      categoryTypeId: formData.categoryTypeId != null ? formData.categoryTypeId : undefined,
       priority: 1,
     }
 
@@ -1177,6 +1188,17 @@ const handleSaveDraft = async () => {
     return
   }
 
+  // Validate categoryTypeId
+  if (formData.categoryTypeId == null || formData.categoryTypeId === undefined) {
+    ElNotification({
+      title: 'Error',
+      message: 'Please select a category',
+      type: 'error',
+      duration: 2000,
+    })
+    return
+  }
+
   const loadingNotification = ElNotification({
     title: isEditMode.value ? 'Updating draft...' : 'Saving draft...',
     message: isEditMode.value
@@ -1340,7 +1362,7 @@ const handleSaveDraft = async () => {
       isSent: false,
       translations: translations,
       notificationType: mapTypeToNotificationType(formData.notificationType),
-      categoryTypeId: formData.categoryTypeId ?? undefined,
+      categoryTypeId: formData.categoryTypeId != null ? formData.categoryTypeId : undefined,
       priority: 1,
     }
     if (formData.scheduleEnabled && formData.scheduleDate && formData.scheduleTime) {
