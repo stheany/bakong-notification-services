@@ -12,7 +12,6 @@ import {
   ResponseMessage,
   SendType,
   NotificationType,
-  CategoryType,
   Platform,
   Language,
   BakongApp,
@@ -31,14 +30,13 @@ describe('TemplateService', () => {
   let imageService: ImageService
   let schedulerRegistry: SchedulerRegistry
 
-  const templateId = 1
   const currentUser = { username: 'testuser', id: 1 }
 
   // Sample translation data
   const sampleTranslations: TemplateTranslation[] = [
     {
       id: 1,
-      templateId: templateId,
+      templateId: 1,
       language: Language.KM,
       title: 'សារព័ត៌មាន',
       content: 'ខ្លឹមសារព័ត៌មាន',
@@ -46,10 +44,10 @@ describe('TemplateService', () => {
       linkPreview: 'https://example.com',
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as TemplateTranslation,
+    } as any,
     {
-      id: 2,
-      templateId: templateId,
+      id: '2',
+      templateId: 1,
       language: Language.EN,
       title: 'News Title',
       content: 'News Content',
@@ -57,12 +55,12 @@ describe('TemplateService', () => {
       linkPreview: null,
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as TemplateTranslation,
+    } as any,
   ]
 
   // Sample template data
-  const draftTemplate: Template = {
-    id: templateId,
+  const draftTemplate: any = {
+    id: 1,
     platforms: [Platform.IOS, Platform.ANDROID],
     bakongPlatform: BakongApp.BAKONG_JUNIOR,
     sendType: SendType.SEND_NOW,
@@ -78,22 +76,22 @@ describe('TemplateService', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
-  } as Template
+  } as any
 
-  const scheduledTemplate: Template = {
+  const scheduledTemplate: any = {
     ...draftTemplate,
-    id: 2,
+    id: '2',
     sendType: SendType.SEND_SCHEDULE,
     sendSchedule: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
-  } as Template
+  } as any
 
-  const publishedTemplate: Template = {
+  const publishedTemplate: any = {
     ...draftTemplate,
-    id: 3,
+    id: '3',
     isSent: true,
     publishedBy: 'testuser',
     sendType: SendType.SEND_NOW, // Published templates typically have SEND_NOW
-  } as Template
+  } as any
 
   // Mock QueryBuilder for createQueryBuilder chain
   const mockQueryBuilder = {
@@ -238,7 +236,7 @@ describe('TemplateService', () => {
         ],
       }
 
-      const createdTemplate = { ...draftTemplate, id: templateId, isSent: true }
+      const createdTemplate = { ...draftTemplate, id: 1, isSent: true }
       const templateWithTranslations = { ...createdTemplate, translations: sampleTranslations }
 
       mockTemplateRepo.save.mockResolvedValue(createdTemplate)
@@ -283,7 +281,7 @@ describe('TemplateService', () => {
 
       const createdTemplate = {
         ...draftTemplate,
-        id: templateId,
+        id: 1,
         sendType: SendType.SEND_SCHEDULE,
         isSent: false,
         sendSchedule: futureDate,
@@ -324,7 +322,7 @@ describe('TemplateService', () => {
         ],
       }
 
-      const createdTemplate = { ...draftTemplate, id: templateId, isSent: false }
+      const createdTemplate = { ...draftTemplate, id: 1, isSent: false }
 
       mockTemplateRepo.save.mockResolvedValue(createdTemplate)
       // create() uses repo.findOne() to reload with relations, and findOneRaw() at the end
@@ -362,7 +360,7 @@ describe('TemplateService', () => {
 
       const updatedTemplate = {
         ...draftTemplate,
-        id: templateId,
+        id: 1,
         sendType: SendType.SEND_NOW,
         isSent: true,
       }
@@ -371,7 +369,7 @@ describe('TemplateService', () => {
       // Mock findOneRaw (uses createQueryBuilder internally)
       // update() calls findOneRaw: (1) line 520, (2) line 724, (3) line 731 (if platforms updated), (4) line 741 (if platforms defaulted), (5) line 814
       mockQueryBuilder.getOne
-        .mockResolvedValueOnce({ ...draftTemplate, id: templateId }) // First call at line 520
+        .mockResolvedValueOnce({ ...draftTemplate, id: 1 }) // First call at line 520
         .mockResolvedValueOnce(updatedTemplate) // Second call at line 724 (after updates)
         .mockResolvedValueOnce(updatedTemplate) // Third call at line 731 (if platforms updated - won't happen here)
         .mockResolvedValueOnce(updatedTemplate) // Fourth call at line 741 (if platforms defaulted - won't happen here)
@@ -387,10 +385,10 @@ describe('TemplateService', () => {
       })
       mockImageService.validateImageExists.mockResolvedValue(true)
 
-      const result = await service.update(templateId, updateDto, currentUser)
+      const result = await service.update(1, updateDto, currentUser)
 
       expect(mockTemplateRepo.update).toHaveBeenCalledWith(
-        templateId,
+        1,
         expect.objectContaining({
           sendType: SendType.SEND_NOW,
           isSent: true,
@@ -413,11 +411,11 @@ describe('TemplateService', () => {
         ],
       }
 
-      const updatedTemplate = { ...draftTemplate, id: templateId }
+      const updatedTemplate = { ...draftTemplate, id: 1 }
 
       // Mock findOneRaw calls: (1) line 520, (2) line 724, (3) line 731 (if platforms updated), (4) line 741 (if platforms defaulted), (5) line 814
       mockQueryBuilder.getOne
-        .mockResolvedValueOnce({ ...draftTemplate, id: templateId }) // First call at line 520
+        .mockResolvedValueOnce({ ...draftTemplate, id: 1 }) // First call at line 520
         .mockResolvedValueOnce(updatedTemplate) // Second call at line 724
         .mockResolvedValueOnce(updatedTemplate) // Third call at line 731 (if platforms updated - won't happen here)
         .mockResolvedValueOnce(updatedTemplate) // Fourth call at line 741 (if platforms defaulted - won't happen here)
@@ -428,7 +426,7 @@ describe('TemplateService', () => {
       mockTranslationRepo.findOneBy.mockResolvedValue(sampleTranslations[0])
       mockTranslationRepo.update.mockResolvedValue({ affected: 1 })
 
-      const result = await service.update(templateId, updateDto, currentUser)
+      const result = await service.update(1, updateDto, currentUser)
 
       expect(mockTemplateRepo.update).toHaveBeenCalled()
       expect(mockNotificationService.sendWithTemplate).not.toHaveBeenCalled()
@@ -466,7 +464,7 @@ describe('TemplateService', () => {
 
       const updatedTemplate = {
         ...draftTemplate,
-        id: templateId,
+        id: 1,
         sendType: SendType.SEND_NOW,
         isSent: true,
         platforms: [Platform.IOS, Platform.ANDROID],
@@ -479,8 +477,8 @@ describe('TemplateService', () => {
       // When error occurs, it updates the new template (id 4) with isSent: false
       // Mock findOneRaw calls: (1) line 556 (in update - returns published template), (2) line 831 (in editPublishedNotification), (3) line 972 (in editPublishedNotification - final return)
       mockQueryBuilder.getOne
-        .mockResolvedValueOnce({ ...publishedTemplate, id: templateId }) // First call at line 556 - template is published
-        .mockResolvedValueOnce({ ...publishedTemplate, id: templateId }) // Call in editPublishedNotification at line 831
+        .mockResolvedValueOnce({ ...publishedTemplate, id: 1 }) // First call at line 556 - template is published
+        .mockResolvedValueOnce({ ...publishedTemplate, id: 1 }) // Call in editPublishedNotification at line 831
         .mockResolvedValueOnce({ ...draftAfterError, id: 4, savedAsDraftNoUsers: true }) // For findOneRaw in editPublishedNotification at line 972 (final return with id 4)
 
       const newTemplate = { ...draftTemplate, id: 4, isSent: false }
@@ -503,7 +501,7 @@ describe('TemplateService', () => {
         failedUsers: [],
       })
 
-      const result = await service.update(templateId, updateDto, currentUser)
+      const result = await service.update(1, updateDto, currentUser)
 
       // editPublishedNotification creates a new template with id 4
       // When sendWithTemplate returns successfulCount: 0, it updates the new template (id 4) with isSent: false at line 942
@@ -544,7 +542,7 @@ describe('TemplateService', () => {
 
       // The validation should throw immediately when sendSchedule is invalid
       // moment.utc('invalid-date-format') will create an invalid moment, and isValid() will return false
-      await expect(service.update(templateId, updateDto, currentUser)).rejects.toThrow(
+      await expect(service.update(1, updateDto, currentUser)).rejects.toThrow(
         BadRequestException,
       )
     })
@@ -565,7 +563,7 @@ describe('TemplateService', () => {
 
       mockQueryBuilder.getOne.mockResolvedValueOnce(null)
 
-      await expect(service.update(templateId, updateDto, currentUser)).rejects.toThrow()
+      await expect(service.update(1, updateDto, currentUser)).rejects.toThrow()
     })
   })
 
@@ -591,7 +589,7 @@ describe('TemplateService', () => {
 
       const updatedTemplate = {
         ...draftTemplate,
-        id: templateId,
+        id: 1,
         sendType: SendType.SEND_NOW,
         isSent: true,
         platforms: [Platform.IOS, Platform.ANDROID],
@@ -600,7 +598,7 @@ describe('TemplateService', () => {
 
       // Mock findOneRaw calls: (1) line 520, (2) line 724, (3) line 731 (if platforms updated), (4) line 741 (if platforms defaulted), (5) line 814
       mockQueryBuilder.getOne
-        .mockResolvedValueOnce({ ...draftTemplate, id: templateId }) // First call at line 520
+        .mockResolvedValueOnce({ ...draftTemplate, id: 1 }) // First call at line 520
         .mockResolvedValueOnce(updatedTemplate) // Second call at line 724
         .mockResolvedValueOnce(updatedTemplate) // Third call at line 731 (if platforms updated - won't happen here)
         .mockResolvedValueOnce(updatedTemplate) // Fourth call at line 741 (if platforms defaulted - won't happen here)
@@ -617,7 +615,7 @@ describe('TemplateService', () => {
         failedCount: 0,
       }) // Zero users
 
-      const result = await service.update(templateId, updateDto, currentUser)
+      const result = await service.update(1, updateDto, currentUser)
 
       // Should still be marked as published even with 0 users
       expect(mockNotificationService.sendWithTemplate).toHaveBeenCalled()
@@ -644,7 +642,7 @@ describe('TemplateService', () => {
 
       const updatedTemplate = {
         ...scheduledTemplate,
-        id: templateId,
+        id: 1,
         sendSchedule: newFutureDate,
         platforms: [Platform.IOS, Platform.ANDROID],
       }
@@ -653,14 +651,14 @@ describe('TemplateService', () => {
       // The template at line 748 MUST have sendType: SEND_SCHEDULE and sendSchedule set for deleteCronJob to be called at line 809
       const templateAfterUpdate = {
         ...scheduledTemplate,
-        id: templateId,
+        id: 1,
         sendType: SendType.SEND_SCHEDULE,
         sendSchedule: newFutureDate,
         platforms: [Platform.IOS, Platform.ANDROID],
       }
 
       mockQueryBuilder.getOne
-        .mockResolvedValueOnce({ ...scheduledTemplate, id: templateId }) // First call at line 556
+        .mockResolvedValueOnce({ ...scheduledTemplate, id: 1 }) // First call at line 556
         .mockResolvedValueOnce(templateAfterUpdate) // Second call at line 748 - MUST have sendType: SEND_SCHEDULE and sendSchedule
         .mockResolvedValueOnce(templateAfterUpdate) // Final call at line 815
 
@@ -673,11 +671,11 @@ describe('TemplateService', () => {
       mockTranslationRepo.update.mockResolvedValue({ affected: 1 })
       mockSchedulerRegistry.doesExist.mockReturnValue(true)
 
-      await service.update(templateId, updateDto, currentUser)
+      await service.update(1, updateDto, currentUser)
 
       // deleteCronJob is called at line 809 when sendType is SEND_SCHEDULE and cron job exists
       // The condition is: updatedTemplate.sendType === SendType.SEND_SCHEDULE && updatedTemplate.sendSchedule
-      expect(mockSchedulerRegistry.deleteCronJob).toHaveBeenCalledWith(templateId.toString())
+      expect(mockSchedulerRegistry.deleteCronJob).toHaveBeenCalledWith('1')
     })
   })
 
@@ -707,13 +705,13 @@ describe('TemplateService', () => {
 
       const updatedTemplate = {
         ...draftTemplate,
-        id: templateId,
+        id: 1,
         platforms: [Platform.IOS, Platform.ANDROID],
       }
 
       // Mock findOneRaw calls: (1) line 520, (2) line 724, (3) line 731 (if platforms updated), (4) line 741 (if platforms defaulted), (5) line 814
       mockQueryBuilder.getOne
-        .mockResolvedValueOnce({ ...draftTemplate, id: templateId }) // First call at line 520
+        .mockResolvedValueOnce({ ...draftTemplate, id: 1 }) // First call at line 520
         .mockResolvedValueOnce(updatedTemplate) // Second call at line 724
         .mockResolvedValueOnce(updatedTemplate) // Third call at line 731 (if platforms updated - won't happen here)
         .mockResolvedValueOnce(updatedTemplate) // Fourth call at line 741 (if platforms defaulted - won't happen here)
@@ -724,7 +722,7 @@ describe('TemplateService', () => {
       mockTranslationRepo.findOneBy.mockResolvedValue(existingTranslation)
       mockTranslationRepo.update.mockResolvedValue({ affected: 1 })
 
-      await service.update(templateId, updateDto, currentUser)
+      await service.update(1, updateDto, currentUser)
 
       // Should use fallback values
       expect(mockTranslationRepo.update).toHaveBeenCalled()
@@ -747,13 +745,13 @@ describe('TemplateService', () => {
 
       const updatedTemplate = {
         ...draftTemplate,
-        id: templateId,
+        id: 1,
         platforms: [Platform.IOS, Platform.ANDROID],
       }
 
       // Mock findOneRaw calls: (1) line 520, (2) line 724, (3) line 731 (if platforms updated), (4) line 741 (if platforms defaulted), (5) line 814
       mockQueryBuilder.getOne
-        .mockResolvedValueOnce({ ...draftTemplate, id: templateId }) // First call at line 520
+        .mockResolvedValueOnce({ ...draftTemplate, id: 1 }) // First call at line 520
         .mockResolvedValueOnce(updatedTemplate) // Second call at line 724
         .mockResolvedValueOnce(updatedTemplate) // Third call at line 731 (if platforms updated - won't happen here)
         .mockResolvedValueOnce(updatedTemplate) // Fourth call at line 741 (if platforms defaulted - won't happen here)
@@ -765,7 +763,7 @@ describe('TemplateService', () => {
       mockImageService.validateImageExists.mockResolvedValue(true)
       mockTranslationRepo.update.mockResolvedValue({ affected: 1 })
 
-      await service.update(templateId, updateDto, currentUser)
+      await service.update(1, updateDto, currentUser)
 
       expect(mockImageService.validateImageExists).toHaveBeenCalledWith('new-image-id')
     })
@@ -785,13 +783,13 @@ describe('TemplateService', () => {
 
       const updatedTemplate = {
         ...draftTemplate,
-        id: templateId,
+        id: 1,
         platforms: [Platform.IOS, Platform.ANDROID],
       }
 
       // Mock findOneRaw calls: (1) line 520, (2) line 724, (3) line 731 (if platforms updated), (4) line 741 (if platforms defaulted), (5) line 814
       mockQueryBuilder.getOne
-        .mockResolvedValueOnce({ ...draftTemplate, id: templateId }) // First call at line 520
+        .mockResolvedValueOnce({ ...draftTemplate, id: 1 }) // First call at line 520
         .mockResolvedValueOnce(updatedTemplate) // Second call at line 724
         .mockResolvedValueOnce(updatedTemplate) // Third call at line 731 (if platforms updated - won't happen here)
         .mockResolvedValueOnce(updatedTemplate) // Fourth call at line 741 (if platforms defaulted - won't happen here)
@@ -803,7 +801,7 @@ describe('TemplateService', () => {
       mockImageService.validateImageExists.mockResolvedValue(false)
       mockTranslationRepo.update.mockResolvedValue({ affected: 1 })
 
-      await service.update(templateId, updateDto, currentUser)
+      await service.update(1, updateDto, currentUser)
 
       expect(mockTranslationRepo.update).toHaveBeenCalledWith(
         expect.any(Number),
@@ -837,7 +835,7 @@ describe('TemplateService', () => {
 
       // Mock findOneRaw calls: (1) line 520, (2) line 724, (3) line 814
       mockQueryBuilder.getOne
-        .mockResolvedValueOnce({ ...templateWithIOSOnly, id: templateId }) // First call at line 520
+        .mockResolvedValueOnce({ ...templateWithIOSOnly, id: 1 }) // First call at line 520
         .mockResolvedValueOnce(updatedTemplate) // Second call at line 724
         .mockResolvedValueOnce(updatedTemplate) // Final call at line 814
 
@@ -850,11 +848,11 @@ describe('TemplateService', () => {
         failedCount: 0,
       })
 
-      await service.update(templateId, updateDto, currentUser)
+      await service.update(1, updateDto, currentUser)
 
       // Should update sendType and isSent, but not platforms (keep existing)
       expect(mockTemplateRepo.update).toHaveBeenCalledWith(
-        templateId,
+        1,
         expect.objectContaining({
           sendType: SendType.SEND_NOW,
           isSent: true,

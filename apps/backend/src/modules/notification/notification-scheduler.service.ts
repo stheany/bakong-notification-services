@@ -99,7 +99,7 @@ export class NotificationSchedulerService {
       const now = new Date()
       const activeIntervalTemplates = await this.templateRepo.find({
         where: {
-          sendType: 'SEND_INTERVAL' as SendType,
+          sendType: 'SEND_INTERVAL' as SendType as any,
           isSent: false,
         },
         relations: ['translations'],
@@ -237,7 +237,7 @@ export class NotificationSchedulerService {
         .update(Template)
         .set({
           isSent: true,
-          sendType: SendType.SEND_NOW, // Change to SEND_NOW so it appears in Published tab
+          sendType: SendType.SEND_NOW as any, // Change to SEND_NOW so it appears in Published tab
           sendSchedule: null, // Clear schedule since it's been sent
         })
         .where('id = :id', { id: template.id })

@@ -81,7 +81,7 @@ describe('NotificationService', () => {
 
   // Sample data
   const sampleUser = {
-    id: 1,
+    id: '1',
     accountId: 'test@bkrt.com',
     bakongPlatform: BakongApp.BAKONG,
     fcmToken: 'test-fcm-token-123',
@@ -90,7 +90,7 @@ describe('NotificationService', () => {
   } as BakongUser
 
   const sampleUserWithWrongToken = {
-    id: 2,
+    id: '2',
     accountId: 'wrongusertoken@bkrt.com',
     bakongPlatform: BakongApp.BAKONG,
     fcmToken: 'f68-v', // Invalid/short token
@@ -99,7 +99,7 @@ describe('NotificationService', () => {
   } as BakongUser
 
   const sampleTemplate = {
-    id: 1,
+    id: '1',
     notificationType: NotificationType.ANNOUNCEMENT,
     categoryType: 'NEWS' as any,
     bakongPlatform: BakongApp.BAKONG,
@@ -107,7 +107,7 @@ describe('NotificationService', () => {
     updatedAt: new Date('2024-01-01T00:00:00Z'),
     translations: [
       {
-        id: 1,
+        id: '1',
         language: Language.EN,
         title: 'Test Notification',
         content: 'Test content',
@@ -118,7 +118,7 @@ describe('NotificationService', () => {
   } as any
 
   const sampleTranslation = {
-    id: 1,
+    id: '1',
     language: Language.EN,
     title: 'Test Notification',
     content: 'Test content',
@@ -127,7 +127,7 @@ describe('NotificationService', () => {
 
   const sampleNotification = {
     id: 1,
-    templateId: 1,
+    templateId: '1',
     accountId: 'test@bkrt.com',
     sendCount: 1,
     firebaseMessageId: 0,
@@ -348,7 +348,7 @@ describe('NotificationService', () => {
   describe('sendNow', () => {
     it('should send notification by notificationId successfully', async () => {
       const dto: SentNotificationDto = {
-        notificationId: 1,
+        notificationId: '1',
         language: Language.EN,
       } as SentNotificationDto
 
@@ -377,7 +377,7 @@ describe('NotificationService', () => {
 
     it('should return error if notification not found', async () => {
       const dto: SentNotificationDto = {
-        notificationId: 999,
+        notificationId: '999',
         language: Language.EN,
       } as SentNotificationDto
 

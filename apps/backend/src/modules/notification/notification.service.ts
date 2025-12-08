@@ -175,7 +175,7 @@ export class NotificationService {
     // Parse platforms using shared helper function
     // Flatten string[][] to string[] for parsePlatforms
     const platformsFlat = Array.isArray(template.platforms) && template.platforms.length > 0 && Array.isArray(template.platforms[0])
-      ? (template.platforms as string[][]).flat()
+      ? (template.platforms as unknown as string[][]).flat()
       : template.platforms
     const platformsArray = ValidationHelper.parsePlatforms(platformsFlat as string | string[])
 
@@ -220,7 +220,7 @@ export class NotificationService {
     // Filter by bakongPlatform if template has it
     if (template.bakongPlatform) {
       const beforeCount = users.length
-      users = users.filter((user) => user.bakongPlatform === template.bakongPlatform)
+      users = users.filter((user) => user.bakongPlatform === (template.bakongPlatform as unknown as BakongApp | null))
       console.log(
         `📤 [sendWithTemplate] Filtered by bakongPlatform (${template.bakongPlatform}): ${beforeCount} → ${users.length} users`,
       )
@@ -228,9 +228,9 @@ export class NotificationService {
       // Check if no users found for this bakongPlatform
       if (users.length === 0) {
         const platformName =
-          template.bakongPlatform === 'BAKONG_TOURIST'
+          (template.bakongPlatform as string) === 'BAKONG_TOURIST'
             ? 'Bakong Tourist'
-            : template.bakongPlatform === 'BAKONG_JUNIOR'
+            : (template.bakongPlatform as string) === 'BAKONG_JUNIOR'
               ? 'Bakong Junior'
               : 'Bakong'
         throw new Error(
@@ -408,7 +408,7 @@ export class NotificationService {
         if (dto.accountId) {
           const user = await this.baseFunctionHelper.findUserByAccountId(dto.accountId)
           if (user && user.bakongPlatform && notification.template.bakongPlatform) {
-            if (user.bakongPlatform !== notification.template.bakongPlatform) {
+            if (user.bakongPlatform !== (notification.template.bakongPlatform as unknown as BakongApp | null)) {
               // User's platform doesn't match template's platform
               return BaseResponseDto.error({
                 errorCode: ErrorCode.TEMPLATE_NOT_FOUND,
@@ -431,7 +431,7 @@ export class NotificationService {
           trans,
           dto.language,
           typeof imageUrl === 'string' ? imageUrl : '',
-          notification.id,
+          parseInt(notification.id, 10),
           notification.sendCount,
         )
 
@@ -482,7 +482,7 @@ export class NotificationService {
         // IMPORTANT: Only include published templates (isSent: true), exclude drafts
         const templates = await this.templateRepo.find({
           where: {
-            notificationType: NotificationType.FLASH_NOTIFICATION,
+            notificationType: NotificationType.FLASH_NOTIFICATION as any,
             bakongPlatform: userBakongPlatform as any,
             isSent: true, // Only published templates, exclude drafts
           },
@@ -530,7 +530,7 @@ export class NotificationService {
           // User exists but doesn't have bakongPlatform set - infer it from template
           await this.baseFunctionHelper.updateUserData({
             accountId: dto.accountId,
-            bakongPlatform: template.bakongPlatform,
+            bakongPlatform: template.bakongPlatform as unknown as BakongApp | null,
           })
           console.log(
             `📤 [sendNow] Auto-updated user ${dto.accountId} bakongPlatform to ${template.bakongPlatform} from template (user had no bakongPlatform)`,
@@ -549,7 +549,7 @@ export class NotificationService {
       // Filter by bakongPlatform if template has it
       if (template.bakongPlatform) {
         const beforeCount = allUsers.length
-        allUsers = allUsers.filter((user) => user.bakongPlatform === template.bakongPlatform)
+        allUsers = allUsers.filter((user) => user.bakongPlatform === (template.bakongPlatform as unknown as BakongApp | null))
         console.log(
           `📤 [sendNow] Filtered by bakongPlatform (${template.bakongPlatform}): ${beforeCount} → ${allUsers.length} users`,
         )
@@ -561,9 +561,9 @@ export class NotificationService {
           !(notificationType === NotificationType.FLASH_NOTIFICATION && dto.accountId)
         ) {
           const platformName =
-            template.bakongPlatform === 'BAKONG_TOURIST'
+            (template.bakongPlatform as string) === 'BAKONG_TOURIST'
               ? 'Bakong Tourist'
-              : template.bakongPlatform === 'BAKONG_JUNIOR'
+              : (template.bakongPlatform as string) === 'BAKONG_JUNIOR'
                 ? 'Bakong Junior'
                 : 'Bakong'
 
@@ -604,7 +604,7 @@ export class NotificationService {
       if (template.bakongPlatform) {
         const beforeCount = refreshedUsers.length
         refreshedUsers = refreshedUsers.filter(
-          (user) => user.bakongPlatform === template.bakongPlatform,
+          (user) => user.bakongPlatform === (template.bakongPlatform as unknown as BakongApp | null),
         )
         console.log(
           `📤 [sendNow] After sync - Filtered by bakongPlatform (${template.bakongPlatform}): ${beforeCount} → ${refreshedUsers.length} users`,
@@ -613,9 +613,9 @@ export class NotificationService {
         // Check again if no users found after sync
         if (refreshedUsers.length === 0) {
           const platformName =
-            template.bakongPlatform === 'BAKONG_TOURIST'
+            (template.bakongPlatform as string) === 'BAKONG_TOURIST'
               ? 'Bakong Tourist'
-              : template.bakongPlatform === 'BAKONG_JUNIOR'
+              : (template.bakongPlatform as string) === 'BAKONG_JUNIOR'
                 ? 'Bakong Junior'
                 : 'Bakong'
 
@@ -658,7 +658,7 @@ export class NotificationService {
             templateId: template.id,
             fcmToken: u.fcmToken,
             sendCount: 1,
-            firebaseMessageId: 0,
+            firebaseMessageId: null,
           }),
         ),
       )
@@ -721,7 +721,7 @@ export class NotificationService {
         responseTranslation,
         dto.language,
         typeof imageUrl === 'string' ? imageUrl : '',
-        firstRecord.id,
+        parseInt(firstRecord.id, 10),
         firstRecord.sendCount,
       )
 
@@ -766,7 +766,7 @@ export class NotificationService {
     })
 
     try {
-      const successfulNotifications: Array<{ id: number }> = []
+      const successfulNotifications: Array<{ id: string }> = []
       const failedUsers: Array<{ accountId: string; error: string; errorCode?: string }> = []
       let sharedSuccessfulCount = 0
       let sharedFailedCount = 0
@@ -945,7 +945,7 @@ export class NotificationService {
         successfulNotifications,
         failedUsers,
         fcmUsers,
-        sharedNotificationId,
+        sharedNotificationId ? parseInt(sharedNotificationId, 10) : undefined,
         sharedSuccessfulCount,
         sharedFailedCount,
         sharedFailedUsers,
@@ -1298,7 +1298,7 @@ export class NotificationService {
 
     if (templateId) {
       selectedTemplate = await this.templateRepo.findOne({
-        where: { id: templateId, notificationType: NotificationType.FLASH_NOTIFICATION },
+        where: { id: templateId, notificationType: NotificationType.FLASH_NOTIFICATION as any },
         relations: ['translations'],
       })
 
@@ -1323,7 +1323,7 @@ export class NotificationService {
       if (
         userBakongPlatform &&
         selectedTemplate.bakongPlatform &&
-        selectedTemplate.bakongPlatform !== userBakongPlatform
+        (selectedTemplate.bakongPlatform as unknown as BakongApp | null) !== userBakongPlatform
       ) {
         console.warn(
           `⚠️ [handleFlashNotification] Template ${templateId} bakongPlatform (${selectedTemplate.bakongPlatform}) doesn't match user's (${userBakongPlatform})`,
@@ -1348,7 +1348,7 @@ export class NotificationService {
 
         // Get all available templates for this user's platform
         const allTemplatesWhere: any = {
-          notificationType: NotificationType.FLASH_NOTIFICATION,
+          notificationType: NotificationType.FLASH_NOTIFICATION as any,
           isSent: true,
         }
         if (userBakongPlatform) {
@@ -1532,7 +1532,7 @@ export class NotificationService {
       templateId: selectedTemplate.id,
       fcmToken: user?.fcmToken,
       sendCount: newSendCount,
-      firebaseMessageId: 0,
+      firebaseMessageId: null,
     })
 
     await this.templateService.markAsPublished(selectedTemplate.id, req?.user)
@@ -1545,7 +1545,7 @@ export class NotificationService {
       selectedTranslation,
       language,
       typeof imageUrl === 'string' ? imageUrl : '',
-      saved.id,
+        parseInt(saved.id, 10),
       saved.sendCount,
     )
     return BaseResponseDto.success({
@@ -1703,7 +1703,7 @@ export class NotificationService {
           // OR if template has no bakongPlatform (backward compatibility)
           if (
             !notification.template.bakongPlatform ||
-            notification.template.bakongPlatform === userPlatform
+            (notification.template.bakongPlatform as unknown as BakongApp | null) === userPlatform
           ) {
             filteredNotifications.push(notification)
           }
@@ -1785,11 +1785,12 @@ export class NotificationService {
     response: string,
     mode: 'individual' | 'shared',
   ): Promise<void> {
-    const firebaseMessageId = ValidationHelper.validateFirebaseMessageId(response)
+    const firebaseMessageIdNum = ValidationHelper.validateFirebaseMessageId(response)
+    const firebaseMessageId = firebaseMessageIdNum ? String(firebaseMessageIdNum) : null
 
     if (mode === 'individual') {
       try {
-        await this.notiRepo.update({ id: notificationId }, { firebaseMessageId: firebaseMessageId || null })
+        await this.notiRepo.update({ id: notificationId }, { firebaseMessageId: firebaseMessageId })
         return
       } catch (error) {
         throw error
@@ -1801,7 +1802,7 @@ export class NotificationService {
           where: { id: notificationId, accountId: user.accountId },
         })
         if (notification) {
-          await this.notiRepo.update({ id: notificationId }, { firebaseMessageId: firebaseMessageId || null })
+          await this.notiRepo.update({ id: notificationId }, { firebaseMessageId: firebaseMessageId })
           return
         }
       }
@@ -1811,7 +1812,7 @@ export class NotificationService {
         .select('notification.id')
         .where('notification.accountId = :accountId', { accountId: user.accountId })
         .andWhere('notification.templateId = :templateId', { templateId: template.id })
-        .andWhere('notification.firebaseMessageId = 0')
+        .andWhere('notification.firebaseMessageId IS NULL')
         .orderBy('notification.createdAt', 'DESC')
         .getOne()
 

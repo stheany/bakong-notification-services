@@ -187,16 +187,13 @@ export class TemplateService implements OnModuleInit {
 
     // Normalize platforms: handle string[][] from database or string[] from DTO
     const platformsInput = Array.isArray(dto.platforms) && dto.platforms.length > 0 && Array.isArray(dto.platforms[0]) 
-      ? (dto.platforms as string[][]).flat() 
+      ? (dto.platforms as unknown as string[][]).flat() 
       : dto.platforms
     const normalizedPlatforms = ValidationHelper.parsePlatforms(platformsInput as string | string[])
     // Convert 1D array to 2D array format for database: ["ALL"] -> [["ALL"]]
     const platforms2D: string[][] = normalizedPlatforms.map(p => [p])
 
-    // Normalize platforms: ["IOS", "ANDROID"] -> ["ALL"]
-    const normalizedPlatforms = ValidationHelper.parsePlatforms(dto.platforms)
-
-    let template = this.repo.create({
+    const templateData: any = {
       platforms: platforms2D,
       bakongPlatform: dto.bakongPlatform,
       sendType: dto.sendType,
@@ -218,9 +215,11 @@ export class TemplateService implements OnModuleInit {
 
       createdBy: currentUser?.id,
       updatedBy: currentUser?.id,
-    })
+    }
+    const templateEntity = this.repo.create(templateData)
 
-    template = await this.repo.save(template)
+    const savedTemplate = await this.repo.save(templateEntity)
+    let template: Template = Array.isArray(savedTemplate) ? savedTemplate[0] : savedTemplate
     console.log('🔵 [TEMPLATE CREATE] Template saved with ID:', template.id)
 
     if (dto.translations && dto.translations.length > 0) {
@@ -426,7 +425,7 @@ export class TemplateService implements OnModuleInit {
       template.sendType,
     )
 
-    switch (template.sendType) {
+    switch (template.sendType as SendType) {
       case SendType.SEND_NOW:
         // Only send if shouldAutoSend is true (not a draft)
         if (!shouldAutoSend) {
@@ -583,7 +582,7 @@ export class TemplateService implements OnModuleInit {
 
         this.addScheduleNotification(template)
         break
-      case SendType.SEND_INTERVAL:
+      case (SendType.SEND_INTERVAL as SendType):
         console.log('Executing SEND_INTERVAL for template:', template.id)
         this.addIntervalNotification(template)
         break
@@ -629,7 +628,7 @@ export class TemplateService implements OnModuleInit {
         // This is a "Publish now" action on an already-sent notification
         // Just clear schedule and ensure it's published - don't resend
         await this.repo.update(id, {
-          sendType: SendType.SEND_NOW,
+          sendType: SendType.SEND_NOW as any,
           sendSchedule: null,
           sendInterval: null,
           isSent: true,
@@ -860,7 +859,7 @@ export class TemplateService implements OnModuleInit {
       const updatedTemplate = await this.findOneRaw(id)
 
       // Check if trying to publish a draft (SEND_NOW with isSent=true)
-      if (updatedTemplate.sendType === SendType.SEND_NOW && updatedTemplate.isSent === true) {
+      if ((updatedTemplate.sendType as SendType) === SendType.SEND_NOW && updatedTemplate.isSent === true) {
         // FLASH_NOTIFICATION now sends FCM push like other notification types
         // Mobile app will display it differently (as popup/flash screen)
         console.log(
@@ -988,7 +987,7 @@ export class TemplateService implements OnModuleInit {
         publishedBy: currentUser?.id || oldTemplate.publishedBy,
       }
 
-      const newTemplate = await this.repo.save(newTemplateData)
+      const newTemplate = (await this.repo.save(newTemplateData as any)) as Template
 
       if (dto.translations && dto.translations.length > 0) {
         for (const translation of dto.translations) {
@@ -1044,7 +1043,7 @@ export class TemplateService implements OnModuleInit {
         // Ensure it stays published - force isSent: true and sendType: SEND_NOW
         await this.repo.update(newTemplate.id, {
           isSent: true,
-          sendType: SendType.SEND_NOW,
+          sendType: SendType.SEND_NOW as any,
           sendSchedule: null, // Clear any schedule to keep in published tab
           sendInterval: null, // Clear any interval to keep in published tab
           updatedAt: new Date(),
@@ -1061,7 +1060,7 @@ export class TemplateService implements OnModuleInit {
         await this.forceDeleteTemplate(id)
         const templateToReturn = await this.findOneRaw(newTemplate.id)
         return this.formatTemplateResponse(templateToReturn)
-      } else if (newTemplate.sendType === 'SEND_NOW' && dto.isSent === true) {
+      } else if ((newTemplate.sendType as SendType) === SendType.SEND_NOW && dto.isSent === true) {
         // This shouldn't happen in editPublishedNotification (only drafts go through update method)
         // But handle it just in case - this would be publishing a draft for the first time
         console.log(
@@ -1120,7 +1119,7 @@ export class TemplateService implements OnModuleInit {
         console.log(`📝 [editPublishedNotification] Template updated and kept as draft`)
       }
 
-      if (newTemplate.sendType === 'SEND_SCHEDULE' && newTemplate.sendSchedule) {
+      if ((newTemplate.sendType as SendType) === SendType.SEND_SCHEDULE && newTemplate.sendSchedule) {
         console.log(
           `Scheduling updated notification for template ${newTemplate.id} at ${newTemplate.sendSchedule}`,
         )
@@ -1140,7 +1139,7 @@ export class TemplateService implements OnModuleInit {
         }
 
         this.addScheduleNotification(newTemplate)
-      } else if (newTemplate.sendType === 'SEND_INTERVAL' && newTemplate.sendInterval) {
+      } else if ((newTemplate.sendType as SendType) === SendType.SEND_INTERVAL && newTemplate.sendInterval) {
         console.log(`Scheduling updated notification with interval for template ${newTemplate.id}`)
         this.addIntervalNotification(newTemplate)
       }
@@ -1562,7 +1561,7 @@ export class TemplateService implements OnModuleInit {
           case SendType.SEND_SCHEDULE:
             this.addScheduleNotification(template)
             break
-          case SendType.SEND_INTERVAL:
+          case SendType.SEND_INTERVAL as SendType:
             this.addIntervalNotification(template)
             break
         }
@@ -1682,7 +1681,7 @@ export class TemplateService implements OnModuleInit {
               .update(Template)
               .set({
                 isSent: true,
-                sendType: SendType.SEND_NOW, // Change to SEND_NOW so it appears in Published tab
+                sendType: SendType.SEND_NOW as any, // Change to SEND_NOW so it appears in Published tab
                 sendSchedule: null, // Clear schedule since it's been sent
               })
               .where('id = :id', { id: template.id })
@@ -1807,7 +1806,7 @@ export class TemplateService implements OnModuleInit {
       // IMPORTANT: Only include published templates (isSent: true), exclude drafts
       const templates = await this.repo.find({
         where: {
-          notificationType: NotificationType.FLASH_NOTIFICATION,
+          notificationType: NotificationType.FLASH_NOTIFICATION as any,
           isSent: true, // Only published templates, exclude drafts
         },
         relations: ['translations', 'translations.image'],
@@ -2022,7 +2021,7 @@ export class TemplateService implements OnModuleInit {
         )
         const fallbackTemplates = await this.repo.find({
           where: {
-            notificationType: NotificationType.FLASH_NOTIFICATION,
+            notificationType: NotificationType.FLASH_NOTIFICATION as any,
             isSent: true, // Still exclude drafts
             ...(excludedTemplateIds.length > 0 && { id: Not(In(excludedTemplateIds)) }),
           },
