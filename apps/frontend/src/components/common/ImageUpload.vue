@@ -110,9 +110,9 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   acceptTypes: 'image/png,image/jpeg',
-  maxSize: 3 * 1024 * 1024,
+  maxSize: 2 * 1024 * 1024, // 2MB per image (safer for batch uploads)
   formatText: 'Supported format: PNG, JPG (2:1 W:H or 880:440)',
-  sizeText: 'Maximum size: 3MB',
+  sizeText: 'Maximum size: 2MB (will be auto-compressed)',
   validateAspectRatio: true,
 })
 
