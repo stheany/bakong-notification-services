@@ -115,6 +115,11 @@ export class InboxResponseDto implements NotificationData {
     accountId: string,
     bakongPlatform: string,
     dataUpdated: boolean = true,
+    syncStatus?: {
+      status: 'SUCCESS' | 'FAILED'
+      lastSyncAt: string | null
+      lastSyncMessage: string | null
+    },
   ) {
     return BaseResponseDto.success({
       message: dataUpdated
@@ -125,6 +130,7 @@ export class InboxResponseDto implements NotificationData {
         bakongPlatform,
         syncedAt: new Date().toISOString(),
         dataUpdated,
+        syncStatus: syncStatus || null,
       },
     })
   }

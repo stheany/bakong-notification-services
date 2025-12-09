@@ -1788,7 +1788,12 @@ export class NotificationService {
         console.log(
           `✅ [getNotificationCenter] Sync flow complete for ${accountId}, isNewUser: ${isNewUser}, dataUpdated: ${dataUpdated}`,
         )
-        return InboxResponseDto.getSyncResponse(accountId, userPlatform, dataUpdated)
+        
+        // Get syncStatus from user after sync
+        const syncedUser = await this.baseFunctionHelper.findUserByAccountId(accountId)
+        const syncStatus = syncedUser?.syncStatus || null
+        
+        return InboxResponseDto.getSyncResponse(accountId, userPlatform, dataUpdated, syncStatus)
       }
 
       // NOTIFICATION CENTER FLOW: Return paginated notifications (existing behavior)

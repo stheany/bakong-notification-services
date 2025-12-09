@@ -234,6 +234,39 @@ export class BaseFunctionHelper {
           `(dataChanged: ${dataChanged})`,
         )
         try {
+          // Prepare sync status update
+          // If we're updating fields, show which fields were synced
+          // Note: We always consider it an "update" when syncing fields from mobile app
+          // because mobile app is sending fresh data, even if values appear the same
+          const fieldsUpdated = Object.keys(updatesToApply).filter(key => key !== 'syncStatus')
+          const hasRealUpdates = fieldsUpdated.length > 0
+          
+          let syncMessage = ''
+          if (hasRealUpdates) {
+            if (dataChanged) {
+              // Values actually changed
+              syncMessage = `Existing user updated: ${fieldsUpdated.join(', ')} changed`
+            } else {
+              // Values are the same but we synced them (fresh data from mobile app)
+              // Still consider it an update since mobile app sent the data
+              syncMessage = `Existing user updated: ${fieldsUpdated.join(', ')} synced`
+            }
+          } else {
+            syncMessage = 'Existing user synced: no data changes'
+          }
+          
+          const syncStatusUpdate = {
+            status: 'SUCCESS' as const,
+            lastSyncAt: new Date().toISOString(),
+            lastSyncMessage: syncMessage,
+          }
+          updatesToApply.syncStatus = syncStatusUpdate
+          
+          // Mark as changed if we're updating any real fields (mobile app sent fresh data)
+          if (hasRealUpdates) {
+            dataChanged = true
+          }
+
           // Use direct update() for existing users - more reliable than save()
           const updateResult = await this.bkUserRepo.update({ accountId }, updatesToApply)
           console.log(
@@ -302,6 +335,26 @@ export class BaseFunctionHelper {
             updateError.message,
             updateError.stack,
           )
+          
+          // Update sync status to FAILED
+          try {
+            await this.bkUserRepo.update(
+              { accountId },
+              {
+                syncStatus: {
+                  status: 'FAILED',
+                  lastSyncAt: new Date().toISOString(),
+                  lastSyncMessage: `Database error: ${updateError.message}`,
+                },
+              },
+            )
+          } catch (statusUpdateError) {
+            console.error(
+              `❌ [syncUser] Failed to update sync status for ${accountId}:`,
+              statusUpdateError,
+            )
+          }
+          
           throw updateError
         }
       } else {
@@ -309,32 +362,85 @@ export class BaseFunctionHelper {
           `⏭️ [syncUser] No updates to apply for user ${accountId} (updatesToApply is empty)`,
         )
         dataChanged = false
+        
+        // Still update sync status even if no data changes
+        try {
+          await this.bkUserRepo.update(
+            { accountId },
+            {
+              syncStatus: {
+                status: 'SUCCESS',
+                lastSyncAt: new Date().toISOString(),
+                lastSyncMessage: 'Existing user synced: no data changes',
+              },
+            },
+          )
+        } catch (statusUpdateError) {
+          console.error(
+            `❌ [syncUser] Failed to update sync status for ${accountId}:`,
+            statusUpdateError,
+          )
+        }
       }
       return { isNewUser, savedUser: user, dataUpdated: dataChanged }
     }
 
     // For new users: create with provided data, use empty string for fcmToken if not provided
     // bakongPlatform will be set from template when sending flash notification (see notification.service.ts)
-    const created = this.bkUserRepo.create({
-      accountId,
-      fcmToken: updateData.fcmToken || '', // Use empty string as placeholder if not provided
-      participantCode: updateData.participantCode,
-      platform: this.normalizePlatform(updateData.platform),
-      language: this.normalizeLanguage(updateData.language),
-      bakongPlatform: updateData.bakongPlatform, // Only set if explicitly provided
-    })
-    console.log(
-      `📝 [syncUser] Creating new user ${accountId} with bakongPlatform: ${
-        updateData.bakongPlatform || 'NULL'
-      }`,
-    )
-    const savedUser = await this.bkUserRepo.save(created)
-    console.log(
-      `✅ [syncUser] Created user ${accountId} with bakongPlatform: ${
-        savedUser.bakongPlatform || 'NULL'
-      }`,
-    )
-    return { isNewUser, savedUser }
+    try {
+      const created = this.bkUserRepo.create({
+        accountId,
+        fcmToken: updateData.fcmToken || '', // Use empty string as placeholder if not provided
+        participantCode: updateData.participantCode,
+        platform: this.normalizePlatform(updateData.platform),
+        language: this.normalizeLanguage(updateData.language),
+        bakongPlatform: updateData.bakongPlatform, // Only set if explicitly provided
+        syncStatus: {
+          status: 'SUCCESS',
+          lastSyncAt: new Date().toISOString(),
+          lastSyncMessage: `New user created: ${updateData.bakongPlatform || 'no platform'} platform`,
+        },
+      })
+      console.log(
+        `📝 [syncUser] Creating new user ${accountId} with bakongPlatform: ${
+          updateData.bakongPlatform || 'NULL'
+        }`,
+      )
+      const savedUser = await this.bkUserRepo.save(created)
+      console.log(
+        `✅ [syncUser] Created user ${accountId} with bakongPlatform: ${
+          savedUser.bakongPlatform || 'NULL'
+        }`,
+      )
+      return { isNewUser, savedUser }
+    } catch (createError: any) {
+      console.error(
+        `❌ [syncUser] ERROR creating new user ${accountId}:`,
+        createError.message,
+        createError.stack,
+      )
+      
+      // Try to update sync status if user was partially created (shouldn't happen, but safety)
+      try {
+        const existingUser = await this.findUserByAccountId(accountId)
+        if (existingUser) {
+          await this.bkUserRepo.update(
+            { accountId },
+            {
+              syncStatus: {
+                status: 'FAILED',
+                lastSyncAt: new Date().toISOString(),
+                lastSyncMessage: `Failed to create user: ${createError.message}`,
+              },
+            },
+          )
+        }
+      } catch (statusUpdateError) {
+        // Ignore - user doesn't exist yet
+      }
+      
+      throw createError
+    }
   }
 
   async syncAllUsers(): Promise<AllUsersSyncResult> {

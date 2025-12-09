@@ -118,8 +118,19 @@
           <div class="test-section">
             <h2 class="section-title">🔄 Sync User Data</h2>
         <p class="section-description">
-          Manually sync all user data from the database. This normalizes user fields, validates tokens, and updates platform/language information.
+          Manually sync all user data from the database. This normalizes user fields, validates tokens, updates platform/language information, and tracks sync status.
         </p>
+        
+        <div class="sync-info-box" style="margin-top: 20px;">
+          <el-icon class="info-icon"><InfoFilled /></el-icon>
+          <div class="info-content">
+            <strong>Sync Status Tracking:</strong>
+            <p>
+              Each user sync now tracks: <code>status</code> (SUCCESS/FAILED), <code>lastSyncAt</code> (timestamp), 
+              and <code>lastSyncMessage</code> (success message or error details). Check the database to see syncStatus JSONB column.
+            </p>
+          </div>
+        </div>
         
         <div class="sync-info-box">
           <h3 class="info-box-title">When does user sync happen automatically?</h3>
@@ -318,17 +329,33 @@
                   </el-select>
                 </el-form-item>
                 <el-form-item>
-                  <el-button
-                    type="primary"
-                    :loading="testingInboxSync"
-                    @click="handleTestInboxSync"
-                    :disabled="!inboxSyncForm.accountId || !inboxSyncForm.fcmToken || !inboxSyncForm.bakongPlatform"
-                    size="large"
-                    class="test-inbox-btn"
-                  >
-                    <el-icon v-if="!testingInboxSync" style="margin-right: 8px;"><Check /></el-icon>
-                    {{ testingInboxSync ? 'Syncing...' : 'Test Sync Data Flow' }}
-                  </el-button>
+                  <div style="display: flex; gap: 12px;">
+                    <el-button
+                      type="primary"
+                      :loading="testingInboxSync"
+                      @click="handleTestInboxSync"
+                      :disabled="!inboxSyncForm.accountId || !inboxSyncForm.fcmToken || !inboxSyncForm.bakongPlatform"
+                      size="large"
+                      class="test-inbox-btn"
+                    >
+                      <el-icon v-if="!testingInboxSync" style="margin-right: 8px;"><Check /></el-icon>
+                      {{ testingInboxSync ? 'Syncing...' : 'Test Sync Data Flow' }}
+                    </el-button>
+                    <el-button
+                      type="danger"
+                      :loading="testingInboxSync"
+                      @click="handleTestSyncFailure"
+                      :disabled="!inboxSyncForm.accountId || !inboxSyncForm.bakongPlatform"
+                      size="large"
+                      class="test-failure-btn"
+                    >
+                      <el-icon v-if="!testingInboxSync" style="margin-right: 8px;"><Warning /></el-icon>
+                      Test Failure Scenario
+                    </el-button>
+                  </div>
+                  <div class="input-hint" style="margin-top: 8px;">
+                    💡 <strong>Test Failure:</strong> Click "Test Failure Scenario" to simulate a sync failure (uses invalid accountId format to trigger database error)
+                  </div>
                 </el-form-item>
               </el-form>
             </div>
@@ -453,6 +480,21 @@
               <span class="result-label">Synced At:</span>
               <span class="result-value">{{ inboxSyncResult.data.syncedAt }}</span>
             </div>
+            <!-- Sync Status Display -->
+            <div v-if="inboxSyncResult.responseCode === 0 && inboxSyncResult.data?.syncStatus" class="result-item">
+              <span class="result-label">Sync Status:</span>
+              <div class="sync-status-details">
+                <el-tag :type="inboxSyncResult.data.syncStatus.status === 'SUCCESS' ? 'success' : 'danger'" style="margin-right: 8px;">
+                  {{ inboxSyncResult.data.syncStatus.status }}
+                </el-tag>
+                <div v-if="inboxSyncResult.data.syncStatus.lastSyncAt" class="sync-status-info">
+                  <div><strong>Last Sync:</strong> {{ new Date(inboxSyncResult.data.syncStatus.lastSyncAt).toLocaleString() }}</div>
+                </div>
+                <div v-if="inboxSyncResult.data.syncStatus.lastSyncMessage" class="sync-status-message">
+                  <strong>Message:</strong> {{ inboxSyncResult.data.syncStatus.lastSyncMessage }}
+                </div>
+              </div>
+            </div>
             <div v-if="inboxSyncResult.responseCode === 1 && inboxSyncResult.data" class="result-item error-item">
               <span class="result-label">Error:</span>
               <span class="result-value error-text">{{ inboxSyncResult.data.error }}</span>
@@ -517,7 +559,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Check, InfoFilled } from '@element-plus/icons-vue'
+import { Check, InfoFilled, Warning } from '@element-plus/icons-vue'
 import { ElNotification, ElMessage } from 'element-plus'
 import { testFCMToken, syncUsers, testInbox, type TestTokenResponse, type SyncUsersResponse, type InboxRequest } from '@/services/notificationApi'
 
@@ -730,6 +772,59 @@ const handleTestInboxSync = async () => {
       title: 'Sync Flow Test Failed ❌',
       type: 'error',
       message: errorMessage,
+      duration: 5000,
+    })
+  } finally {
+    testingInboxSync.value = false
+  }
+}
+
+const handleTestSyncFailure = async () => {
+  if (!inboxSyncForm.value.accountId || !inboxSyncForm.value.bakongPlatform) {
+    ElMessage.warning('Please fill in Account ID and Bakong Platform')
+    return
+  }
+
+  testingInboxSync.value = true
+  inboxSyncResult.value = null
+
+  try {
+    // Test failure scenario: Use an accountId that's too long (will cause database error)
+    // PostgreSQL VARCHAR(32) constraint will fail
+    const invalidAccountId = 'a'.repeat(50) // 50 characters - exceeds 32 char limit
+    
+    const payload: InboxRequest = {
+      fcmToken: inboxSyncForm.value.fcmToken || 'f', // Use short token "f" to test
+      accountId: invalidAccountId, // This will cause database error
+      platform: inboxSyncForm.value.platform,
+      participantCode: inboxSyncForm.value.participantCode,
+      language: inboxSyncForm.value.language,
+      bakongPlatform: inboxSyncForm.value.bakongPlatform,
+    }
+
+    console.log('📬 [handleTestSyncFailure] Sending sync request with invalid data:', payload)
+    const response = await testInbox(payload)
+    console.log('📬 [handleTestSyncFailure] Response:', response)
+
+    inboxSyncResult.value = response
+  } catch (err: any) {
+    console.error('❌ [handleTestSyncFailure] Error:', err)
+    const errorMessage = err.response?.data?.responseMessage || err.message || 'Failed to sync user data'
+    
+    // Show error result
+    inboxSyncResult.value = {
+      responseCode: 1,
+      responseMessage: errorMessage,
+      data: {
+        error: errorMessage,
+        accountId: inboxSyncForm.value.accountId,
+      },
+    }
+
+    ElNotification({
+      title: 'Sync Failure Test ✅',
+      type: 'info',
+      message: `Failed sync scenario tested. Check syncStatus in database for FAILED status.`,
       duration: 5000,
     })
   } finally {
@@ -1243,6 +1338,27 @@ const handleTestInboxNotification = async () => {
   margin-top: 8px;
   max-height: 150px;
   overflow-y: auto;
+}
+
+.sync-status-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sync-status-info,
+.sync-status-message {
+  font-size: 14px;
+  color: #666;
+  padding: 8px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  border-left: 3px solid #409eff;
+}
+
+.sync-status-message {
+  word-break: break-word;
 }
 
 @media (max-width: 768px) {
