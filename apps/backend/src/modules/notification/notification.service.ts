@@ -824,6 +824,13 @@ export class NotificationService {
             mode,
           )
 
+          console.log('📨 [sendFCM] Response from sendFCMPayloadToPlatform:', {
+            accountId: user.accountId,
+            hasResponse: !!response,
+            responseType: typeof response,
+            responseValue: response ? `${String(response).substring(0, 50)}...` : 'NULL',
+          })
+
           if (response) {
             const responseString =
               typeof response === 'string' ? response : JSON.stringify(response)
@@ -842,11 +849,18 @@ export class NotificationService {
             }
           } else {
             console.warn('⚠️ [sendFCM] No response from FCM for user:', user.accountId)
-            if (mode === 'shared') {
+            // Count as failed for BOTH individual and shared modes
+            if (mode === 'individual') {
+              failedUsers.push({
+                accountId: user.accountId,
+                error: 'No response from FCM (platform mismatch or unrecognized platform)',
+                errorCode: 'NO_RESPONSE',
+              })
+            } else if (mode === 'shared') {
               sharedFailedCount++
               sharedFailedUsers.push({
                 accountId: user.accountId,
-                error: 'No response from FCM',
+                error: 'No response from FCM (platform mismatch or unrecognized platform)',
               })
             }
           }
@@ -1181,7 +1195,7 @@ export class NotificationService {
         dataKeys: msg.data ? Object.keys(msg.data) : [],
         androidPriority: msg.android?.priority,
         androidTtl: msg.android?.ttl,
-        androidCollapseKey: msg.android?.collapseKey,
+      androidCollapseKey: msg.android?.collapseKey,
         androidNotificationChannelId: msg.android?.notification?.channelId,
         androidNotificationSound: msg.android?.notification?.sound,
       })
@@ -1207,7 +1221,9 @@ export class NotificationService {
           title: title?.substring(0, 50),
           body: body ? `${body.substring(0, 50)}...` : 'NO BODY',
           bakongPlatform: user.bakongPlatform || 'NULL',
-          payloadType: 'data-only',
+          payloadType: 'notification+data',
+          hasClickAction: !!msg.android?.notification?.clickAction,
+          clickAction: msg.android?.notification?.clickAction || 'NONE',
         })
         const sendResponse = await fcm.send(msg)
         console.log('✅ [sendFCMPayloadToPlatform] Android FCM send successful:', {
@@ -1562,10 +1578,15 @@ export class NotificationService {
         size,
         bakongPlatform,
       } = dto
-      const { skip, take } = PaginationUtils.normalizePagination(page, size)
+
+      // Detect flow: sync data (no page/size) vs notification center (with page/size)
+      const isSyncFlow = page === null || page === undefined || size === null || size === undefined
 
       console.log('📥 [getNotificationCenter] /inbox API called with:', {
         accountId,
+        flow: isSyncFlow ? 'SYNC_DATA' : 'NOTIFICATION_CENTER',
+        page: page ?? 'null',
+        size: size ?? 'null',
         fcmToken: fcmToken
           ? `${fcmToken.substring(0, 30)}...`
           : fcmToken === ''
@@ -1581,6 +1602,7 @@ export class NotificationService {
         return BaseResponseDto.error({
           errorCode: ErrorCode.FLASH_NOTIFICATION_POPUP_FAILED,
           message: 'bakongPlatform is required. Must be one of: BAKONG, BAKONG_JUNIOR, BAKONG_TOURIST',
+          data: { accountId },
         })
       }
 
@@ -1675,6 +1697,23 @@ export class NotificationService {
       // Get user's bakongPlatform from database (stored when user called API)
       const userPlatform = user.bakongPlatform
 
+      // SYNC FLOW: Return sync response without notifications
+      if (isSyncFlow) {
+        const isNewUser = 'isNewUser' in syncResult ? (syncResult as any).isNewUser : false
+        // dataUpdated only exists in SingleUserSyncResult, not AllUsersSyncResult
+        const dataUpdated =
+          'isNewUser' in syncResult && 'dataUpdated' in syncResult
+            ? (syncResult as any).dataUpdated
+            : true // Default to true if not available (shouldn't happen for single user sync)
+        console.log(
+          `✅ [getNotificationCenter] Sync flow complete for ${accountId}, isNewUser: ${isNewUser}, dataUpdated: ${dataUpdated}`,
+        )
+        return InboxResponseDto.getSyncResponse(accountId, userPlatform, dataUpdated)
+      }
+
+      // NOTIFICATION CENTER FLOW: Return paginated notifications (existing behavior)
+      const { skip, take } = PaginationUtils.normalizePagination(page || 1, size || 10)
+
       const [notifications, totalCount] = await this.notiRepo.findAndCount({
         where: { accountId: accountId.trim() },
         order: { createdAt: 'DESC' },
@@ -1745,10 +1784,16 @@ export class NotificationService {
         userPlatform,
       )
     } catch (error) {
+      const errorMessage =
+        (error as any).message || ResponseMessage.INTERNAL_SERVER_ERROR
+      console.error(`❌ [getNotificationCenter] Error for ${dto.accountId}:`, errorMessage)
       return BaseResponseDto.error({
-        errorCode: ErrorCode.FLASH_NOTIFICATION_POPUP_FAILED,
-        message: ResponseMessage.FLASH_NOTIFICATION_POPUP_FAILED,
-        data: { accountId: dto.accountId, error: (error as any).message },
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+        message: ResponseMessage.INTERNAL_SERVER_ERROR,
+        data: {
+          accountId: dto.accountId,
+          error: errorMessage,
+        },
       })
     }
   }

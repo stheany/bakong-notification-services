@@ -145,6 +145,45 @@ export const syncUsers = async (): Promise<SyncUsersResponse> => {
   return result as SyncUsersResponse
 }
 
+export interface InboxRequest {
+  fcmToken: string
+  accountId: string
+  platform?: string
+  participantCode?: string
+  language?: string
+  bakongPlatform: string
+  page?: number | null
+  size?: number | null
+}
+
+export interface InboxSyncResponse {
+  accountId: string
+  bakongPlatform: string
+  syncedAt: string
+}
+
+export interface InboxNotificationCenterResponse {
+  notifications: any[]
+  page: number
+  size: number
+  itemCount: number
+  pageCount: number
+  totalCount: number
+  hasPreviousPage: boolean
+  hasNextPage: boolean
+  userBakongPlatform?: string
+}
+
+export const testInbox = async (data: InboxRequest): Promise<any> => {
+  const response = await api.post('/api/v1/notification/inbox', data)
+  console.log('🔍 [testInbox] Full API response:', response.data)
+  
+  // Backend returns BaseResponseDto format:
+  // { responseCode, errorCode, responseMessage, data }
+  // Return the full response object so TestView can access all fields
+  return response.data
+}
+
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
   switch (backendStatus) {
     case 'SENT':

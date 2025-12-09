@@ -7,7 +7,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { BakongApp } from '@bakong/shared'
 
-type SingleUserSyncResult = { isNewUser: boolean; savedUser: BakongUser }
+type SingleUserSyncResult = { isNewUser: boolean; savedUser: BakongUser; dataUpdated?: boolean }
 type AllUsersSyncResult = {
   updatedCount: number
   totalCount: number
@@ -198,12 +198,40 @@ export class BaseFunctionHelper {
         },
       })
 
+      // Check if data actually changed before updating
+      // This helps us know if we need to update the database
+      let dataChanged = false
+      if (Object.keys(updatesToApply).length > 0) {
+        // Check if any field actually changed
+        if (updatesToApply.fcmToken !== undefined) {
+          const currentToken = (user.fcmToken || '').trim()
+          const newToken = (updatesToApply.fcmToken || '').trim()
+          if (currentToken !== newToken) {
+            dataChanged = true
+          }
+        }
+        if (updatesToApply.platform !== undefined && user.platform !== updatesToApply.platform) {
+          dataChanged = true
+        }
+        if (updatesToApply.language !== undefined && user.language !== updatesToApply.language) {
+          dataChanged = true
+        }
+        if (updatesToApply.bakongPlatform !== undefined && user.bakongPlatform !== updatesToApply.bakongPlatform) {
+          dataChanged = true
+        }
+        if (updatesToApply.participantCode !== undefined && user.participantCode !== updatesToApply.participantCode) {
+          dataChanged = true
+        }
+      }
+
       // ALWAYS update database when we have updates to apply
       // This ensures we sync all data from mobile app, even if values appear the same
+      // FCM tokens can refresh, so we always update to ensure we have the latest token
       if (Object.keys(updatesToApply).length > 0) {
         console.log(
           `💾 [syncUser] Updating user ${accountId} in database with:`,
           Object.keys(updatesToApply),
+          `(dataChanged: ${dataChanged})`,
         )
         try {
           // Use direct update() for existing users - more reliable than save()
@@ -280,8 +308,9 @@ export class BaseFunctionHelper {
         console.log(
           `⏭️ [syncUser] No updates to apply for user ${accountId} (updatesToApply is empty)`,
         )
+        dataChanged = false
       }
-      return { isNewUser, savedUser: user }
+      return { isNewUser, savedUser: user, dataUpdated: dataChanged }
     }
 
     // For new users: create with provided data, use empty string for fcmToken if not provided

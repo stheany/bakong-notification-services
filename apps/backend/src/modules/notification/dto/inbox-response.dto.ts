@@ -111,6 +111,24 @@ export class InboxResponseDto implements NotificationData {
     return response
   }
 
+  static getSyncResponse(
+    accountId: string,
+    bakongPlatform: string,
+    dataUpdated: boolean = true,
+  ) {
+    return BaseResponseDto.success({
+      message: dataUpdated
+        ? 'User data synchronized successfully'
+        : 'User data is already up to date',
+      data: {
+        accountId,
+        bakongPlatform,
+        syncedAt: new Date().toISOString(),
+        dataUpdated,
+      },
+    })
+  }
+
   static buildBaseNotificationData(
     template: any,
     translation: any,
@@ -225,6 +243,8 @@ export class InboxResponseDto implements NotificationData {
       notification: {
         title,
         body,
+        // Root notification field - cross-platform (iOS & Android)
+        // Do NOT put clickAction here - it's Android-specific
         ...(extra?.imageUrl ? { imageUrl: extra.imageUrl } : {}),
       },
       data: stringDataPayload,
@@ -241,7 +261,7 @@ export class InboxResponseDto implements NotificationData {
           tag: `notification_${notificationId}`,
           color: '#FF5722',
           icon: 'ic_notification',
-          clickAction: 'OPEN_NOTIFICATION',
+          clickAction: 'OPEN_APP',
           ...(extra?.imageUrl ? { imageUrl: extra.imageUrl } : {}),
         },
       },
