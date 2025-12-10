@@ -912,17 +912,8 @@ export class TemplateService implements OnModuleInit {
         })
 
         if (templateWithTranslations && templateWithTranslations.translations) {
-          let sendResult: {
-            successfulCount: number
-            failedCount: number
-            failedUsers?: string[]
-            failedDueToInvalidTokens?: boolean
-          } = {
-            successfulCount: 0,
-            failedCount: 0,
-            failedUsers: [],
-            failedDueToInvalidTokens: false,
-          }
+          let sendResult: { successfulCount: number; failedCount: number; failedUsers?: string[] } =
+            { successfulCount: 0, failedCount: 0, failedUsers: [] }
           let noUsersForPlatform = false
           try {
             sendResult = await this.notificationService.sendWithTemplate(templateWithTranslations)
