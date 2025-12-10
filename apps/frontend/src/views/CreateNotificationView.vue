@@ -30,7 +30,7 @@
                 <span class="dropdown-trigger">
                   {{
                     formatCategoryType(
-                      categoryTypes.find((ct) => ct.id === formData.categoryTypeId)?.name ||
+                      categoryTypes.find((ct: CategoryTypeData ) => ct.id === formData.categoryTypeId)?.name ||
                         'Select Category',
                     )
                   }}
@@ -296,7 +296,7 @@
         :title="currentTitle"
         :description="currentDescription"
         :image="currentImageUrl || ''"
-        :categoryType="categoryTypes.find((ct) => ct.id === formData.categoryTypeId)?.name || ''"
+        :categoryType="categoryTypes.find((ct: CategoryTypeData) => ct.id === formData.categoryTypeId)?.name || ''"
       />
     </div>
   </div>
@@ -642,6 +642,7 @@ const showLeaveDialog = ref(false)
 const showUpdateConfirmationDialog = ref(false)
 let pendingNavigation: (() => void) | null = null
 let isSavingOrPublishing = ref(false) // Flag to prevent blocking during save/publish
+const isDiscarding = ref(false) // Flag to allow navigation when discarding changes
 
 // Watch splashEnabled toggle to update notificationType
 watch(
@@ -1032,9 +1033,12 @@ const handlePublishNowInternal = async () => {
       const platformName = formatBakongApp(formData.platform)
       const bakongPlatform = formData.platform || result?.data?.bakongPlatform
       const messageConfig = getNotificationMessage(result?.data, platformName, bakongPlatform)
+      const successfulCount = result?.data?.successfulCount ?? 0
+      const failedCount = result?.data?.failedCount ?? 0
+      const isPartialSuccess = successfulCount > 0 && failedCount > 0
 
-      // Only show notification if it's not a success (success messages are handled separately below)
-      if (messageConfig.type !== 'success') {
+      // Show notification for non-success cases (errors, warnings, info) or partial success
+      if (messageConfig.type !== 'success' || isPartialSuccess) {
         ElNotification({
           title: messageConfig.title,
           message: messageConfig.message,
@@ -1050,6 +1054,9 @@ const handlePublishNowInternal = async () => {
           messageConfig.type === 'info'
         ) {
           redirectTab = 'draft'
+        } else if (isPartialSuccess) {
+          // For partial success, redirect to published tab
+          redirectTab = 'published'
         }
       } else if (redirectTab === 'scheduled') {
         ElNotification({
@@ -1508,7 +1515,17 @@ const handleSaveDraft = async () => {
 }
 
 const handleDiscard = () => {
-  router.push('/')
+  // Set flag to bypass navigation guard
+  isDiscarding.value = true
+  // Clear any pending navigation
+  pendingNavigation = null
+  // Navigate to home
+  router.push('/').finally(() => {
+    // Reset flag after navigation completes
+    setTimeout(() => {
+      isDiscarding.value = false
+    }, 100)
+  })
 }
 
 const handleConfirmationDialogConfirm = () => {
@@ -1517,7 +1534,11 @@ const handleConfirmationDialogConfirm = () => {
 }
 
 const handleConfirmationDialogCancel = () => {
+  // Close all dialogs before discarding
   showConfirmationDialog.value = false
+  showLeaveDialog.value = false
+  showUpdateConfirmationDialog.value = false
+  pendingNavigation = null
   handleDiscard()
 }
 
@@ -1543,6 +1564,12 @@ const hasUnsavedChanges = computed(() => {
 onBeforeRouteLeave((to, from, next) => {
   // Don't block navigation if currently saving/publishing
   if (isSavingOrPublishing.value) {
+    next()
+    return
+  }
+
+  // Don't block navigation if user explicitly wants to discard
+  if (isDiscarding.value) {
     next()
     return
   }

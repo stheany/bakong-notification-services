@@ -148,7 +148,9 @@ export class InboxResponseDto implements NotificationData {
       templateId: Number(template.id),
       language: translation.language,
       notificationType: template.notificationType,
-      categoryType: template.categoryTypeEntity?.name || template.categoryTypeId?.toString() || '',
+      // Use categoryTypeEntity.name (string enum) instead of categoryTypeId (numeric ID)
+      // Mobile app expects category name like "NEWS", "ANNOUNCEMENT", etc., not numeric ID
+      categoryType: template.categoryTypeEntity?.name || 'NEWS',
       bakongPlatform: template.bakongPlatform,
       createdDate: DateFormatter.formatDateByLanguage(template.createdAt, language as Language),
       timestamp: new Date().toISOString(),
@@ -352,8 +354,6 @@ export class InboxResponseDto implements NotificationData {
       sound: 'default',
       badge: 1,
       type: 'NOTIFICATION', // Mobile app reads this from aps payload (non-standard but was working before)
-      notification: notification || {},
-
       // Removed content-available - it's only for silent background notifications
       // When combined with alert, it can prevent notification from displaying
     }

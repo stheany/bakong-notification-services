@@ -879,9 +879,12 @@ const handlePublishNotification = async (notification: Notification) => {
 
         const bakongPlatform = result?.data?.bakongPlatform || (notification as any)?.bakongPlatform
         const messageConfig = getNotificationMessage(result?.data, platformName, bakongPlatform)
+        const successfulCount = result?.data?.successfulCount ?? 0
+        const failedCount = result?.data?.failedCount ?? 0
+        const isPartialSuccess = successfulCount > 0 && failedCount > 0
 
-        // Show notification for non-success cases (errors, warnings, info)
-        if (messageConfig.type !== 'success') {
+        // Show notification for non-success cases (errors, warnings, info) or partial success
+        if (messageConfig.type !== 'success' || isPartialSuccess) {
           ElNotification({
             title: messageConfig.title,
             message: messageConfig.message,
@@ -904,9 +907,21 @@ const handlePublishNotification = async (notification: Notification) => {
             applyFilters()
             return
           }
+
+          // For partial success, still show the notification but don't redirect to draft
+          if (isPartialSuccess) {
+            // Update notification status if some were successful
+            const notificationIndex = notifications.value.findIndex((n) => n.id === notification.id)
+            if (notificationIndex !== -1 && successfulCount > 0) {
+              notifications.value[notificationIndex].status = 'published'
+              notifications.value[notificationIndex].isSent = true
+            }
+            activeTab.value = 'published'
+            return
+          }
         }
 
-        // Handle success cases (only reached if messageConfig.type === 'success')
+        // Handle full success cases (only reached if messageConfig.type === 'success' and not partial)
         if (result?.data?.successfulCount !== undefined && result?.data?.successfulCount > 0) {
           // Successfully published and sent to users
           const successfulCount = result?.data?.successfulCount ?? 0

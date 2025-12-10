@@ -472,7 +472,7 @@ export class NotificationService {
         // Mobile app fetching specific notification (e.g., after clicking flash notification)
         const notification = await this.notiRepo.findOne({
           where: { id: dto.notificationId },
-          relations: ['template', 'template.translations'],
+          relations: ['template', 'template.translations', 'template.categoryTypeEntity'],
         })
         if (!notification) throw new Error('Notification not found')
 
@@ -562,7 +562,7 @@ export class NotificationService {
             bakongPlatform: userBakongPlatform as any,
             isSent: true, // Only published templates, exclude drafts
           },
-          relations: ['translations', 'translations.image'],
+          relations: ['translations', 'translations.image', 'categoryTypeEntity'],
           order: { priority: 'DESC', createdAt: 'DESC' },
         })
         template = templates.find((t) => t.translations && t.translations.length > 0) || null
@@ -1277,7 +1277,9 @@ export class NotificationService {
       const extraData = {
         templateId: String(template.id),
         notificationType: String(template.notificationType),
-        categoryType: String(template.categoryTypeId || ''),
+        // Use categoryTypeEntity.name (string enum) instead of categoryTypeId (numeric ID)
+        // Mobile app expects category name like "NEWS", "ANNOUNCEMENT", etc., not numeric ID
+        categoryType: String(template.categoryTypeEntity?.name || 'NEWS'),
         language: String(translation.language),
         accountId: String(user.accountId),
         platform: String(user.platform || 'android'),
@@ -1443,7 +1445,7 @@ export class NotificationService {
     if (templateId) {
       selectedTemplate = await this.templateRepo.findOne({
         where: { id: templateId, notificationType: NotificationType.FLASH_NOTIFICATION },
-        relations: ['translations'],
+        relations: ['translations', 'categoryTypeEntity'],
       })
 
       if (!selectedTemplate) {
@@ -1889,7 +1891,7 @@ export class NotificationService {
         if (notification.templateId) {
           notification.template = await this.templateRepo.findOne({
             where: { id: notification.templateId },
-            relations: ['translations'],
+            relations: ['translations', 'categoryTypeEntity'],
           })
 
           if (notification.template && !notification.template.translations) {

@@ -457,10 +457,16 @@ export class TemplateService implements OnModuleInit {
 
         console.log('🔵 [TEMPLATE CREATE] ✅ Translations found, calling sendWithTemplate...')
 
-        let sendResult: { successfulCount: number; failedCount: number; failedUsers?: string[] } = {
+        let sendResult: {
+          successfulCount: number
+          failedCount: number
+          failedUsers?: string[]
+          failedDueToInvalidTokens?: boolean
+        } = {
           successfulCount: 0,
           failedCount: 0,
           failedUsers: [],
+          failedDueToInvalidTokens: false,
         }
         let sendError: any = null
         let noUsersForPlatform = false
@@ -475,7 +481,12 @@ export class TemplateService implements OnModuleInit {
             fullError: process.env.NODE_ENV === 'development' ? error : 'Hidden in production',
           })
           sendError = error
-          sendResult = { successfulCount: 0, failedCount: 0, failedUsers: [] }
+          sendResult = {
+            successfulCount: 0,
+            failedCount: 0,
+            failedUsers: [],
+            failedDueToInvalidTokens: false,
+          }
 
           // Check if error is about no users for bakongPlatform
           if (error?.message && error.message.includes('No users found for')) {
@@ -901,8 +912,17 @@ export class TemplateService implements OnModuleInit {
         })
 
         if (templateWithTranslations && templateWithTranslations.translations) {
-          let sendResult: { successfulCount: number; failedCount: number; failedUsers?: string[] } =
-            { successfulCount: 0, failedCount: 0, failedUsers: [] }
+          let sendResult: {
+            successfulCount: number
+            failedCount: number
+            failedUsers?: string[]
+            failedDueToInvalidTokens?: boolean
+          } = {
+            successfulCount: 0,
+            failedCount: 0,
+            failedUsers: [],
+            failedDueToInvalidTokens: false,
+          }
           let noUsersForPlatform = false
           try {
             sendResult = await this.notificationService.sendWithTemplate(templateWithTranslations)
@@ -1792,7 +1812,7 @@ export class TemplateService implements OnModuleInit {
           notificationType: NotificationType.FLASH_NOTIFICATION,
           isSent: true, // Only published templates, exclude drafts
         },
-        relations: ['translations', 'translations.image'],
+        relations: ['translations', 'translations.image', 'categoryTypeEntity'],
         order: { priority: 'DESC', createdAt: 'DESC' },
       })
       const template = templates.find((t) => t.translations && t.translations.length > 0) || null
@@ -1822,7 +1842,7 @@ export class TemplateService implements OnModuleInit {
         notificationType: validatedRequest,
         isSent: true, // Only published templates, exclude drafts
       },
-      relations: ['translations', 'translations.image'],
+      relations: ['translations', 'translations.image', 'categoryTypeEntity'],
       order: { priority: 'DESC', createdAt: 'DESC' },
     })
     const template = templates.find((t) => t.translations && t.translations.length > 0) || null
@@ -1836,7 +1856,7 @@ export class TemplateService implements OnModuleInit {
   async findTemplateById(templateId: string): Promise<Template> {
     const template = await this.repo.findOne({
       where: { id: Number(templateId) },
-      relations: ['translations', 'translations.image'],
+      relations: ['translations', 'translations.image', 'categoryTypeEntity'],
     })
 
     if (!template) {

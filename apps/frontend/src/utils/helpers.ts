@@ -201,7 +201,7 @@ export const getNotificationMessage = (
     return {
       title: 'Partial Success',
       message: `Notification${platformInfo} sent to ${successfulCount} user(s) successfully. Failed to send to ${failedCount} user(s).`,
-      type: 'warning',
+      type: 'success',
       duration: 5000,
       dangerouslyUseHTMLString: !!bakongPlatform,
     }
