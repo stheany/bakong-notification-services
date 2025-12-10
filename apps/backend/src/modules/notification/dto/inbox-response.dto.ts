@@ -148,7 +148,9 @@ export class InboxResponseDto implements NotificationData {
       templateId: Number(template.id),
       language: translation.language,
       notificationType: template.notificationType,
-      categoryType: template.categoryTypeEntity?.name || template.categoryTypeId?.toString() || '',
+      // Use categoryTypeEntity.name (string enum) instead of categoryTypeId (numeric ID)
+      // Mobile app expects category name like "NEWS", "ANNOUNCEMENT", etc., not numeric ID
+      categoryType: template.categoryTypeEntity?.name || 'NEWS',
       bakongPlatform: template.bakongPlatform,
       createdDate: DateFormatter.formatDateByLanguage(template.createdAt, language as Language),
       timestamp: new Date().toISOString(),
@@ -200,32 +202,34 @@ export class InboxResponseDto implements NotificationData {
     sharedFailedUsers?: Array<{ accountId: string; error: string; errorCode?: string }>,
   ) {
     // Check if failures are due to invalid tokens
-    const checkInvalidTokens = (users: Array<{ accountId: string; error?: string; errorCode?: string }>): boolean => {
+    const checkInvalidTokens = (
+      users: Array<{ accountId: string; error?: string; errorCode?: string }>,
+    ): boolean => {
       if (!users || users.length === 0) return false
-      
+
       const invalidTokenErrorCodes = [
         'messaging/registration-token-not-registered',
         'messaging/invalid-registration-token',
         'messaging/invalid-argument',
       ]
-      
+
       // Check if all failures are due to invalid tokens
-      const allInvalidTokens = users.every((u) => 
-        u.errorCode && invalidTokenErrorCodes.includes(u.errorCode)
+      const allInvalidTokens = users.every(
+        (u) => u.errorCode && invalidTokenErrorCodes.includes(u.errorCode),
       )
-      
+
       // Or check if majority are invalid tokens (more than 50%)
-      const invalidTokenCount = users.filter((u) => 
-        u.errorCode && invalidTokenErrorCodes.includes(u.errorCode)
+      const invalidTokenCount = users.filter(
+        (u) => u.errorCode && invalidTokenErrorCodes.includes(u.errorCode),
       ).length
       const majorityInvalidTokens = invalidTokenCount > users.length / 2
-      
+
       return allInvalidTokens || majorityInvalidTokens
     }
-    
-    const allFailedUsers = mode === 'individual' ? failedUsers : (sharedFailedUsers || [])
+
+    const allFailedUsers = mode === 'individual' ? failedUsers : sharedFailedUsers || []
     const failedDueToInvalidTokens = checkInvalidTokens(allFailedUsers)
-    
+
     if (mode === 'individual') {
       return {
         notificationId: successfulNotifications.length > 0 ? successfulNotifications[0].id : null,
@@ -349,6 +353,7 @@ export class InboxResponseDto implements NotificationData {
       alert: { title, body },
       sound: 'default',
       badge: 1,
+      type: 'NOTIFICATION', // Mobile app reads this from aps payload (non-standard but was working before)
       // Removed content-available - it's only for silent background notifications
       // When combined with alert, it can prevent notification from displaying
     }
@@ -356,17 +361,25 @@ export class InboxResponseDto implements NotificationData {
     // Build data payload for iOS (accessible when app is opened from notification)
     // Data fields must be strings for FCM
     // Note: Mobile app will determine redirect screen based on notificationType field
+    // IMPORTANT: Set 'type' AFTER adding other fields to ensure it's never overwritten
     const dataPayload: Record<string, string> = {
       notificationId: String(notificationId),
-      type: 'NOTIFICATION', // Move 'type' to data payload (not APS)
     }
 
     // Add other notification data fields if present (in data, not APS)
+    // This includes notificationType which mobile app uses for routing
     if (notification) {
       Object.entries(notification).forEach(([key, value]) => {
-        dataPayload[key] = String(value)
+        // Skip 'type' field from notification object to prevent overwriting
+        if (key !== 'type') {
+          dataPayload[key] = String(value ?? '')
+        }
       })
     }
+
+    // IMPORTANT: Set 'type' AFTER all other fields to ensure it's always 'NOTIFICATION'
+    // Mobile app requires this field and expects it to be 'NOTIFICATION'
+    dataPayload.type = 'NOTIFICATION'
 
     const apns: ApnsConfig = {
       headers: {

@@ -876,12 +876,15 @@ const handlePublishNotification = async (notification: Notification) => {
           bakongPlatform: result?.data?.bakongPlatform,
           notification: notification as any,
         })
-        
-              const bakongPlatform = result?.data?.bakongPlatform || (notification as any)?.bakongPlatform
-              const messageConfig = getNotificationMessage(result?.data, platformName, bakongPlatform)
-        
-        // Show notification for non-success cases (errors, warnings, info)
-        if (messageConfig.type !== 'success') {
+
+        const bakongPlatform = result?.data?.bakongPlatform || (notification as any)?.bakongPlatform
+        const messageConfig = getNotificationMessage(result?.data, platformName, bakongPlatform)
+        const successfulCount = result?.data?.successfulCount ?? 0
+        const failedCount = result?.data?.failedCount ?? 0
+        const isPartialSuccess = successfulCount > 0 && failedCount > 0
+
+        // Show notification for non-success cases (errors, warnings, info) or partial success
+        if (messageConfig.type !== 'success' || isPartialSuccess) {
           ElNotification({
             title: messageConfig.title,
             message: messageConfig.message,
@@ -889,9 +892,13 @@ const handlePublishNotification = async (notification: Notification) => {
             duration: messageConfig.duration,
             dangerouslyUseHTMLString: messageConfig.dangerouslyUseHTMLString,
           })
-          
+
           // Stay in draft tab for failures
-          if (messageConfig.type === 'error' || messageConfig.type === 'warning' || messageConfig.type === 'info') {
+          if (
+            messageConfig.type === 'error' ||
+            messageConfig.type === 'warning' ||
+            messageConfig.type === 'info'
+          ) {
             activeTab.value = 'draft'
             cachedNotifications = null
             cacheTimestamp = 0
@@ -900,13 +907,22 @@ const handlePublishNotification = async (notification: Notification) => {
             applyFilters()
             return
           }
+
+          // For partial success, still show the notification but don't redirect to draft
+          if (isPartialSuccess) {
+            // Update notification status if some were successful
+            const notificationIndex = notifications.value.findIndex((n) => n.id === notification.id)
+            if (notificationIndex !== -1 && successfulCount > 0) {
+              notifications.value[notificationIndex].status = 'published'
+              notifications.value[notificationIndex].isSent = true
+            }
+            activeTab.value = 'published'
+            return
+          }
         }
-        
-        // Handle success cases (only reached if messageConfig.type === 'success')
-        if (
-          result?.data?.successfulCount !== undefined &&
-          result?.data?.successfulCount > 0
-        ) {
+
+        // Handle full success cases (only reached if messageConfig.type === 'success' and not partial)
+        if (result?.data?.successfulCount !== undefined && result?.data?.successfulCount > 0) {
           // Successfully published and sent to users
           const successfulCount = result?.data?.successfulCount ?? 0
           const userText = successfulCount === 1 ? 'user' : 'users'
@@ -1004,10 +1020,15 @@ const handlePublishNotification = async (notification: Notification) => {
                 bakongPlatform: result?.data?.bakongPlatform,
                 notification: notification as any,
               })
-              
-              const bakongPlatform = result?.data?.bakongPlatform || (notification as any)?.bakongPlatform
-              const messageConfig = getNotificationMessage(result?.data, platformName, bakongPlatform)
-              
+
+              const bakongPlatform =
+                result?.data?.bakongPlatform || (notification as any)?.bakongPlatform
+              const messageConfig = getNotificationMessage(
+                result?.data,
+                platformName,
+                bakongPlatform,
+              )
+
               ElNotification({
                 title: messageConfig.title,
                 message: messageConfig.message,
@@ -1041,7 +1062,7 @@ const handlePublishNotification = async (notification: Notification) => {
     const errorData = error?.response?.data?.data || {}
     const failedDueToInvalidTokens = errorData.failedDueToInvalidTokens === true
     const failedCount = errorData.failedCount || 0
-    
+
     if (failedDueToInvalidTokens && failedCount > 0) {
       // Failures due to invalid tokens - use unified message handler
       const bakongPlatform = errorData.bakongPlatform || (notification as any)?.bakongPlatform

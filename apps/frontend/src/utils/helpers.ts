@@ -157,9 +157,10 @@ export const getNotificationMessage = (
   const failedCount = result?.failedCount || 0
   const successfulCount = result?.successfulCount || 0
   const savedAsDraftNoUsers = result?.savedAsDraftNoUsers === true
-  
+
   // Get formatted platform name with bakongPlatform info
-  const formattedPlatform = platformName || (bakongPlatform ? formatBakongApp(bakongPlatform) : 'this platform')
+  const formattedPlatform =
+    platformName || (bakongPlatform ? formatBakongApp(bakongPlatform) : 'this platform')
   const platformInfo = bakongPlatform ? ` for <strong>${formattedPlatform}</strong>` : ''
 
   // Case 1: Invalid tokens (highest priority)
@@ -200,7 +201,7 @@ export const getNotificationMessage = (
     return {
       title: 'Partial Success',
       message: `Notification${platformInfo} sent to ${successfulCount} user(s) successfully. Failed to send to ${failedCount} user(s).`,
-      type: 'warning',
+      type: 'success',
       duration: 5000,
       dangerouslyUseHTMLString: !!bakongPlatform,
     }
@@ -368,6 +369,11 @@ export const mapPlatformToFormPlatform = (platforms: string | string[]): Platfor
   if (Array.isArray(platforms)) {
     if (platforms.includes(Platform.ALL)) return Platform.ALL
     if (platforms.includes('BAKONG')) return Platform.ALL
+    // If both IOS and ANDROID are present, treat as ALL
+    const hasIOS = platforms.includes(Platform.IOS) || platforms.includes('IOS')
+    const hasAndroid = platforms.includes(Platform.ANDROID) || platforms.includes('ANDROID')
+    if (hasIOS && hasAndroid) return Platform.ALL
+    // Return the first platform if only one is present
     return (platforms[0] as Platform) || Platform.ALL
   }
   return (platforms as Platform) || Platform.ALL

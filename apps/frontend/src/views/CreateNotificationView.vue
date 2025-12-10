@@ -30,7 +30,7 @@
                 <span class="dropdown-trigger">
                   {{
                     formatCategoryType(
-                      categoryTypes.find((ct) => ct.id === formData.categoryTypeId)?.name ||
+                      categoryTypes.find((ct: CategoryTypeData ) => ct.id === formData.categoryTypeId)?.name ||
                         'Select Category',
                     )
                   }}
@@ -209,7 +209,7 @@
               </div>
             </div>
           </div>
-          <div class="schedule-options-container">
+          <div class="schedule-options-container" style="display: none">
             <div class="splash-options">
               <div class="schedule-options-header">
                 <div class="schedule-option-left">
@@ -296,7 +296,7 @@
         :title="currentTitle"
         :description="currentDescription"
         :image="currentImageUrl || ''"
-        :categoryType="categoryTypes.find((ct) => ct.id === formData.categoryTypeId)?.name || ''"
+        :categoryType="categoryTypes.find((ct: CategoryTypeData) => ct.id === formData.categoryTypeId)?.name || ''"
       />
     </div>
   </div>
@@ -574,6 +574,14 @@ const loadNotificationData = async () => {
       mapNotificationTypeToFormType(template.notificationType) || NotificationType.NOTIFICATION
     formData.categoryTypeId = template.categoryTypeId || null
     formData.platform = (template.bakongPlatform as BakongApp) || BakongApp.BAKONG
+    
+    // Load pushToPlatforms from template.platforms array
+    if (template.platforms && Array.isArray(template.platforms) && template.platforms.length > 0) {
+      formData.pushToPlatforms = mapPlatformToFormPlatform(template.platforms)
+    } else {
+      // Default to ALL if platforms not provided
+      formData.pushToPlatforms = Platform.ALL
+    }
 
     if (template.sendSchedule) {
       formData.scheduleEnabled = true
@@ -642,6 +650,7 @@ const showLeaveDialog = ref(false)
 const showUpdateConfirmationDialog = ref(false)
 let pendingNavigation: (() => void) | null = null
 let isSavingOrPublishing = ref(false) // Flag to prevent blocking during save/publish
+const isDiscarding = ref(false) // Flag to allow navigation when discarding changes
 
 // Watch splashEnabled toggle to update notificationType
 watch(
@@ -772,22 +781,43 @@ const handlePublishNowInternal = async () => {
     duration: 0,
   })
 
+  // Declare redirectTab outside try block so it's accessible in catch and after try-catch
+  let redirectTab = 'published'
+
   try {
     let sendType = SendType.SEND_NOW
     let isSent = true
-    let redirectTab = 'published'
 
-    // When editing a published notification, always keep it published
-    // Don't allow changing to scheduled or draft - ignore schedule settings
-    if (isEditMode.value && isEditingPublished.value) {
-      sendType = SendType.SEND_NOW
-      isSent = true
-      redirectTab = 'published'
-      // Clear schedule fields to prevent any scheduling
-      formData.scheduleEnabled = false
-      formData.scheduleDate = ''
-      formData.scheduleTime = ''
+    // When editing, determine redirect tab based on notification status and fromTab
+    if (isEditMode.value) {
+      // If editing a published notification, always keep it published
+      if (isEditingPublished.value) {
+        sendType = SendType.SEND_NOW
+        isSent = true
+        redirectTab = 'published'
+        // Clear schedule fields to prevent any scheduling
+        formData.scheduleEnabled = false
+        formData.scheduleDate = ''
+        formData.scheduleTime = ''
+      } else {
+        // Editing draft or scheduled notification
+        const hasValidDate = !!(formData.scheduleDate && String(formData.scheduleDate).trim() !== '')
+        const hasValidTime = !!(formData.scheduleTime && String(formData.scheduleTime).trim() !== '')
+
+        if (formData.scheduleEnabled && hasValidDate && hasValidTime) {
+          // User enabled schedule - redirect to scheduled tab
+          sendType = SendType.SEND_SCHEDULE
+          isSent = false
+          redirectTab = 'scheduled'
+        } else {
+          // User disabled schedule or no schedule - redirect to published tab
+          sendType = SendType.SEND_NOW
+          isSent = true
+          redirectTab = 'published'
+        }
+      }
     } else {
+      // Creating new notification
       const hasValidDate = !!(formData.scheduleDate && String(formData.scheduleDate).trim() !== '')
       const hasValidTime = !!(formData.scheduleTime && String(formData.scheduleTime).trim() !== '')
 
@@ -886,7 +916,7 @@ const handlePublishNowInternal = async () => {
         // Calculate total size before upload
         const totalSize = items.reduce((sum, item) => sum + item.file.size, 0)
         const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2)
-        
+
         console.log(
           'Files to upload:',
           items.map((i) => ({
@@ -909,7 +939,7 @@ const handlePublishNowInternal = async () => {
             : error?.message ||
               error?.response?.data?.responseMessage ||
               'Failed to upload images. Please ensure total size is under 18MB and try again.'
-        
+
         ElNotification({
           title: 'Upload Error',
           message: errorMessage,
@@ -1025,95 +1055,133 @@ const handlePublishNowInternal = async () => {
         type: 'success',
         duration: 3000,
       })
-      // Stay in published tab
+      // Stay in published tab (notification was published)
       redirectTab = 'published'
+    } else if (isEditMode.value && redirectTab === 'scheduled') {
+      // Editing a scheduled notification - check if it was actually sent
+      const successfulCountFromResult = result?.data?.successfulCount
+      const wasActuallySent = successfulCountFromResult !== undefined && successfulCountFromResult !== null && successfulCountFromResult > 0
+      
+      if (wasActuallySent) {
+        // Scheduled notification was sent immediately - redirect to published
+        redirectTab = 'published'
+      } else {
+        // Scheduled notification remains scheduled - stay in scheduled tab
+        redirectTab = 'scheduled'
+      }
     } else {
       // Use unified message handler for draft/failure cases
       const platformName = formatBakongApp(formData.platform)
       const bakongPlatform = formData.platform || result?.data?.bakongPlatform
-      const messageConfig = getNotificationMessage(result?.data, platformName, bakongPlatform)
-      
-      // Only show notification if it's not a success (success messages are handled separately below)
-      if (messageConfig.type !== 'success') {
-        ElNotification({
-          title: messageConfig.title,
-          message: messageConfig.message,
-          type: messageConfig.type,
-          duration: messageConfig.duration,
-          dangerouslyUseHTMLString: messageConfig.dangerouslyUseHTMLString,
-        })
-        
-        // Redirect to draft tab for failures
-        if (messageConfig.type === 'error' || messageConfig.type === 'warning' || messageConfig.type === 'info') {
-          redirectTab = 'draft'
+      const successfulCount = result?.data?.successfulCount ?? 0
+      const failedCount = result?.data?.failedCount ?? 0
+      const successfulCountFromResult = result?.data?.successfulCount
+      const failedCountFromResult = result?.data?.failedCount
+      const wasActuallySent = successfulCountFromResult !== undefined && successfulCountFromResult !== null && successfulCountFromResult > 0
+      const isPartialSuccess = successfulCount > 0 && failedCount > 0
+
+      // Handle scheduled notifications FIRST (before checking messageConfig)
+      if (redirectTab === 'scheduled') {
+        if (wasActuallySent) {
+          // Notification was scheduled but sent immediately (scheduled time was in past or very soon)
+          const userText = successfulCountFromResult === 1 ? 'user' : 'users'
+          let message = `Notification sent to ${successfulCountFromResult} ${userText} on time`
+          
+          if (failedCountFromResult > 0) {
+            message += `. Failed to send to ${failedCountFromResult} user(s)`
+          }
+
+          ElNotification({
+            title: 'Success',
+            message: message,
+            type: 'success',
+            duration: 3000,
+          })
+          // Redirect to published since it was actually sent
+          redirectTab = 'published'
+        } else {
+          // Scheduled notification created successfully (not sent yet)
+          ElNotification({
+            title: 'Success',
+            message: isEditMode.value
+              ? 'Notification updated and scheduled successfully!'
+              : 'Notification created and scheduled successfully!',
+            type: 'success',
+            duration: 2000,
+          })
+          // Keep in scheduled tab
         }
-      } else if (redirectTab === 'scheduled') {
-        ElNotification({
-          title: 'Success',
-          message: isEditMode.value
-            ? 'Notification updated and scheduled successfully!'
-            : 'Notification created and scheduled successfully!',
-          type: 'success',
-          duration: 2000,
-        })
       } else {
-      // Get successful count from response if available
-      // Debug: log the full result to see the structure
-      console.log('📊 [CreateNotificationView] Full result:', result)
-      console.log('📊 [CreateNotificationView] result.data:', result?.data)
+        // Handle non-scheduled notifications (published, draft, etc.)
+        const messageConfig = getNotificationMessage(result?.data, platformName, bakongPlatform)
 
-      const successfulCount = result?.data?.successfulCount
-      const failedCount = result?.data?.failedCount
-      const failedUsers = result?.data?.failedUsers || []
+        // Show notification for non-success cases (errors, warnings, info) or partial success
+        if (messageConfig.type !== 'success' || isPartialSuccess) {
+          ElNotification({
+            title: messageConfig.title,
+            message: messageConfig.message,
+            type: messageConfig.type,
+            duration: messageConfig.duration,
+            dangerouslyUseHTMLString: messageConfig.dangerouslyUseHTMLString,
+          })
 
-      console.log('📊 [CreateNotificationView] Send result:', {
-        successfulCount,
-        failedCount,
-        failedUsers,
-      })
+          // Redirect to draft tab for failures
+          if (
+            messageConfig.type === 'error' ||
+            messageConfig.type === 'warning' ||
+            messageConfig.type === 'info'
+          ) {
+            redirectTab = 'draft'
+          } else if (isPartialSuccess) {
+            // For partial success, redirect to published tab
+            redirectTab = 'published'
+          }
+        } else {
+          // Handle full success cases for published notifications
+          const failedUsers = result?.data?.failedUsers || []
+          const isFlashNotification =
+            formData.notificationType === NotificationType.FLASH_NOTIFICATION
 
-      // Check if this is a flash notification
-      const isFlashNotification = formData.notificationType === NotificationType.FLASH_NOTIFICATION
+          let message = isFlashNotification
+            ? isEditMode.value
+              ? 'Flash notification updated and published successfully, and when user open bakongPlatform it will saw it!'
+              : 'Flash notification created and published successfully, and when user open bakongPlatform it will saw it!'
+            : isEditMode.value
+              ? 'Notification updated and published successfully!'
+              : 'Notification created and published successfully!'
 
-      let message = isFlashNotification
-        ? isEditMode.value
-          ? 'Flash notification updated and published successfully, and when user open bakongPlatform it will saw it!'
-          : 'Flash notification created and published successfully, and when user open bakongPlatform it will saw it!'
-        : isEditMode.value
-          ? 'Notification updated and published successfully!'
-          : 'Notification created and published successfully!'
+          // Add user count if available (only for non-flash notifications)
+          if (
+            !isFlashNotification &&
+            successfulCountFromResult !== undefined &&
+            successfulCountFromResult !== null &&
+            successfulCountFromResult > 0
+          ) {
+            const userText = successfulCountFromResult === 1 ? 'user' : 'users'
+            message = isEditMode.value
+              ? `Notification updated and published to ${successfulCountFromResult} ${userText} successfully!`
+              : `Notification created and published to ${successfulCountFromResult} ${userText} successfully!`
+          }
 
-      // Add user count if available (only for non-flash notifications)
-      if (
-        !isFlashNotification &&
-        successfulCount !== undefined &&
-        successfulCount !== null &&
-        successfulCount > 0
-      ) {
-        const userText = successfulCount === 1 ? 'user' : 'users'
-        message = isEditMode.value
-          ? `Notification updated and published to ${successfulCount} ${userText} successfully!`
-          : `Notification created and published to ${successfulCount} ${userText} successfully!`
-      }
+          // For flash notifications, replace bakongPlatform with bold platform name
+          if (isFlashNotification) {
+            const platformNameForFlash = formatBakongApp(formData.platform)
+            message = message.replace('bakongPlatform', `<strong>${platformNameForFlash}</strong>`)
+          }
 
-      // For flash notifications, replace bakongPlatform with bold platform name
-      if (isFlashNotification) {
-        const platformName = formatBakongApp(formData.platform)
-        message = message.replace('bakongPlatform', `<strong>${platformName}</strong>`)
-      }
+          ElNotification({
+            title: 'Success',
+            message: message,
+            type: 'success',
+            duration: 2000,
+            dangerouslyUseHTMLString: isFlashNotification,
+          })
 
-      ElNotification({
-        title: 'Success',
-        message: message,
-        type: 'success',
-        duration: 2000,
-        dangerouslyUseHTMLString: isFlashNotification,
-      })
-
-      // Log failed users to console if any
-      if (failedCount > 0 && failedUsers.length > 0) {
-        console.warn(`⚠️ Failed to send notification to ${failedCount} user(s):`, failedUsers)
-      }
+          // Log failed users to console if any
+          if (failedCountFromResult > 0 && failedUsers.length > 0) {
+            console.warn(`⚠️ Failed to send notification to ${failedCountFromResult} user(s):`, failedUsers)
+          }
+        }
       }
     }
     try {
@@ -1128,16 +1196,32 @@ const handlePublishNowInternal = async () => {
     showConfirmationDialog.value = false
     pendingNavigation = null
 
+    // Determine final redirect tab
+    // For edit mode: respect fromTab if it matches the action result, otherwise use redirectTab
+    // For create mode: always use redirectTab (published/scheduled based on action)
+    let finalRedirectTab = redirectTab
+    if (isEditMode.value) {
+      // When editing, redirectTab is already set correctly based on the action:
+      // - Published notification → 'published'
+      // - Scheduled notification → 'scheduled' (or 'published' if sent)
+      // - Draft notification → 'published' (when publishing)
+      // So we use redirectTab directly, which already handles the logic correctly
+      finalRedirectTab = redirectTab
+    } else {
+      // For create mode, use redirectTab directly
+      finalRedirectTab = redirectTab
+    }
+
     if (isEditMode.value) {
       setTimeout(() => {
-        window.location.href = `/?tab=${redirectTab}`
+        window.location.href = `/?tab=${finalRedirectTab}`
         // Reset flag after navigation starts (full page reload)
         isSavingOrPublishing.value = false
       }, 500)
     } else {
       // Keep flag true until navigation completes
       router
-        .push(`/?tab=${redirectTab}`)
+        .push(`/?tab=${finalRedirectTab}`)
         .then(() => {
           isSavingOrPublishing.value = false
         })
@@ -1306,7 +1390,7 @@ const handleSaveDraft = async () => {
         // Calculate total size before upload
         const totalSize = items.reduce((sum, item) => sum + item.file.size, 0)
         const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2)
-        
+
         console.log(
           'Files to upload:',
           items.map((i) => ({
@@ -1503,7 +1587,17 @@ const handleSaveDraft = async () => {
 }
 
 const handleDiscard = () => {
-  router.push('/')
+  // Set flag to bypass navigation guard
+  isDiscarding.value = true
+  // Clear any pending navigation
+  pendingNavigation = null
+  // Navigate to home
+  router.push('/').finally(() => {
+    // Reset flag after navigation completes
+    setTimeout(() => {
+      isDiscarding.value = false
+    }, 100)
+  })
 }
 
 const handleConfirmationDialogConfirm = () => {
@@ -1512,7 +1606,11 @@ const handleConfirmationDialogConfirm = () => {
 }
 
 const handleConfirmationDialogCancel = () => {
+  // Close all dialogs before discarding
   showConfirmationDialog.value = false
+  showLeaveDialog.value = false
+  showUpdateConfirmationDialog.value = false
+  pendingNavigation = null
   handleDiscard()
 }
 
@@ -1542,6 +1640,12 @@ onBeforeRouteLeave((to, from, next) => {
     return
   }
 
+  // Don't block navigation if user explicitly wants to discard
+  if (isDiscarding.value) {
+    next()
+    return
+  }
+
   // Don't block navigation if no unsaved changes
   if (!hasUnsavedChanges.value) {
     next()
@@ -1560,7 +1664,7 @@ const handleLeaveDialogConfirm = async () => {
   // Close dialog immediately to prevent it from showing again
   showLeaveDialog.value = false
   pendingNavigation = null
-  
+
   // Save as draft and then navigate
   try {
     await handleSaveDraft()
@@ -1590,7 +1694,7 @@ const handleUpdateConfirmationCancel = () => {
   // Close dialog and navigate to home without updating
   showUpdateConfirmationDialog.value = false
   isSavingOrPublishing.value = false
-  
+
   // Navigate to home screen based on tab
   const redirectTab = fromTab.value || 'published'
   if (isEditMode.value) {
