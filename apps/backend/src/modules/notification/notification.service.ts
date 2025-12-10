@@ -1725,27 +1725,37 @@ export class NotificationService {
         bakongPlatform: bakongPlatform || 'NOT PROVIDED',
       })
 
-      // CRITICAL: Only include fields if they have actual values (not null/empty)
-      // If a field is not provided (undefined), null, or empty string, we keep the existing value in database
-      // This prevents accidentally overwriting existing data with null/empty values
+      // CRITICAL: Only include fields if they have actual values
+      // Exception: fcmToken empty string means app deleted - should clear token
+      // If a field is not provided (undefined) or null, we keep the existing value in database
+      // This prevents accidentally overwriting existing data with null/undefined values
       const syncData: any = {
         accountId,
       }
       
-      // Only add fields if they have actual values - if not provided/null/empty, keep old data
-      if (fcmToken !== undefined && fcmToken !== null && fcmToken !== '') {
+      // fcmToken: Include even if empty string (means app deleted, should clear token)
+      // Only skip if undefined or null
+      if (fcmToken !== undefined && fcmToken !== null) {
         syncData.fcmToken = fcmToken
       }
-      if (bakongPlatform !== undefined && bakongPlatform !== null && bakongPlatform !== '') {
+      
+      // bakongPlatform: Enum type (BakongApp) - only check for undefined/null
+      if (bakongPlatform !== undefined && bakongPlatform !== null) {
         syncData.bakongPlatform = bakongPlatform
       }
+      
+      // participantCode: String - check for undefined/null/empty
       if (participantCode !== undefined && participantCode !== null && participantCode !== '') {
         syncData.participantCode = participantCode
       }
-      if (platform !== undefined && platform !== null && platform !== '') {
+      
+      // platform: Enum type (Platform) - only check for undefined/null
+      if (platform !== undefined && platform !== null) {
         syncData.platform = platform
       }
-      if (language !== undefined && language !== null && language !== '') {
+      
+      // language: Enum type (Language) - only check for undefined/null
+      if (language !== undefined && language !== null) {
         syncData.language = language
       }
       

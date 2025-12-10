@@ -349,6 +349,9 @@ export class InboxResponseDto implements NotificationData {
       alert: { title, body },
       sound: 'default',
       badge: 1,
+      type: 'NOTIFICATION', // Mobile app reads this from aps payload (non-standard but was working before)
+      notification: notification || {},
+
       // Removed content-available - it's only for silent background notifications
       // When combined with alert, it can prevent notification from displaying
     }
@@ -356,17 +359,25 @@ export class InboxResponseDto implements NotificationData {
     // Build data payload for iOS (accessible when app is opened from notification)
     // Data fields must be strings for FCM
     // Note: Mobile app will determine redirect screen based on notificationType field
+    // IMPORTANT: Set 'type' AFTER adding other fields to ensure it's never overwritten
     const dataPayload: Record<string, string> = {
       notificationId: String(notificationId),
-      type: 'NOTIFICATION', // Move 'type' to data payload (not APS)
     }
 
     // Add other notification data fields if present (in data, not APS)
+    // This includes notificationType which mobile app uses for routing
     if (notification) {
       Object.entries(notification).forEach(([key, value]) => {
-        dataPayload[key] = String(value)
+        // Skip 'type' field from notification object to prevent overwriting
+        if (key !== 'type') {
+          dataPayload[key] = String(value ?? '')
+        }
       })
     }
+    
+    // IMPORTANT: Set 'type' AFTER all other fields to ensure it's always 'NOTIFICATION'
+    // Mobile app requires this field and expects it to be 'NOTIFICATION'
+    dataPayload.type = 'NOTIFICATION'
 
     const apns: ApnsConfig = {
       headers: {
