@@ -330,6 +330,61 @@ fi
 echo ""
 
 # ============================================================================
+# Step 4.7: Fix NULL fields in template table (for old records)
+# ============================================================================
+echo "🔧 Step 4.7: Fixing NULL fields in template table for old records..."
+
+if [ "$DB_RUNNING" = true ]; then
+    DB_PASSWORD="${POSTGRES_PASSWORD:-010110bkns}"
+    export PGPASSWORD="$DB_PASSWORD"
+    
+    # Run the fix script inline (idempotent - safe to run multiple times)
+    docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" <<'EOF' > /dev/null 2>&1
+DO $$
+DECLARE
+    updated_count INTEGER;
+BEGIN
+    -- Fix: Set default 'createdBy' if NULL (use 'System' as fallback)
+    UPDATE template
+    SET "createdBy" = COALESCE("createdBy", 'System'),
+        "updatedAt" = NOW()
+    WHERE "createdBy" IS NULL
+    AND "deletedAt" IS NULL;
+    
+    GET DIAGNOSTICS updated_count = ROW_COUNT;
+    IF updated_count > 0 THEN
+        RAISE NOTICE 'Updated % template(s) with default createdBy', updated_count;
+    END IF;
+    
+    -- Fix: Set default 'updatedBy' if NULL (use createdBy or 'System')
+    UPDATE template
+    SET "updatedBy" = COALESCE("updatedBy", "createdBy", 'System'),
+        "updatedAt" = NOW()
+    WHERE "updatedBy" IS NULL
+    AND "deletedAt" IS NULL;
+    
+    GET DIAGNOSTICS updated_count = ROW_COUNT;
+    IF updated_count > 0 THEN
+        RAISE NOTICE 'Updated % template(s) with default updatedBy', updated_count;
+    END IF;
+    
+    -- Note: bakongPlatform and publishedBy can remain NULL (they're optional)
+    -- bakongPlatform NULL means "all platforms"
+    -- publishedBy NULL means "draft" (not yet published)
+END$$;
+EOF
+    
+    echo "   ✅ Template NULL fields fix completed"
+    echo "   💡 Note: bakongPlatform and publishedBy can be NULL (this is valid)"
+    
+    unset PGPASSWORD
+else
+    echo "   ⚠️  Database not running - fix skipped"
+fi
+
+echo ""
+
+# ============================================================================
 # Step 5: Stop and Clean
 # ============================================================================
 echo "🛑 Step 5: Stopping containers..."
