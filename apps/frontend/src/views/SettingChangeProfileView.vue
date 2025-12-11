@@ -65,7 +65,7 @@
                 <div
                   class="w-[48px] h-[48px] sm:w-[54px] sm:h-[54px] rounded-full overflow-hidden flex items-center justify-center bg-[#f0f0f0] flex-shrink-0"
                 >
-                  <div v-if="selectedFile" class="w-full h-full">
+                  <div v-if="getPreviewUrl()" class="w-full h-full">
                     <img
                       :src="getPreviewUrl()"
                       alt="Profile Preview"
