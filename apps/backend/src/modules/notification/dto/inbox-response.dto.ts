@@ -58,13 +58,39 @@ export class InboxResponseDto implements NotificationData {
     this.templateId = data.templateId || 0
     this.language = language
     this.notificationType = data.template?.notificationType || NotificationType.ANNOUNCEMENT
-    // Ensure categoryType is always a string, never null or undefined
+    
+    // CRITICAL FIX: Ensure categoryType is always a string, never null or undefined
     // Android mobile app requires this field to be a string value
-    const categoryTypeName = data.template?.categoryTypeEntity?.name
+    // Try multiple fallback strategies to ensure we always have a valid string
+    let categoryTypeName: string | null | undefined = null
+    
+    // Strategy 1: Try categoryTypeEntity.name (preferred)
+    if (data.template?.categoryTypeEntity?.name) {
+      categoryTypeName = data.template.categoryTypeEntity.name
+    }
+    
+    // Strategy 2: If categoryTypeEntity is missing but categoryTypeId exists, log warning
+    if (!categoryTypeName && data.template?.categoryTypeId) {
+      console.warn(
+        `⚠️ [InboxResponseDto] Template ${data.templateId} has categoryTypeId ${data.template.categoryTypeId} but categoryTypeEntity is missing`,
+      )
+    }
+    
+    // Strategy 3: Fallback to 'NEWS' if no categoryType found
+    // This ensures Android always receives a valid string value
     this.categoryType =
       categoryTypeName && typeof categoryTypeName === 'string' && categoryTypeName.trim() !== ''
-        ? categoryTypeName
+        ? categoryTypeName.trim()
         : 'NEWS'
+    
+    // Final validation: Ensure categoryType is never null/undefined/empty
+    if (!this.categoryType || typeof this.categoryType !== 'string' || this.categoryType.trim() === '') {
+      console.error(
+        `❌ [InboxResponseDto] CRITICAL: categoryType is still invalid after all fallbacks! Template: ${data.templateId}, Setting to 'NEWS'`,
+      )
+      this.categoryType = 'NEWS'
+    }
+    
     this.bakongPlatform = data.template?.bakongPlatform
 
     this.createdDate = DateFormatter.formatDateByLanguage(data.createdAt, language)
@@ -105,7 +131,20 @@ export class InboxResponseDto implements NotificationData {
     pagination?: PaginationMeta,
     userBakongPlatform?: string,
   ) {
-    const response = this.getResponse(notifications, message, pagination)
+    // CRITICAL FIX: Ensure all notifications have valid categoryType before serialization
+    // This prevents Android from receiving null categoryType values
+    const sanitizedNotifications = notifications.map((notif) => {
+      // Ensure categoryType is always a valid string, never null or undefined
+      if (!notif.categoryType || typeof notif.categoryType !== 'string' || notif.categoryType.trim() === '') {
+        console.warn(
+          `⚠️ [getNotificationCenterResponse] Notification ${notif.id} has invalid categoryType: ${notif.categoryType}, setting to 'NEWS'`,
+        )
+        notif.categoryType = 'NEWS'
+      }
+      return notif
+    })
+
+    const response = this.getResponse(sanitizedNotifications, message, pagination)
     if (
       userBakongPlatform &&
       response.data &&
@@ -371,7 +410,8 @@ export class InboxResponseDto implements NotificationData {
       alert: { title, body },
       sound: 'default',
       badge: 1,
-      type: 'NOTIFICATION', // Mobile app reads this from aps payload (non-standard but was working before)
+      type: 'NOTIFICATION',
+      notification : notification || [] // Mobile app reads this from aps payload (non-standard but was working before)
       // Removed content-available - it's only for silent background notifications
       // When combined with alert, it can prevent notification from displaying
     }
