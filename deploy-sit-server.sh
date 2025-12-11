@@ -414,23 +414,23 @@ echo ""
 # ============================================================================
 # Step 7: Wait and Verify
 # ============================================================================
-echo "⏳ Step 8: Waiting for services to initialize (15 seconds)..."
+echo "⏳ Step 7: Waiting for services to initialize (15 seconds)..."
 sleep 15
 
 echo ""
-echo "📊 Step 9: Container Status:"
+echo "📊 Step 8: Container Status:"
 docker compose -f "$COMPOSE_FILE" ps
 
 echo ""
-echo "📋 Step 10: Backend Logs (last 30 lines):"
+echo "📋 Step 9: Backend Logs (last 30 lines):"
 docker compose -f "$COMPOSE_FILE" logs --tail=30 backend
 
 echo ""
 
 # ============================================================================
-# Step 8: Health Checks
+# Step 10: Health Checks
 # ============================================================================
-echo "🧪 Step 11: Health Checks..."
+echo "🧪 Step 10: Health Checks..."
 
 # Check backend
 if curl -s --connect-timeout 5 "http://${SERVER_IP}:${BACKEND_PORT}/api/v1/health" > /dev/null 2>&1; then
@@ -450,9 +450,9 @@ fi
 echo ""
 
 # ============================================================================
-# Step 8: Verify Data Integrity (Post-deployment)
+# Step 11: Verify Data Integrity (Post-deployment)
 # ============================================================================
-echo "🔍 Step 8: Verifying data integrity after deployment..."
+echo "🔍 Step 11: Verifying data integrity after deployment..."
 
 # Run migration verification if available
 VERIFY_MIGRATION_FILE="apps/backend/scripts/verify-migration.sql"

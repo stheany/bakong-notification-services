@@ -410,19 +410,19 @@ echo ""
 # ============================================================================
 # Step 7: Wait and Verify
 # ============================================================================
-echo "⏳ Step 8: Waiting for services to initialize (15 seconds)..."
+echo "⏳ Step 7: Waiting for services to initialize (15 seconds)..."
 sleep 15
 
 echo ""
-echo "📊 Step 9: Container Status:"
+echo "📊 Step 8: Container Status:"
 docker ps --format "   {{.Names}}: {{.Status}}" | grep bakong-notification-services || echo "   (no containers found)"
 
 echo ""
 
 # ============================================================================
-# Step 8: Health Checks
+# Step 9: Health Checks
 # ============================================================================
-echo "🧪 Step 10: Health Checks..."
+echo "🧪 Step 9: Health Checks..."
 
 # Check backend
 echo "   Testing Backend API..."
@@ -458,9 +458,9 @@ fi
 echo ""
 
 # ============================================================================
-# Step 8: Verify Data Integrity (Post-deployment)
+# Step 10: Verify Data Integrity (Post-deployment)
 # ============================================================================
-echo "🔍 Step 8: Verifying data integrity after deployment..."
+echo "🔍 Step 10: Verifying data integrity after deployment..."
 
 # Run migration verification if available
 VERIFY_MIGRATION_FILE="apps/backend/scripts/verify-migration.sql"
