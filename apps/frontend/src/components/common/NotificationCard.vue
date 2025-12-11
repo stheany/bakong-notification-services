@@ -86,8 +86,9 @@ import { Search, Calendar, Edit2, Trash2 } from 'lucide-vue-next'
 import type { Notification } from '@/types/notification'
 import ConfirmationDialog from './ConfirmationDialog.vue'
 import { useConfirmationDialog } from '@/composables/useConfirmationDialog'
-import editIcon from '@/assets/image/edit.png'
-import deleteIcon from '@/assets/image/trash-can.png'
+
+const editIcon = new URL('@/assets/image/edit.png', import.meta.url).href
+const deleteIcon = new URL('@/assets/image/trash-can.png', import.meta.url).href
 
 interface Props {
   activeTab?: 'published' | 'scheduled' | 'draft'
