@@ -13,6 +13,8 @@ export { default as ImageUpload } from './ImageUpload.vue'
 export { default as Tabs } from './Tabs.vue'
 export { default as Button } from './Button.vue'
 export { default as ConfirmationDialog } from './ConfirmationDialog.vue'
+export { default as NotificationTableHeader } from './Type-Feature/NotificationTableHeader.vue'
+export { default as UserTableBody } from './User-Feature/UserTableBody.vue'
 
 export type { FormFieldOption } from './FormField.vue'
 export type { SearchFilter } from './SearchBar.vue'
