@@ -10,12 +10,26 @@
         />
       </div>
       <div class="flex-1 w-full" style="min-height: 434px">
-        <UserTableBody
-          :users="filteredUsers"
+        <TableBody
+          mode="user"
+          :items="displayUsers"
           @view="handleView"
           @edit="handleEdit"
           @delete="handleDelete"
           @status-toggle="handleStatusToggle"
+        />
+      </div>
+      <div class="h-2"></div>
+      <div class="h-auto sm:h-[56px] flex-shrink-0">
+        <NotificationPagination
+          :style="paginationStyle"
+          :page="page"
+          :per-page="perPage"
+          :total-pages="totalPages"
+          @next="nextPage"
+          @prev="prevPage"
+          @goto="goToPage"
+          @update:per-page="handlePerPageChange"
         />
       </div>
     </div>
@@ -24,15 +38,20 @@
 
 <script setup lang="ts">
 import NotificationTableHeader from '@/components/common/Type-Feature/NotificationTableHeader.vue'
-import UserTableBody, {
-  type UserTableItem,
-} from '@/components/common/User-Feature/UserTableBody.vue'
-import { ref, computed } from 'vue'
+import TableBody, { type UserItem } from '@/components/common/TableBody.vue'
+import NotificationPagination, {
+  type PaginationStyle,
+} from '@/components/common/Type-Feature/NotificationPagination.vue'
+import { ref, computed, watch } from 'vue'
 import { mockUsers } from '../../Data/mockUsers'
 
-const searchQuery = ref('')
+const paginationStyle: PaginationStyle = 'user-management'
 
-const users = ref<UserTableItem[]>(mockUsers)
+const searchQuery = ref('')
+const page = ref(1)
+const perPage = ref(10)
+
+const users = ref<UserItem[]>(mockUsers)
 
 const filteredUsers = computed(() => {
   if (!searchQuery.value.trim()) {
@@ -49,6 +68,43 @@ const filteredUsers = computed(() => {
   )
 })
 
+const totalPages = computed(() => {
+  return Math.max(1, Math.ceil(filteredUsers.value.length / perPage.value))
+})
+
+const displayUsers = computed(() => {
+  const start = (page.value - 1) * perPage.value
+  const end = start + perPage.value
+  return filteredUsers.value.slice(start, end)
+})
+
+const nextPage = () => {
+  if (page.value < totalPages.value) {
+    page.value++
+  }
+}
+
+const prevPage = () => {
+  if (page.value > 1) {
+    page.value--
+  }
+}
+
+const goToPage = (num: number) => {
+  const targetPage = Number(num)
+  if (targetPage >= 1 && targetPage <= totalPages.value) {
+    page.value = targetPage
+  }
+}
+
+const handlePerPageChange = (newPerPage: number) => {
+  perPage.value = newPerPage
+  // If current page exceeds total pages after perPage change, reset to page 1
+  if (page.value > totalPages.value) {
+    page.value = 1
+  }
+}
+
 const addNew = () => {
   console.log('addNew')
 }
@@ -59,27 +115,44 @@ const filter = () => {
 
 const handleSearch = () => {
   console.log('handleSearch', searchQuery.value)
+  // Reset to page 1 when searching
+  page.value = 1
 }
 
-const handleView = (user: UserTableItem) => {
+const handleView = (user: UserItem) => {
   console.log('View user:', user)
 }
 
-const handleEdit = (user: UserTableItem) => {
+const handleEdit = (user: UserItem) => {
   console.log('Edit user:', user)
 }
 
-const handleDelete = (user: UserTableItem) => {
+const handleDelete = (user: UserItem) => {
   console.log('Delete user:', user)
 }
 
-const handleStatusToggle = (user: UserTableItem, index: number) => {
-  const currentUser = users.value[index]
-  if (currentUser) {
-    currentUser.status = currentUser.status === 'Active' ? 'Deactivate' : 'Active'
-    console.log('Status toggled for user:', currentUser)
+const handleStatusToggle = (user: UserItem, index: number) => {
+  // Find the actual index in the full users array
+  const globalIndex = users.value.findIndex((u) => u.id === user.id)
+  if (globalIndex !== -1) {
+    const currentUser = users.value[globalIndex]
+    if (currentUser) {
+      currentUser.status = currentUser.status === 'Active' ? 'Deactivate' : 'Active'
+      console.log('Status toggled for user:', currentUser)
+    }
   }
 }
+
+// Watch filteredUsers to reset page when data changes (search/filter/delete)
+watch(
+  () => filteredUsers.value.length,
+  (newLength, oldLength) => {
+    // Reset to page 1 if current page exceeds total pages or if items were deleted
+    if (page.value > totalPages.value || (oldLength && newLength < oldLength && page.value > 1)) {
+      page.value = 1
+    }
+  },
+)
 </script>
 
 <style scoped></style>
