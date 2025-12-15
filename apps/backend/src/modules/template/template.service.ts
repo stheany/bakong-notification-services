@@ -905,6 +905,19 @@ export class TemplateService implements OnModuleInit {
           `(type: ${typeof updatedTemplate.platforms})`,
         )
 
+        // Check if this is a retry of a previously failed template
+        const isRetry = !updatedTemplate.isSent || (updatedTemplate as any).failedUsers?.length > 0
+        if (isRetry) {
+          console.log(
+            `🔄 [UPDATE] This appears to be a retry of a previously failed template. Ensuring user data is synced...`,
+          )
+          // Force user sync before retrying to ensure we have latest tokens
+          // Note: sendWithTemplate already calls syncAllUsers internally, but we log this for clarity
+          console.log(
+            `🔄 [UPDATE] User sync will happen in sendWithTemplate - ensure mobile app has updated tokens via /send or /inbox API`,
+          )
+        }
+
         // Try to send the notification
         const templateWithTranslations = await this.repo.findOne({
           where: { id: updatedTemplate.id },
@@ -912,12 +925,29 @@ export class TemplateService implements OnModuleInit {
         })
 
         if (templateWithTranslations && templateWithTranslations.translations) {
-          let sendResult: { successfulCount: number; failedCount: number; failedUsers?: string[] } =
-            { successfulCount: 0, failedCount: 0, failedUsers: [] }
+          let sendResult: {
+            successfulCount: number
+            failedCount: number
+            failedUsers?: string[]
+            failedDueToInvalidTokens?: boolean
+          } = { successfulCount: 0, failedCount: 0, failedUsers: [] }
           let noUsersForPlatform = false
           try {
             sendResult = await this.notificationService.sendWithTemplate(templateWithTranslations)
             console.log(`[UPDATE] sendWithTemplate returned:`, sendResult)
+            
+            // Log detailed failure information for debugging
+            if (sendResult.failedCount > 0 && sendResult.failedUsers?.length) {
+              console.log(
+                `⚠️ [UPDATE] Failed to send to ${sendResult.failedCount} user(s):`,
+                sendResult.failedUsers,
+              )
+              if (sendResult.failedDueToInvalidTokens) {
+                console.log(
+                  `⚠️ [UPDATE] Some failures were due to invalid tokens. Users should update tokens via mobile app.`,
+                )
+              }
+            }
           } catch (error: any) {
             console.error(`[UPDATE] ❌ ERROR in sendWithTemplate:`, error?.message)
             // Check if error is about no users for bakongPlatform
@@ -947,19 +977,33 @@ export class TemplateService implements OnModuleInit {
             ;(updatedTemplate as any).successfulCount = sendResult.successfulCount
             ;(updatedTemplate as any).failedCount = sendResult.failedCount
             ;(updatedTemplate as any).failedUsers = sendResult.failedUsers || []
+            ;(updatedTemplate as any).failedDueToInvalidTokens = sendResult.failedDueToInvalidTokens || false
           } else {
             // No users received the notification - revert to draft
             console.warn(
-              `[UPDATE] No notifications were sent (successfulCount = 0) - reverting to draft`,
+              `[UPDATE] No notifications were sent (successfulCount = 0, failedCount = ${sendResult.failedCount}) - reverting to draft`,
             )
+            
+            // Provide helpful error message based on failure reason
+            if (sendResult.failedCount > 0 && sendResult.failedUsers?.length) {
+              console.warn(
+                `[UPDATE] Failed users: ${sendResult.failedUsers.join(', ')}. Users may need to update their FCM tokens via mobile app.`,
+              )
+            } else {
+              console.warn(
+                `[UPDATE] No matching users found. Check platform filters and ensure users exist for bakongPlatform: ${templateWithTranslations.bakongPlatform || 'ALL'}`,
+              )
+            }
+            
             await this.repo.update(updatedTemplate.id, { isSent: false, updatedAt: new Date() })
             // Reload template to get updated isSent value
             const reloadedTemplate = await this.findOneRaw(id)
-            ;(reloadedTemplate as any).savedAsDraftNoUsers = true
+            ;(reloadedTemplate as any).savedAsDraftNoUsers = sendResult.successfulCount === 0 && sendResult.failedCount === 0
             // Include send result in template response
             ;(reloadedTemplate as any).successfulCount = sendResult.successfulCount
             ;(reloadedTemplate as any).failedCount = sendResult.failedCount
             ;(reloadedTemplate as any).failedUsers = sendResult.failedUsers || []
+            ;(reloadedTemplate as any).failedDueToInvalidTokens = sendResult.failedDueToInvalidTokens || false
             return this.formatTemplateResponse(reloadedTemplate)
           }
         }

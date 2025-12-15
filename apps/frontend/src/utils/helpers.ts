@@ -167,9 +167,9 @@ export const getNotificationMessage = (
   if (failedDueToInvalidTokens && failedCount > 0) {
     return {
       title: 'Invalid User Data',
-      message: `Failed to send notification${platformInfo} to ${failedCount} user(s) due to invalid user data (wrong FCM tokens). The notification has been saved as a draft. Please sync user data or wait for mobile apps to update their tokens.`,
+      message: `Failed to send notification${platformInfo} to ${failedCount} user(s) due to invalid tokens. Saved as draft.`,
       type: 'error',
-      duration: 6000,
+      duration: 5000,
       dangerouslyUseHTMLString: !!bakongPlatform,
     }
   }
@@ -187,9 +187,15 @@ export const getNotificationMessage = (
 
   // Case 3: All sends failed (generic failure)
   if (successfulCount === 0 && failedCount > 0) {
+    const failedUsers = result?.failedUsers || []
+    const failedUsersList = failedUsers.length > 0 && failedUsers.length <= 3 
+      ? ` (${failedUsers.join(', ')})` 
+      : failedUsers.length > 3 
+        ? ` (${failedUsers.slice(0, 2).join(', ')}...)` 
+        : ''
     return {
       title: 'Warning',
-      message: `Failed to send notification${platformInfo} to ${failedCount} user(s). The notification has been saved as a draft.`,
+      message: `Failed to send notification${platformInfo} to ${failedCount} user(s)${failedUsersList}. Saved as draft.`,
       type: 'warning',
       duration: 5000,
       dangerouslyUseHTMLString: !!bakongPlatform,
