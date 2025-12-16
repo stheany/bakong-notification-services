@@ -141,7 +141,7 @@ const router = createRouter({
             requiredRole: UserRole.ADMIN_USER,
             breadcrumb: {
               label: 'Edit User',
-              parent: { name: 'users', label: 'Users' },
+              parent: { name: 'user-management', label: 'Users' },
             },
           },
         },
