@@ -112,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { FormField, type FormFieldOption } from '@/components/common'
@@ -238,12 +238,20 @@ onMounted(async () => {
         form.phoneNumber = ''
         // Compute status from deletedAt field
         form.status = user.deletedAt ? 'Deactivate' : 'Active'
+
+        // Clear validation after data is loaded to prevent false errors
+        await nextTick()
+        formRef.value?.clearValidate()
       }
     } catch (error) {
       handleApiError(error, { operation: 'fetchUser' })
     } finally {
       loading.value = false
     }
+  } else {
+    // Clear validation on create mode as well to prevent initial false errors
+    await nextTick()
+    formRef.value?.clearValidate()
   }
 })
 </script>
