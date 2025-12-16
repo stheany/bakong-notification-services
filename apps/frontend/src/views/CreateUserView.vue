@@ -25,6 +25,24 @@
           />
         </div>
 
+        <!-- User Status field (only visible in edit mode) -->
+        <div v-if="mode === 'edit'" class="field-select w-full max-w-[603px]">
+          <div class="flex items-center gap-1 mb-1!">
+            <span class="text-sm leading-snug text-[#001346] label-text">User Status</span>
+            <span class="text-red-500 text-sm">*</span>
+          </div>
+          <FormField
+            v-model="form.status"
+            type="select"
+            prop="status"
+            label=""
+            placeholder="Select status"
+            :options="statusOptions"
+            required
+            :disabled="loading"
+          />
+        </div>
+
         <div class="field-input w-full max-w-[603px]">
           <div class="flex items-center gap-1 mb-1!">
             <span class="text-sm leading-snug text-[#001346] label-text">Name</span>
@@ -78,7 +96,7 @@
             class="w-[118px] h-[56px]! rounded-[32px]! bg-gradient-to-r from-[#3f7bff] to-[#0f5dff] text-white font-semibold border-0 px-4 py-2"
             @click="handleSubmit"
           >
-            Create user
+            {{ mode === 'edit' ? 'Save Update' : 'Create user' }}
           </el-button>
           <el-button
             round
@@ -95,17 +113,22 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { reactive, ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { FormField, type FormFieldOption } from '@/components/common'
 import { userApi } from '@/services/userApi'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const router = useRouter()
+const route = useRoute()
+
+// Detect mode from route
+const mode = computed(() => (route.params.id ? 'edit' : 'create'))
+const userId = computed(() => (route.params.id ? Number(route.params.id) : null))
 
 const { handleApiError, showSuccess, showWarning, clearError } = useErrorHandler({
-  operation: 'createUser',
+  operation: mode.value === 'edit' ? 'updateUser' : 'createUser',
 })
 
 const formRef = ref<FormInstance>()
@@ -116,6 +139,7 @@ const form = reactive({
   displayName: '',
   username: '',
   phoneNumber: '',
+  status: 'Active', // 'Active' or 'Deactivate' - only used in edit mode
   // hidden default password to satisfy API requirement
   password: 'Temp@12345',
 })
@@ -124,6 +148,11 @@ const roleOptions: FormFieldOption[] = [
   { label: 'Normal User', value: 'NORMAL_USER' },
   { label: 'Admin User', value: 'ADMIN_USER' },
   { label: 'API User', value: 'API_USER' },
+]
+
+const statusOptions: FormFieldOption[] = [
+  { label: 'Active', value: 'Active' },
+  { label: 'Deactivate', value: 'Deactivate' },
 ]
 
 const rules = reactive<FormRules>({
@@ -153,22 +182,41 @@ const handleSubmit = () => {
     loading.value = true
 
     try {
-      const success = await userApi.createUser({
-        username: form.username.trim(),
-        displayName: form.displayName.trim(),
-        password: form.password,
-        role: form.role as 'ADMIN_USER' | 'NORMAL_USER' | 'API_USER',
-      })
+      if (mode.value === 'edit' && userId.value) {
+        // Edit mode - update existing user
+        const success = await userApi.updateUser(userId.value, {
+          username: form.username.trim(),
+          displayName: form.displayName.trim(),
+          role: form.role as 'ADMIN_USER' | 'NORMAL_USER' | 'API_USER',
+          // Note: Status will be included in payload for future backend integration
+          // Backend should handle status by setting/clearing deletedAt field
+        })
 
-      if (success) {
-        showSuccess('User created successfully')
-        resetForm()
-        router.push({ path: '/users' })
+        if (success) {
+          showSuccess('User updated successfully')
+          router.push({ path: '/users' })
+        } else {
+          showWarning('Failed to update user. Please try again.')
+        }
       } else {
-        showWarning('Failed to create user. Please try again.')
+        // Create mode - create new user
+        const success = await userApi.createUser({
+          username: form.username.trim(),
+          displayName: form.displayName.trim(),
+          password: form.password,
+          role: form.role as 'ADMIN_USER' | 'NORMAL_USER' | 'API_USER',
+        })
+
+        if (success) {
+          showSuccess('User created successfully')
+          resetForm()
+          router.push({ path: '/users' })
+        } else {
+          showWarning('Failed to create user. Please try again.')
+        }
       }
     } catch (error) {
-      handleApiError(error, { operation: 'createUser' })
+      handleApiError(error, { operation: mode.value === 'edit' ? 'updateUser' : 'createUser' })
     } finally {
       loading.value = false
     }
@@ -178,6 +226,28 @@ const handleSubmit = () => {
 const handleCancel = () => {
   router.back()
 }
+
+// Fetch user data for edit mode
+onMounted(async () => {
+  if (mode.value === 'edit' && userId.value) {
+    loading.value = true
+    try {
+      const user = await userApi.getUserById(userId.value)
+      if (user) {
+        form.role = user.role
+        form.displayName = user.displayName
+        form.username = user.username
+        form.phoneNumber = ''
+        // Compute status from deletedAt field
+        form.status = user.deletedAt ? 'Deactivate' : 'Active'
+      }
+    } catch (error) {
+      handleApiError(error, { operation: 'fetchUser' })
+    } finally {
+      loading.value = false
+    }
+  }
+})
 </script>
 
 <style scoped>

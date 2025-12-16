@@ -136,7 +136,9 @@ const handleView = (user: UserItem) => {
 }
 
 const handleEdit = (user: UserItem) => {
-  console.log('Edit user:', user)
+  if (user.id) {
+    router.push({ name: 'edit-user', params: { id: user.id } })
+  }
 }
 
 const handleDelete = (user: UserItem) => {
