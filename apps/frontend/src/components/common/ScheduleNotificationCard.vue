@@ -6,11 +6,17 @@
       class="schedule-card flex-shrink-0"
       :style="{ height: cardHeight(n) }"
     >
-      <div class="text-[14px] font-semibold leading-[150%] text-black line-clamp-2">
+      <div 
+        class="text-[14px] font-semibold leading-[150%] text-black line-clamp-2"
+        :class="{ 'lang-khmer': containsKhmer(n.title) }"
+      >
         {{ n.title }}
       </div>
 
-      <div class="text-[11px] font-normal leading-[150%] text-black line-clamp-3">
+      <div 
+        class="text-[11px] font-normal leading-[150%] text-black line-clamp-3"
+        :class="{ 'lang-khmer': containsKhmer(n.description) }"
+      >
         {{ n.description }}
       </div>
 
@@ -35,6 +41,7 @@
 
 <script setup lang="ts">
 import type { Notification } from '@/services/notificationApi'
+import { containsKhmer } from '@/utils/helpers'
 
 defineEmits<{
   (e: 'send-now', n: Notification): void
