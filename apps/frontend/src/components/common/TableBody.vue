@@ -52,21 +52,20 @@
             <!-- Notification Mode: Name Column -->
             <th
               v-if="mode === 'notification'"
-              class="py-3 px-2 sm:px-4 text-center align-middle cursor-pointer w-full bg-[#f2f2f4]"
+              class="py-3 px-2 sm:px-4 text-center align-middle cursor-pointer bg-[#f2f2f4]"
               style="background-color: #f2f2f4 !important"
+              @click="handleNameSort"
             >
-              <div class="flex items-center justify-center gap-2 w-full">
+              <div class="flex items-center justify-center gap-2">
                 Name
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="w-3 h-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
-                </svg>
+                <img
+                  src="@/assets/image/Vector.svg"
+                  alt="Sort"
+                  class="w-3 h-3 transition-transform duration-200"
+                  :style="{
+                    transform: sortOrder === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)',
+                  }"
+                />
               </div>
             </th>
 
@@ -75,91 +74,59 @@
               <th
                 class="py-3 px-2 sm:px-4 text-left align-middle cursor-pointer bg-[#f2f2f4]"
                 style="background-color: #f2f2f4 !important"
+                @click="handleNameSort"
               >
                 <div class="flex items-center justify-start gap-2">
                   Name
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="w-3 h-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
-                  </svg>
+                  <img
+                    src="@/assets/image/Vector.svg"
+                    alt="Sort"
+                    class="w-3 h-3 transition-transform duration-200"
+                    :style="{
+                      transform:
+                        sortColumn === 'name' && sortOrder === 'asc'
+                          ? 'rotate(180deg)'
+                          : 'rotate(0deg)',
+                    }"
+                  />
                 </div>
               </th>
               <th
-                class="py-3 px-2 sm:px-4 text-left align-middle cursor-pointer bg-[#f2f2f4]"
+                class="py-3 px-2 sm:px-4 text-left align-middle bg-[#f2f2f4]"
                 style="background-color: #f2f2f4 !important"
               >
-                <div class="flex items-center justify-start gap-2">
-                  Email
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="w-3 h-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
-                  </svg>
-                </div>
+                <div class="flex items-center justify-start gap-2">Email</div>
               </th>
               <th
-                class="py-3 px-2 sm:px-4 text-left align-middle cursor-pointer bg-[#f2f2f4]"
+                class="py-3 px-2 sm:px-4 text-left align-middle bg-[#f2f2f4]"
                 style="background-color: #f2f2f4 !important"
               >
-                <div class="flex items-center justify-start gap-2">
-                  Phone Number
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="w-3 h-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
-                  </svg>
-                </div>
+                <div class="flex items-center justify-start gap-2">Phone Number</div>
               </th>
               <th
-                class="py-3 px-2 sm:px-4 text-left align-middle cursor-pointer bg-[#f2f2f4]"
+                class="py-3 px-2 sm:px-4 text-left align-middle bg-[#f2f2f4]"
                 style="background-color: #f2f2f4 !important"
               >
-                <div class="flex items-center justify-start gap-2">
-                  Role
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="w-3 h-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
-                  </svg>
-                </div>
+                <div class="flex items-center justify-start gap-2">Role</div>
               </th>
               <th
                 class="py-3 px-2 sm:px-4 text-left align-middle cursor-pointer bg-[#f2f2f4]"
                 style="background-color: #f2f2f4 !important"
+                @click="handleStatusSort"
               >
                 <div class="flex items-center justify-start gap-2">
                   Status
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="w-3 h-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
-                  </svg>
+                  <img
+                    src="@/assets/image/Vector.svg"
+                    alt="Sort"
+                    class="w-3 h-3 transition-transform duration-200"
+                    :style="{
+                      transform:
+                        sortColumn === 'status' && sortOrder === 'asc'
+                          ? 'rotate(180deg)'
+                          : 'rotate(0deg)',
+                    }"
+                  />
                 </div>
               </th>
             </template>
@@ -182,7 +149,7 @@
           <!-- Notification Rows -->
           <template v-if="mode === 'notification'">
             <tr
-              v-for="(item, i) in items as NotificationItem[]"
+              v-for="(item, i) in sortedItems as NotificationItem[]"
               :key="i"
               class="transition-all duration-150 h-[63px]"
               style="position: relative; z-index: 1"
@@ -209,9 +176,9 @@
                   </div>
                 </div>
               </td>
-              <td class="py-3 px-2 sm:px-4 text-center align-middle w-full">
+              <td class="py-3 px-2 sm:px-4 text-center align-middle">
                 <div
-                  class="flex items-center justify-center w-full"
+                  class="flex items-center justify-center"
                   style="
                     font-family: 'IBM Plex Sans', sans-serif;
                     font-weight: 400;
@@ -260,7 +227,7 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="!items || items.length === 0" class="h-[63px]">
+            <tr v-if="!sortedItems || sortedItems.length === 0" class="h-[63px]">
               <td colspan="3" class="px-4 py-8 text-center text-[#001346B3]">
                 No notification types found.
               </td>
@@ -270,8 +237,8 @@
           <!-- User Rows -->
           <template v-else-if="mode === 'user'">
             <tr
-              v-for="(user, index) in items as UserItem[]"
-              :key="user.id || index"
+              v-for="(user, index) in sortedItems as UserItem[]"
+              :key="`user-${user.id || user.email || user.phoneNumber || index}`"
               class="transition-all duration-150 h-[63px] bg-white hover:bg-[#F9FAFB]"
               style="position: relative; z-index: 1"
             >
@@ -286,9 +253,7 @@
                     @change="handleSelectItem(index)"
                     class="w-4 h-4 border border-[#001346] rounded bg-white focus:ring-0 focus:ring-offset-0"
                   />
-                  <span class="text-[16px] font-medium text-[#001346]">{{
-                    user.id || `Prolos ${index + 1}`
-                  }}</span>
+                  <span class="text-[16px] font-medium text-[#001346]">{{ index + 1 }}</span>
                 </div>
               </td>
               <td class="py-3 px-2 sm:px-4 text-[#001346] align-middle">
@@ -368,7 +333,7 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="!items || items.length === 0" class="h-[63px]">
+            <tr v-if="!sortedItems || sortedItems.length === 0" class="h-[63px]">
               <td colspan="7" class="px-4 py-8 text-center text-[#001346B3]">No users found.</td>
             </tr>
           </template>
@@ -379,7 +344,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, toRef } from 'vue'
+import { computed, toRef, ref, watch } from 'vue'
 import { useTableSelection } from '@/composables/useTableSelection'
 
 // Type Definitions
@@ -438,6 +403,125 @@ const emit = defineEmits<{
 const itemsRef = toRef(props, 'items')
 const { selectedItems, isAllSelected, isIndeterminate, handleSelectAll, handleSelectItem } =
   useTableSelection(itemsRef)
+
+// Sorting state
+const sortColumn = ref<'name' | 'status' | null>(null)
+const sortOrder = ref<'asc' | 'desc' | null>(null)
+
+// Type for items with original index (for user mode)
+interface UserItemWithIndex extends UserItem {
+  _originalIndex: number
+}
+
+// Sorted items computed property
+const sortedItems = computed(() => {
+  if (props.mode === 'notification') {
+    if (sortOrder.value === null || sortColumn.value !== 'name') {
+      return props.items
+    }
+
+    const items = [...props.items] as NotificationItem[]
+
+    return items.sort((a, b) => {
+      const nameA = a.name || ''
+      const nameB = b.name || ''
+
+      // Case-insensitive comparison using localeCompare
+      const comparison = nameA.localeCompare(nameB, undefined, { sensitivity: 'base' })
+
+      return sortOrder.value === 'asc' ? comparison : -comparison
+    })
+  } else if (props.mode === 'user') {
+    // Always map items with their original indices for user mode
+    // Use spread operator to preserve ALL properties including phoneNumber
+    const itemsWithIndex = (props.items as UserItem[]).map((item, index) => ({
+      ...item, // This preserves all properties: id, name, email, phoneNumber, role, status, etc.
+      _originalIndex: index,
+    })) as UserItemWithIndex[]
+
+    if (sortOrder.value === null || sortColumn.value === null) {
+      return itemsWithIndex
+    }
+
+    // Sort by the selected column
+    return itemsWithIndex.sort((a, b) => {
+      let comparison = 0
+
+      if (sortColumn.value === 'name') {
+        const nameA = a.name || a.displayName || a.username || ''
+        const nameB = b.name || b.displayName || b.username || ''
+        comparison = nameA.localeCompare(nameB, undefined, { sensitivity: 'base' })
+      } else if (sortColumn.value === 'status') {
+        const statusA = a.status || 'Active'
+        const statusB = b.status || 'Active'
+        // Active comes before Deactivate
+        if (statusA === statusB) {
+          comparison = 0
+        } else if (statusA === 'Active') {
+          comparison = -1
+        } else {
+          comparison = 1
+        }
+      }
+
+      return sortOrder.value === 'asc' ? comparison : -comparison
+    })
+  }
+
+  return props.items
+})
+
+// Sort handler for Name column
+const handleNameSort = () => {
+  if (sortColumn.value !== 'name') {
+    sortColumn.value = 'name'
+    sortOrder.value = 'asc'
+  } else if (sortOrder.value === 'asc') {
+    sortOrder.value = 'desc'
+  } else {
+    sortOrder.value = 'asc'
+  }
+}
+
+// Sort handler for Status column
+const handleStatusSort = () => {
+  if (sortColumn.value !== 'status') {
+    sortColumn.value = 'status'
+    sortOrder.value = 'asc'
+  } else if (sortOrder.value === 'asc') {
+    sortOrder.value = 'desc'
+  } else {
+    sortOrder.value = 'asc'
+  }
+}
+
+// Watch for items changes to reset sort order (e.g., after page refresh)
+// This ensures that when data is refreshed, sort state resets and phoneNumber stays with Name
+watch(
+  () => props.items,
+  (newItems, oldItems) => {
+    // Reset sort order when items change (e.g., after refresh)
+    // This prevents phoneNumber from being misaligned after refresh
+    if (props.mode === 'user') {
+      // Check if items actually changed by comparing length or first item
+      const newUserItems = newItems as UserItem[]
+      const oldUserItems = (oldItems as UserItem[]) || undefined
+
+      if (
+        !oldUserItems ||
+        newUserItems.length !== oldUserItems.length ||
+        (newUserItems.length > 0 &&
+          oldUserItems.length > 0 &&
+          (newUserItems[0]?.id !== oldUserItems[0]?.id ||
+            newUserItems[0]?.phoneNumber !== oldUserItems[0]?.phoneNumber))
+      ) {
+        sortColumn.value = null
+        sortOrder.value = null
+      }
+    }
+  },
+  { deep: false },
+)
 
 // Notification-specific handlers
 const handleIconError = (event: Event, item: NotificationItem) => {

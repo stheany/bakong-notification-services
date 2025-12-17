@@ -27,24 +27,24 @@
             </th>
             <th
               class="sticky top-0 z-10 py-3 !px-2 sm:px-4 text-left align-middle cursor-pointer bg-[#0013460D]"
+              @click="handleNameSort"
             >
               <div class="flex items-center justify-start gap-2">
                 Name
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="w-3 h-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
-                </svg>
+                <img
+                  src="@/assets/image/Vector.svg"
+                  alt="Sort"
+                  class="w-3 h-3 transition-transform duration-200"
+                  :style="{
+                    transform:
+                      sortColumn === 'name' && sortOrder === 'asc'
+                        ? 'rotate(180deg)'
+                        : 'rotate(0deg)',
+                  }"
+                />
               </div>
             </th>
-            <th
-              class="sticky top-0 z-10 py-3 px-2 sm:px-4 text-left align-middle cursor-pointer bg-[#0013460D]"
-            >
+            <th class="sticky top-0 z-10 py-3 px-2 sm:px-4 text-left align-middle bg-[#0013460D]">
               <div class="flex items-center justify-start gap-2">
                 Email
                 <svg
@@ -59,9 +59,7 @@
                 </svg>
               </div>
             </th>
-            <th
-              class="sticky top-0 z-10 py-3 px-2 sm:px-4 text-left align-middle cursor-pointer bg-[#0013460D]"
-            >
+            <th class="sticky top-0 z-10 py-3 px-2 sm:px-4 text-left align-middle bg-[#0013460D]">
               <div class="flex items-center justify-start gap-2">
                 Phone Number
                 <svg
@@ -76,9 +74,7 @@
                 </svg>
               </div>
             </th>
-            <th
-              class="sticky top-0 z-10 py-3 px-2 sm:px-4 text-left align-middle cursor-pointer bg-[#0013460D]"
-            >
+            <th class="sticky top-0 z-10 py-3 px-2 sm:px-4 text-left align-middle bg-[#0013460D]">
               <div class="flex items-center justify-start gap-2">
                 Role
                 <svg
@@ -95,19 +91,21 @@
             </th>
             <th
               class="sticky top-0 z-10 py-3 px-2 sm:px-4 text-left align-middle cursor-pointer bg-[#0013460D]"
+              @click="handleStatusSort"
             >
               <div class="flex items-center justify-start gap-2">
                 Status
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="w-3 h-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
-                </svg>
+                <img
+                  src="@/assets/image/Vector.svg"
+                  alt="Sort"
+                  class="w-3 h-3 transition-transform duration-200"
+                  :style="{
+                    transform:
+                      sortColumn === 'status' && sortOrder === 'asc'
+                        ? 'rotate(180deg)'
+                        : 'rotate(0deg)',
+                  }"
+                />
               </div>
             </th>
             <th
@@ -119,7 +117,7 @@
         </thead>
         <tbody>
           <tr
-            v-for="(user, index) in users"
+            v-for="(user, index) in sortedUsers"
             :key="user.id || index"
             class="transition-all duration-150 h-[63px] bg-white hover:bg-[#F9FAFB] border-b border-[#0013461A]"
           >
@@ -241,7 +239,7 @@
               </div>
             </td>
           </tr>
-          <tr v-if="!users || users.length === 0" class="h-[63px]">
+          <tr v-if="!sortedUsers || sortedUsers.length === 0" class="h-[63px]">
             <td colspan="7" class="px-4 py-8 text-center text-[#001346B3]">No users found.</td>
           </tr>
         </tbody>
@@ -277,6 +275,10 @@ const emit = defineEmits<{
 
 const selectedItems = ref<Set<number>>(new Set())
 
+// Sorting state
+const sortColumn = ref<'name' | 'status' | null>(null)
+const sortOrder = ref<'asc' | 'desc' | null>(null)
+
 const isAllSelected = computed(() => {
   return props.users.length > 0 && selectedItems.value.size === props.users.length
 })
@@ -284,6 +286,62 @@ const isAllSelected = computed(() => {
 const isIndeterminate = computed(() => {
   return selectedItems.value.size > 0 && selectedItems.value.size < props.users.length
 })
+
+// Sorted users computed property
+const sortedUsers = computed(() => {
+  if (sortOrder.value === null || sortColumn.value === null) {
+    return props.users
+  }
+
+  const users = [...props.users]
+
+  return users.sort((a, b) => {
+    let comparison = 0
+
+    if (sortColumn.value === 'name') {
+      const nameA = a.name || a.displayName || a.username || ''
+      const nameB = b.name || b.displayName || b.username || ''
+      comparison = nameA.localeCompare(nameB, undefined, { sensitivity: 'base' })
+    } else if (sortColumn.value === 'status') {
+      const statusA = a.status || 'Active'
+      const statusB = b.status || 'Active'
+      // Active comes before Deactivate
+      if (statusA === statusB) {
+        comparison = 0
+      } else if (statusA === 'Active') {
+        comparison = -1
+      } else {
+        comparison = 1
+      }
+    }
+
+    return sortOrder.value === 'asc' ? comparison : -comparison
+  })
+})
+
+// Sort handler for Name column
+const handleNameSort = () => {
+  if (sortColumn.value !== 'name') {
+    sortColumn.value = 'name'
+    sortOrder.value = 'asc'
+  } else if (sortOrder.value === 'asc') {
+    sortOrder.value = 'desc'
+  } else {
+    sortOrder.value = 'asc'
+  }
+}
+
+// Sort handler for Status column
+const handleStatusSort = () => {
+  if (sortColumn.value !== 'status') {
+    sortColumn.value = 'status'
+    sortOrder.value = 'asc'
+  } else if (sortOrder.value === 'asc') {
+    sortOrder.value = 'desc'
+  } else {
+    sortOrder.value = 'asc'
+  }
+}
 
 const handleSelectAll = () => {
   if (isAllSelected.value) {

@@ -139,7 +139,13 @@ const generateMockUsers = (): MockUser[] => {
     const lastName = lastNames[(i - 1) % lastNames.length]
     const name = `${firstName} ${lastName}`
     const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}@bakong.com`
-    const phoneNumber = `+855 ${String(Math.floor(Math.random() * 9) + 1)}${String(Math.floor(Math.random() * 9))} ${String(Math.floor(Math.random() * 900) + 100)} ${String(Math.floor(Math.random() * 900) + 100)}`
+    // Generate deterministic phone number based on user id to ensure consistency across refreshes
+    // Format: +855 [prefix] [3 digits] [3 digits]
+    // Use user id to create a consistent but varied phone number
+    const prefix = ((i * 7) % 9) + 1 // Deterministic prefix (1-9)
+    const middle = String(((i * 123) % 900) + 100).padStart(3, '0') // Deterministic middle 3 digits
+    const last = String(((i * 456) % 900) + 100).padStart(3, '0') // Deterministic last 3 digits
+    const phoneNumber = `+855 ${prefix}${(i * 3) % 10} ${middle} ${last}`
     const role = roles[i % roles.length]
     const status = statuses[i % 2] // Alternate between Active and Deactivate
 
