@@ -602,7 +602,7 @@ const fetchNotifications = async (forceRefresh = false) => {
           id: Number(notification.id),
           status: status,
           author: notification.author,
-          description: notification.content || notification.title,
+          description: notification.content || '',
           image: notification.image || '',
           date: notification.date,
           linkPreview: notification.linkPreview,
@@ -636,7 +636,7 @@ const fetchNotifications = async (forceRefresh = false) => {
           id: Number(notification.id),
           status: status,
           author: notification.author,
-          description: notification.content || notification.title,
+          description: notification.content || '',
           image: notification.image || '',
           date: notification.date,
         })
@@ -848,6 +848,32 @@ const handlePublishNotification = async (notification: Notification) => {
           clearCacheFromStorage()
           await fetchNotifications(true)
           applyFilters()
+          return
+        }
+
+        // Validate that draft has enough data to send (both title and content required)
+        const translations = template?.translations || []
+        let hasValidData = false
+        
+        for (const translation of translations) {
+          const hasTitle = translation?.title && translation.title.trim() !== ''
+          const hasContent = translation?.content && translation.content.trim() !== ''
+          
+          if (hasTitle && hasContent) {
+            hasValidData = true
+            break
+          }
+        }
+        
+        if (!hasValidData) {
+          publishingNotifications.delete(key)
+          ElNotification({
+            title: 'Error',
+            message: 'This record cannot be sent. Please review the <strong>title</strong> and <strong>content</strong> and other fields, then try again.',
+            type: 'error',
+            duration: 4000,
+            dangerouslyUseHTMLString: true,
+          })
           return
         }
 

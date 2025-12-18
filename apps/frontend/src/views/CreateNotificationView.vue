@@ -322,7 +322,7 @@
   <ConfirmationDialog
     v-model="showLeaveDialog"
     title="Are you sure you want to leave?"
-    message="If you leave now, your progress will be saved as a draft. You can resume and complete it anytime."
+    :message="isEditMode ? 'If you leave now, any changes you made will be updated. If there are no changes, nothing will be updated.' : 'If you leave now, your progress will be saved as a draft. You can resume and complete it anytime.'"
     :confirm-text="isEditMode ? 'Update and leave' : 'Save as draft & leave'"
     cancel-text="Stay on page"
     type="warning"
@@ -465,6 +465,37 @@ const existingImageIds = reactive<Record<string, string | null>>({
 })
 
 const existingTranslationIds = reactive<Record<string, number | null>>({
+  [Language.KM]: null,
+  [Language.EN]: null,
+  [Language.JP]: null,
+})
+
+// Store original values when loading notification data to detect changes
+const originalLanguageFormData = reactive<Record<string, LanguageFormData>>({
+  [Language.KM]: {
+    title: '',
+    description: '',
+    linkToSeeMore: '',
+    imageFile: null,
+    imageUrl: null,
+  },
+  [Language.EN]: {
+    title: '',
+    description: '',
+    linkToSeeMore: '',
+    imageFile: null,
+    imageUrl: null,
+  },
+  [Language.JP]: {
+    title: '',
+    description: '',
+    linkToSeeMore: '',
+    imageFile: null,
+    imageUrl: null,
+  },
+})
+
+const originalImageIds = reactive<Record<string, string | null>>({
   [Language.KM]: null,
   [Language.EN]: null,
   [Language.JP]: null,
@@ -635,13 +666,27 @@ const loadNotificationData = async () => {
       for (const t of template.translations) {
         const lang = t.language as string as Language
         if (!languageFormData[lang]) continue
-        languageFormData[lang].title = t.title || ''
-        languageFormData[lang].description = t.content || ''
-        languageFormData[lang].linkToSeeMore = t.linkPreview || ''
+        const title = t.title || ''
+        const description = t.content || ''
+        const linkPreview = t.linkPreview || ''
         const fileId = t.image?.fileId || t.image?.fileID || t.imageId || t.image?.id
+        
+        // Set current values
+        languageFormData[lang].title = title
+        languageFormData[lang].description = description
+        languageFormData[lang].linkToSeeMore = linkPreview
         languageFormData[lang].imageUrl = fileId ? `/api/v1/image/${fileId}` : null
         languageFormData[lang].imageFile = null
         existingImageIds[lang] = fileId || null
+        
+        // Store original values for change detection
+        originalLanguageFormData[lang].title = title
+        originalLanguageFormData[lang].description = description
+        originalLanguageFormData[lang].linkToSeeMore = linkPreview
+        originalLanguageFormData[lang].imageUrl = fileId ? `/api/v1/image/${fileId}` : null
+        originalLanguageFormData[lang].imageFile = null
+        originalImageIds[lang] = fileId || null
+        
         // Store translation ID to preserve it during updates
         existingTranslationIds[lang] = t.id || null
       }
@@ -796,24 +841,107 @@ const isNotificationOld = (): boolean => {
 }
 
 const handlePublishNow = async () => {
-  // Validate all fields first
-  validateTitle()
-  validateDescription()
+  // Check if current language tab has existing data
+  const currentLangHasExistingData = isEditMode.value && existingTranslationIds[activeLanguage.value] !== null
   
-  // Check if there are validation errors
-  if (
-    !currentTitle.value ||
-    !currentDescription.value ||
-    titleError.value ||
-    descriptionError.value
-  ) {
-    // Re-validate to ensure errors are set
-    if (!titleError.value) validateTitle()
-    if (!descriptionError.value) validateDescription()
+  // Check if user has entered any data for current language
+  const currentLangHasUserInput = !!(currentTitle.value?.trim() || currentDescription.value?.trim() || currentImageFile.value)
+  
+  // If editing and current language tab has no existing data and no user input, check for changes in other languages
+  if (isEditMode.value && !currentLangHasExistingData && !currentLangHasUserInput) {
+    // Check if there are any changes across all languages
+    let hasAnyChanges = false
     
-    // Don't show notification - errors are already visible inline below the form fields
-    // Just prevent publishing
+    for (const langKey of Object.keys(languageFormData)) {
+      const originalData = originalLanguageFormData[langKey]
+      const currentData = languageFormData[langKey]
+      
+      if (!originalData) continue // Skip if no original data for this language
+      
+      // Compare current values with original values
+      const titleChanged = (currentData?.title?.trim() || '') !== (originalData?.title?.trim() || '')
+      const descriptionChanged = (currentData?.description?.trim() || '') !== (originalData?.description?.trim() || '')
+      const linkChanged = (currentData?.linkToSeeMore?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
+      const imageChanged = currentData?.imageFile !== null || 
+                           (existingImageIds[langKey] !== originalImageIds[langKey])
+      
+      if (titleChanged || descriptionChanged || linkChanged || imageChanged) {
+        hasAnyChanges = true
+        break // Found at least one change, no need to check further
+      }
+    }
+    
+    if (!hasAnyChanges) {
+      // No changes at all - just navigate to home without updating or showing notification
+      const redirectTab = fromTab.value || 'published'
+      setTimeout(() => {
+        window.location.href = `/?tab=${redirectTab}`
+      }, 100)
+      return
+    }
+    
+    // There are changes in other languages - proceed with update
+    const token = localStorage.getItem('auth_token')
+    if (!token || token.trim() === '') {
+      ElNotification({
+        title: 'Error',
+        message: 'Please login first',
+        type: 'error',
+        duration: 2000,
+      })
+      router.push('/login')
+      return
+    }
+    
+    // Clear any errors and proceed
+    titleError.value = ''
+    descriptionError.value = ''
+    await handlePublishNowInternal()
     return
+  }
+
+  // Check if current language has changes (including deletions)
+  // If editing and there are changes, allow update even if fields are empty (deletion is a change)
+  let hasChangesForCurrentLang = false
+  if (isEditMode.value && currentLangHasExistingData) {
+    const currentLang = activeLanguage.value
+    const originalData = originalLanguageFormData[currentLang]
+    
+    // Check if values changed (including deletion - from something to empty)
+    const titleChanged = (currentTitle.value?.trim() || '') !== (originalData?.title?.trim() || '')
+    const descriptionChanged = (currentDescription.value?.trim() || '') !== (originalData?.description?.trim() || '')
+    const linkChanged = (currentLinkToSeeMore.value?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
+    const imageChanged = currentImageFile.value !== null || 
+                         (existingImageIds[currentLang] !== originalImageIds[currentLang])
+    
+    hasChangesForCurrentLang = titleChanged || descriptionChanged || linkChanged || imageChanged
+  }
+  
+  // Only validate if there's no existing data or no changes (creating new content)
+  // If there are changes (including deletions), skip validation and allow update
+  if (!hasChangesForCurrentLang) {
+    validateTitle()
+    validateDescription()
+    
+    // Check if there are validation errors
+    if (
+      !currentTitle.value ||
+      !currentDescription.value ||
+      titleError.value ||
+      descriptionError.value
+    ) {
+      // Re-validate to ensure errors are set
+      if (!titleError.value) validateTitle()
+      if (!descriptionError.value) validateDescription()
+      
+      // Don't show notification - errors are already visible inline below the form fields
+      // Just prevent publishing
+      return
+    }
+  } else {
+    // Has changes (including deletions) - clear validation errors and proceed
+    titleError.value = ''
+    descriptionError.value = ''
   }
 
   const token = localStorage.getItem('auth_token')
@@ -828,10 +956,42 @@ const handlePublishNow = async () => {
     return
   }
 
-  // If editing a published notification, show confirmation dialog first
+  // If editing a published notification, check for changes across all languages
   if (isEditMode.value && isEditingPublished.value) {
-    showUpdateConfirmationDialog.value = true
-    return
+    // Check if there are any changes across all languages
+    let hasAnyChanges = false
+    
+    for (const langKey of Object.keys(languageFormData)) {
+      const originalData = originalLanguageFormData[langKey]
+      const currentData = languageFormData[langKey]
+      
+      if (!originalData) continue // Skip if no original data for this language
+      
+      // Compare current values with original values
+      const titleChanged = (currentData?.title?.trim() || '') !== (originalData?.title?.trim() || '')
+      const descriptionChanged = (currentData?.description?.trim() || '') !== (originalData?.description?.trim() || '')
+      const linkChanged = (currentData?.linkToSeeMore?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
+      const imageChanged = currentData?.imageFile !== null || 
+                           (existingImageIds[langKey] !== originalImageIds[langKey])
+      
+      if (titleChanged || descriptionChanged || linkChanged || imageChanged) {
+        hasAnyChanges = true
+        break // Found at least one change, no need to check further
+      }
+    }
+    
+    // Only show confirmation if there are actual changes
+    if (hasAnyChanges) {
+      showUpdateConfirmationDialog.value = true
+      return
+    } else {
+      // No changes at all - just navigate to home without updating or showing notification
+      const redirectTab = fromTab.value || 'published'
+      setTimeout(() => {
+        window.location.href = `/?tab=${redirectTab}`
+      }, 100)
+      return
+    }
   }
 
   // Note: Removed old notification warning popup - backend now handles old notifications better
@@ -1541,21 +1701,10 @@ const handleFinishLater = () => {
 const handleSaveDraft = async () => {
   isSavingOrPublishing.value = true
 
-  // Validate all fields first (same validation as publish)
-  validateTitle()
-  validateDescription()
-  
-  // Check if there are validation errors
-  if (titleError.value || descriptionError.value) {
-    // Re-validate to ensure errors are set
-    if (!titleError.value) validateTitle()
-    if (!descriptionError.value) validateDescription()
-    
-    // Don't show notification - errors are already visible inline below the form fields
-    // Just prevent saving
-    isSavingOrPublishing.value = false
-    return
-  }
+  // Drafts can be saved with empty title and content - clear any validation errors
+  // Validation is only needed for publishing, not for saving drafts
+  titleError.value = ''
+  descriptionError.value = ''
 
   // Validate all language translations for length limits
   let hasValidationError = false
@@ -1679,16 +1828,8 @@ const handleSaveDraft = async () => {
         imageId = existingImageIds[langKey] || undefined
       }
 
-      // For drafts: include translation if it has title OR content OR image
-      // This allows saving drafts with just an image, or just title/content, or any combination
-      const hasTitle = title && title.trim() !== ''
-      const hasContent = content && content.trim() !== ''
-      const hasImage = !!imageId || !!langData.imageFile
-
-      if (!hasTitle && !hasContent && !hasImage) {
-        continue
-      }
-
+      // For drafts: include translation even if all fields are empty
+      // This allows saving drafts with empty title/content/image (user can fill later)
       const translationData: any = {
         language: mapLanguageToEnum(langKey),
         title: title || '',
@@ -2011,15 +2152,30 @@ const handleLeaveDialogConfirm = async () => {
   showLeaveDialog.value = false
   pendingNavigation = null
   
-  // Save as draft and then navigate
+  // When clicking "Update and leave" from sidebar, always save as draft (don't publish/send to users)
+  // This applies to both edit mode and create mode
+  // Clear validation errors - drafts can have empty fields
+  titleError.value = ''
+  descriptionError.value = ''
+  
+  const token = localStorage.getItem('auth_token')
+  if (!token || token.trim() === '') {
+    ElNotification({
+      title: 'Error',
+      message: 'Please login first',
+      type: 'error',
+      duration: 2000,
+    })
+    router.push('/login')
+    return
+  }
+  
+  // Always save as draft when leaving via sidebar (no validation, allows empty fields)
   try {
     await handleSaveDraft()
     // Navigation will happen in handleSaveDraft
-    // Reset flag will happen in handleSaveDraft after navigation
   } catch (error) {
-    // If save fails, show error but don't reopen dialog
     console.error('Failed to save draft:', error)
-    // Reset flag on error
     isSavingOrPublishing.value = false
   }
 }

@@ -27,11 +27,12 @@
               {{ notification.title }}
             </h3>
             <p 
+              v-if="notification.description && notification.description.trim()"
               class="description-text"
               :class="{ 'lang-khmer': containsKhmer(notification.description) }"
               :data-content-lang="containsKhmer(notification.description) ? 'km' : ''"
             >
-              <span v-html="notification.description || ''"></span>
+              <span v-html="notification.description"></span>
             </p>
           </div>
 
