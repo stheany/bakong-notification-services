@@ -54,7 +54,7 @@ import NotificationTableHeader from '@/components/common/Type-Feature/Notificati
 import TableBody from '@/components/common/TableBody.vue'
 import NotificationPagination from '@/components/common/Type-Feature/NotificationPagination.vue'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog.vue'
-import type { CategoryType } from '@/services/categoryTypeApi'
+import { categoryTypeApi, type CategoryType } from '@/services/categoryTypeApi'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { ElMessage, ElNotification } from 'element-plus'
 import { mockCategoryTypes } from '../../Data/mockCategoryTypes'
@@ -62,8 +62,8 @@ import { mockCategoryTypes } from '../../Data/mockCategoryTypes'
 const router = useRouter()
 const route = useRoute()
 
-// Use mock data for testing
-const categoryTypes = ref<CategoryType[]>([...mockCategoryTypes])
+// Initialize with empty array, will be populated by fetchCategoryTypes
+const categoryTypes = ref<CategoryType[]>([])
 const loading = ref(false)
 
 const page = ref(1)
@@ -77,7 +77,7 @@ const { handleApiError, showSuccess, showInfo } = useErrorHandler({
 })
 
 const filteredItems = computed(() => {
-  let items = categoryTypes.value.map((ct) => ({
+  let items = (categoryTypes.value || []).map((ct) => ({
     id: ct.id,
     name: ct.name,
     icon: ct.icon || '', // Icon is now included in the main response as base64
@@ -155,16 +155,32 @@ const handleSearch = (value: string) => {
 }
 
 const fetchCategoryTypes = async () => {
+  loading.value = true
   try {
-    // Use mock data for testing
-    loading.value = true
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 300))
-    categoryTypes.value = [...mockCategoryTypes]
-    loading.value = false
+    console.log('🔄 [TypeView] Fetching categories from API...')
+    const data = await categoryTypeApi.getAll()
+    
+    if (data && data.length > 0) {
+      categoryTypes.value = data
+      console.log(`✅ [TypeView] Successfully loaded ${data.length} categories from API`)
+    } else {
+      console.warn('⚠️ [TypeView] API returned empty categories, falling back to mock data')
+      categoryTypes.value = [...mockCategoryTypes]
+    }
   } catch (error) {
+    console.error('❌ [TypeView] API failed, falling back to mock data:', error)
+    // Silently fall back to mock data for better UX as requested
+    categoryTypes.value = [...mockCategoryTypes]
+    // Optional: show a small info notification about using offline/mock data
+    /*
+    ElMessage({
+      message: 'Using backup category data (API unavailable)',
+      type: 'info',
+      duration: 3000
+    })
+    */
+  } finally {
     loading.value = false
-    handleApiError(error, { operation: 'fetchCategoryTypes' })
   }
 }
 
