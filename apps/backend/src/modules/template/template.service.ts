@@ -5,6 +5,7 @@ import {
   Inject,
   forwardRef,
   Logger,
+  HttpException,
 } from '@nestjs/common'
 import { SchedulerRegistry } from '@nestjs/schedule'
 import { InjectRepository } from '@nestjs/typeorm'
@@ -705,7 +706,8 @@ export class TemplateService implements OnModuleInit {
             })
           }
           const now = moment.utc()
-          if (scheduledTime.isBefore(now)) {
+          // Add 1-minute grace period for network latency and clock skew
+          if (scheduledTime.isBefore(now.clone().subtract(1, 'minute'))) {
             throw new BadRequestException({
               responseCode: 1,
               errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
@@ -905,6 +907,19 @@ export class TemplateService implements OnModuleInit {
           `(type: ${typeof updatedTemplate.platforms})`,
         )
 
+        // Check if this is a retry of a previously failed template
+        const isRetry = !updatedTemplate.isSent || (updatedTemplate as any).failedUsers?.length > 0
+        if (isRetry) {
+          console.log(
+            `🔄 [UPDATE] This appears to be a retry of a previously failed template. Ensuring user data is synced...`,
+          )
+          // Force user sync before retrying to ensure we have latest tokens
+          // Note: sendWithTemplate already calls syncAllUsers internally, but we log this for clarity
+          console.log(
+            `🔄 [UPDATE] User sync will happen in sendWithTemplate - ensure mobile app has updated tokens via /send or /inbox API`,
+          )
+        }
+
         // Try to send the notification
         const templateWithTranslations = await this.repo.findOne({
           where: { id: updatedTemplate.id },
@@ -912,12 +927,29 @@ export class TemplateService implements OnModuleInit {
         })
 
         if (templateWithTranslations && templateWithTranslations.translations) {
-          let sendResult: { successfulCount: number; failedCount: number; failedUsers?: string[] } =
-            { successfulCount: 0, failedCount: 0, failedUsers: [] }
+          let sendResult: {
+            successfulCount: number
+            failedCount: number
+            failedUsers?: string[]
+            failedDueToInvalidTokens?: boolean
+          } = { successfulCount: 0, failedCount: 0, failedUsers: [] }
           let noUsersForPlatform = false
           try {
             sendResult = await this.notificationService.sendWithTemplate(templateWithTranslations)
             console.log(`[UPDATE] sendWithTemplate returned:`, sendResult)
+            
+            // Log detailed failure information for debugging
+            if (sendResult.failedCount > 0 && sendResult.failedUsers?.length) {
+              console.log(
+                `⚠️ [UPDATE] Failed to send to ${sendResult.failedCount} user(s):`,
+                sendResult.failedUsers,
+              )
+              if (sendResult.failedDueToInvalidTokens) {
+                console.log(
+                  `⚠️ [UPDATE] Some failures were due to invalid tokens. Users should update tokens via mobile app.`,
+                )
+              }
+            }
           } catch (error: any) {
             console.error(`[UPDATE] ❌ ERROR in sendWithTemplate:`, error?.message)
             // Check if error is about no users for bakongPlatform
@@ -938,7 +970,9 @@ export class TemplateService implements OnModuleInit {
             ;(reloadedTemplate as any).savedAsDraftNoUsers = true
             return this.formatTemplateResponse(reloadedTemplate)
           } else if (sendResult.successfulCount > 0) {
-            // Successfully sent, mark as published
+            // Successfully sent to at least some users, mark as published
+            // Even if some failed, if ANY succeeded, mark as published
+            console.log(`[UPDATE] ✅ Template ${updatedTemplate.id} published successfully - sent to ${sendResult.successfulCount} user(s)${sendResult.failedCount > 0 ? ` (${sendResult.failedCount} failed)` : ''}`)
             await this.markAsPublished(updatedTemplate.id, currentUser)
             console.log(
               `[UPDATE] Template published successfully, sent to ${sendResult.successfulCount} users`,
@@ -947,19 +981,42 @@ export class TemplateService implements OnModuleInit {
             ;(updatedTemplate as any).successfulCount = sendResult.successfulCount
             ;(updatedTemplate as any).failedCount = sendResult.failedCount
             ;(updatedTemplate as any).failedUsers = sendResult.failedUsers || []
+            ;(updatedTemplate as any).failedDueToInvalidTokens = sendResult.failedDueToInvalidTokens || false
           } else {
             // No users received the notification - revert to draft
+            // This happens when successfulCount === 0
+            // Distinguish between: no users found (failedCount === 0) vs all users failed (failedCount > 0)
             console.warn(
-              `[UPDATE] No notifications were sent (successfulCount = 0) - reverting to draft`,
+              `[UPDATE] No notifications were sent (successfulCount = 0, failedCount = ${sendResult.failedCount}) - reverting to draft`,
             )
             await this.repo.update(updatedTemplate.id, { isSent: false, updatedAt: new Date() })
+            
+            // Provide helpful error message based on failure reason
+            if (sendResult.failedCount > 0 && sendResult.failedUsers?.length) {
+              console.warn(
+                `[UPDATE] All ${sendResult.failedCount} user(s) failed: ${sendResult.failedUsers.join(', ')}. Users may need to update their FCM tokens via mobile app.`,
+              )
+            } else {
+              console.warn(
+                `[UPDATE] No matching users found. Check platform filters and ensure users exist for bakongPlatform: ${templateWithTranslations.bakongPlatform || 'ALL'}`,
+              )
+            }
+            
             // Reload template to get updated isSent value
             const reloadedTemplate = await this.findOneRaw(id)
-            ;(reloadedTemplate as any).savedAsDraftNoUsers = true
+            // CRITICAL: savedAsDraftNoUsers should ONLY be true when there are literally no users (failedCount === 0)
+            // If failedCount > 0, it means users exist but all failed - this is NOT "no users"
+            // Explicitly set to false if failedCount > 0 to prevent incorrect flag persistence
+            if (sendResult.failedCount > 0) {
+              ;(reloadedTemplate as any).savedAsDraftNoUsers = false
+            } else {
+              ;(reloadedTemplate as any).savedAsDraftNoUsers = sendResult.successfulCount === 0 && sendResult.failedCount === 0
+            }
             // Include send result in template response
             ;(reloadedTemplate as any).successfulCount = sendResult.successfulCount
             ;(reloadedTemplate as any).failedCount = sendResult.failedCount
             ;(reloadedTemplate as any).failedUsers = sendResult.failedUsers || []
+            ;(reloadedTemplate as any).failedDueToInvalidTokens = sendResult.failedDueToInvalidTokens || false
             return this.formatTemplateResponse(reloadedTemplate)
           }
         }
@@ -986,7 +1043,17 @@ export class TemplateService implements OnModuleInit {
       }
       return this.formatTemplateResponse(finalTemplate)
     } catch (error) {
-      throw new Error(error)
+      console.error('Error updating template:', error)
+      if (error instanceof BadRequestException || error instanceof HttpException) {
+        throw error
+      }
+      const errorMessage = error?.message || error?.toString() || 'Bad Request Exception'
+      throw new BadRequestException({
+        responseCode: 1,
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        responseMessage: errorMessage,
+        data: error?.data || null,
+      })
     }
   }
 
@@ -1015,7 +1082,39 @@ export class TemplateService implements OnModuleInit {
       } else {
         if (dto.sendType !== undefined) updateFields.sendType = dto.sendType
         if (dto.isSent !== undefined) updateFields.isSent = dto.isSent
-        if (dto.sendSchedule !== undefined) updateFields.sendSchedule = dto.sendSchedule
+        if (dto.sendSchedule !== undefined) {
+          // Validate and parse sendSchedule for scheduled notifications
+          if (dto.sendSchedule) {
+            const scheduledTime = moment.utc(dto.sendSchedule)
+            if (!scheduledTime.isValid()) {
+              throw new BadRequestException({
+                responseCode: 1,
+                errorCode: ErrorCode.VALIDATION_FAILED,
+                responseMessage: 'Invalid sendSchedule date format',
+                data: {
+                  providedDate: dto.sendSchedule,
+                  expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:30:00)',
+                },
+              })
+            }
+            const now = moment.utc()
+            // Add 1-minute grace period for network latency and clock skew
+            if (scheduledTime.isBefore(now.clone().subtract(1, 'minute'))) {
+              throw new BadRequestException({
+                responseCode: 1,
+                errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
+                responseMessage: ResponseMessage.TEMPLATE_SEND_SCHEDULE_IN_PAST,
+                data: {
+                  scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
+                  currentTime: now.format('h:mm A MMM D, YYYY'),
+                },
+              })
+            }
+            updateFields.sendSchedule = scheduledTime.toDate()
+          } else {
+            updateFields.sendSchedule = null
+          }
+        }
       }
       if (dto.notificationType !== undefined) {
         updateFields.notificationType = dto.notificationType
@@ -1156,7 +1255,22 @@ export class TemplateService implements OnModuleInit {
       }
     } catch (error) {
       console.error('Error editing published notification:', error)
-      throw new Error(error)
+      // Preserve the original error if it's already an HttpException or Error
+      if (error instanceof BadRequestException || error instanceof HttpException) {
+        throw error
+      }
+      // If it's a BaseResponseDto wrapped in an Error, extract it
+      if (error instanceof BaseResponseDto) {
+        throw new BadRequestException(error)
+      }
+      // Otherwise, wrap in BadRequestException with proper message
+      const errorMessage = error?.message || error?.toString() || 'Bad Request Exception'
+      throw new BadRequestException({
+        responseCode: 1,
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        responseMessage: errorMessage,
+        data: error?.data || null,
+      })
     }
   }
 
@@ -1413,8 +1527,12 @@ export class TemplateService implements OnModuleInit {
       failedCount: (template as any).failedCount,
       failedUsers: (template as any).failedUsers,
       failedDueToInvalidTokens: (template as any).failedDueToInvalidTokens,
+      failedUserDetails: (template as any).failedUserDetails, // Include detailed error info for debugging
       // Preserve savedAsDraftNoUsers flag if it exists
-      savedAsDraftNoUsers: (template as any).savedAsDraftNoUsers,
+      // CRITICAL: Only set to true if explicitly set AND failedCount === 0 (no users attempted)
+      // If failedCount > 0, it means users exist but all failed - this is NOT "no users"
+      savedAsDraftNoUsers: (template as any).savedAsDraftNoUsers === true && 
+        ((template as any).failedCount === undefined || (template as any).failedCount === 0),
       translations: template.translations
         ? template.translations.map((translation) => ({
             id: translation.id,
@@ -1444,8 +1562,14 @@ export class TemplateService implements OnModuleInit {
     }
 
     // Add flag if saved as draft due to no users
-    if ((template as any).savedAsDraftNoUsers) {
+    // CRITICAL: Only set to true if failedCount === 0 (no users attempted)
+    // If failedCount > 0, it means users exist but all failed - this is NOT "no users"
+    if ((template as any).savedAsDraftNoUsers === true && 
+        ((template as any).failedCount === undefined || (template as any).failedCount === 0)) {
       formattedTemplate.savedAsDraftNoUsers = true
+    } else {
+      // Explicitly set to false if failedCount > 0 to prevent incorrect flag persistence
+      formattedTemplate.savedAsDraftNoUsers = false
     }
 
     // Include send result properties if they exist
@@ -1454,6 +1578,7 @@ export class TemplateService implements OnModuleInit {
       formattedTemplate.failedCount = (template as any).failedCount
       formattedTemplate.failedUsers = (template as any).failedUsers || []
       formattedTemplate.failedDueToInvalidTokens = (template as any).failedDueToInvalidTokens || false
+      formattedTemplate.failedUserDetails = (template as any).failedUserDetails || [] // Include detailed error info for debugging
     }
 
     return formattedTemplate
@@ -1522,6 +1647,7 @@ export class TemplateService implements OnModuleInit {
       templateId: template.id,
       isSent: template.isSent,
       sendType: template.sendType,
+      updatedAt: template.updatedAt,
       scheduledTime: template.sendSchedule
         ? TimezoneUtils.formatCambodiaTime(template.sendSchedule)
         : null,
