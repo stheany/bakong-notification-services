@@ -282,7 +282,6 @@
               size="medium"
               width="123px"
               height="56px"
-              :disabled="isSavingOrPublishing"
               @click="handlePublishNow"
             />
             <Button
@@ -391,6 +390,7 @@ const isEditMode = computed(() => route.name === 'edit-notification')
 const notificationId = computed(() => route.params.id as string)
 const fromTab = computed(() => (route.query.fromTab as string) || '')
 const isEditingPublished = ref(false)
+const isLoadingData = ref(false)
 
 // Dynamic button text based on context
 const publishButtonText = computed(() => {
@@ -501,6 +501,13 @@ const originalImageIds = reactive<Record<string, string | null>>({
   [Language.EN]: null,
   [Language.JP]: null,
 })
+
+const originalFormData = reactive({
+  categoryTypeId: null as number | null,
+  pushToPlatforms: Platform.ALL,
+  platform: BakongApp.BAKONG,
+})
+
 const getTodayDateString = (): string => {
   const now = DateUtils.nowInCambodia()
   const month = now.getMonth() + 1
@@ -607,11 +614,15 @@ const templateCreatedAt = ref<Date | null>(null)
 const loadNotificationData = async () => {
   if (!isEditMode.value || !notificationId.value) return
 
+  isLoadingData.value = true
   try {
     const res = await api.get(`/api/v1/template/${notificationId.value}`)
     const template = res.data?.data
 
-    if (!template) return
+    if (!template) {
+      isLoadingData.value = false
+      return
+    }
 
     // Store creation date to check if notification is old
     if (template.createdAt) {
@@ -628,34 +639,29 @@ const loadNotificationData = async () => {
     formData.categoryTypeId = template.categoryTypeId || null
     formData.platform = (template.bakongPlatform as BakongApp) || BakongApp.BAKONG
     
+    // Store original global values for change detection
+    originalFormData.categoryTypeId = template.categoryTypeId || null
+    originalFormData.platform = (template.bakongPlatform as BakongApp) || BakongApp.BAKONG
+    
     // Load pushToPlatforms from template.platforms array
     if (template.platforms && Array.isArray(template.platforms) && template.platforms.length > 0) {
-      formData.pushToPlatforms = mapPlatformToFormPlatform(template.platforms)
+      const formPlatform = mapPlatformToFormPlatform(template.platforms)
+      formData.pushToPlatforms = formPlatform
+      originalFormData.pushToPlatforms = formPlatform
     } else {
       // Default to ALL if platforms not provided
       formData.pushToPlatforms = Platform.ALL
+      originalFormData.pushToPlatforms = Platform.ALL
     }
 
     if (template.sendSchedule) {
       formData.scheduleEnabled = true
       try {
-        const scheduleDate = new Date(template.sendSchedule)
-        if (!isNaN(scheduleDate.getTime())) {
-          const cambodiaStr = scheduleDate.toLocaleString('en-US', {
-            timeZone: 'Asia/Phnom_Penh',
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-          })
-          const [datePart, timePart] = cambodiaStr.split(', ')
-          if (datePart && timePart) {
-            const [month, day, year] = datePart.split('/').map(Number)
-            formData.scheduleDate = `${month}/${day}/${year}`
-            formData.scheduleTime = timePart
-          }
+        const { date, time } = DateUtils.formatUTCToCambodiaDateTime(template.sendSchedule)
+        if (date && time) {
+          formData.scheduleDate = date
+          formData.scheduleTime = time
+          console.log('✅ [Load Data] Set schedule:', { date, time })
         }
       } catch (error) {
         console.error('Error parsing schedule date/time:', error)
@@ -692,6 +698,10 @@ const loadNotificationData = async () => {
         existingTranslationIds[lang] = t.id || null
       }
     }
+
+    // Wait for Vue to process all reactive changes (like the scheduleEnabled watcher)
+    // while isLoadingData is still true, to prevent overwriting with defaults
+    await nextTick()
   } catch (error) {
     console.error('Error loading notification data:', error)
     ElNotification({
@@ -700,6 +710,8 @@ const loadNotificationData = async () => {
       type: 'error',
       duration: 2000,
     })
+  } finally {
+    isLoadingData.value = false
   }
 }
 
@@ -737,12 +749,13 @@ watch(
 watch(
   () => formData.scheduleEnabled,
   (isEnabled) => {
-    if (isEnabled) {
+    // Only auto-set date/time if we are NOT currently loading existing data
+    if (isEnabled && !isLoadingData.value) {
       // When schedule is turned ON, set date to today and time to current time
       formData.scheduleDate = getTodayDateString()
       formData.scheduleTime = getCurrentTimePlaceholder()
       console.log('✅ [Schedule Toggle] Enabled - Set date:', formData.scheduleDate, 'time:', formData.scheduleTime)
-    } else {
+    } else if (!isEnabled) {
       // When schedule is turned OFF, clear time but keep date for next time
       formData.scheduleTime = null
       console.log('✅ [Schedule Toggle] Disabled - Cleared time')
@@ -842,12 +855,6 @@ const isNotificationOld = (): boolean => {
 }
 
 const handlePublishNow = async () => {
-  // Prevent duplicate calls
-  if (isSavingOrPublishing.value) {
-    console.warn('⚠️ [handlePublishNow] Already saving/publishing, ignoring duplicate call')
-    return
-  }
-  
   // Check if current language tab has existing data
   const currentLangHasExistingData = isEditMode.value && existingTranslationIds[activeLanguage.value] !== null
   
@@ -856,25 +863,36 @@ const handlePublishNow = async () => {
   
   // If editing and current language tab has no existing data and no user input, check for changes in other languages
   if (isEditMode.value && !currentLangHasExistingData && !currentLangHasUserInput) {
-    // Check if there are any changes across all languages
+    // Check if there are any changes across all languages OR in global fields
     let hasAnyChanges = false
     
-    for (const langKey of Object.keys(languageFormData)) {
-      const originalData = originalLanguageFormData[langKey]
-      const currentData = languageFormData[langKey]
-      
-      if (!originalData) continue // Skip if no original data for this language
-      
-      // Compare current values with original values
-      const titleChanged = (currentData?.title?.trim() || '') !== (originalData?.title?.trim() || '')
-      const descriptionChanged = (currentData?.description?.trim() || '') !== (originalData?.description?.trim() || '')
-      const linkChanged = (currentData?.linkToSeeMore?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
-      const imageChanged = currentData?.imageFile !== null || 
-                           (existingImageIds[langKey] !== originalImageIds[langKey])
-      
-      if (titleChanged || descriptionChanged || linkChanged || imageChanged) {
-        hasAnyChanges = true
-        break // Found at least one change, no need to check further
+    // Check global fields first
+    const globalFieldsChanged = 
+      formData.platform !== originalFormData.platform ||
+      formData.categoryTypeId !== originalFormData.categoryTypeId ||
+      formData.pushToPlatforms !== originalFormData.pushToPlatforms
+    
+    if (globalFieldsChanged) {
+      hasAnyChanges = true
+    } else {
+      // Check translations
+      for (const langKey of Object.keys(languageFormData)) {
+        const originalData = originalLanguageFormData[langKey]
+        const currentData = languageFormData[langKey]
+        
+        if (!originalData) continue // Skip if no original data for this language
+        
+        // Compare current values with original values
+        const titleChanged = (currentData?.title?.trim() || '') !== (originalData?.title?.trim() || '')
+        const descriptionChanged = (currentData?.description?.trim() || '') !== (originalData?.description?.trim() || '')
+        const linkChanged = (currentData?.linkToSeeMore?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
+        const imageChanged = currentData?.imageFile !== null || 
+                             (existingImageIds[langKey] !== originalImageIds[langKey])
+        
+        if (titleChanged || descriptionChanged || linkChanged || imageChanged) {
+          hasAnyChanges = true
+          break // Found at least one change, no need to check further
+        }
       }
     }
     
@@ -907,10 +925,19 @@ const handlePublishNow = async () => {
     return
   }
 
-  // Check if current language has changes (including deletions)
+  // Check if current language has changes (including deletions) OR global fields have changes
   // If editing and there are changes, allow update even if fields are empty (deletion is a change)
   let hasChangesForCurrentLang = false
-  if (isEditMode.value && currentLangHasExistingData) {
+  
+  // Check global fields first (visible on all tabs)
+  const globalFieldsChanged = 
+    formData.platform !== originalFormData.platform ||
+    formData.categoryTypeId !== originalFormData.categoryTypeId ||
+    formData.pushToPlatforms !== originalFormData.pushToPlatforms
+  
+  if (globalFieldsChanged) {
+    hasChangesForCurrentLang = true
+  } else if (isEditMode.value && currentLangHasExistingData) {
     const currentLang = activeLanguage.value
     const originalData = originalLanguageFormData[currentLang]
     
@@ -925,7 +952,7 @@ const handlePublishNow = async () => {
   }
   
   // Only validate if there's no existing data or no changes (creating new content)
-  // If there are changes (including deletions), skip validation and allow update
+  // If there are changes (including deletions or global fields), skip validation and allow update
   if (!hasChangesForCurrentLang) {
     validateTitle()
     validateDescription()
@@ -946,7 +973,7 @@ const handlePublishNow = async () => {
       return
     }
   } else {
-    // Has changes (including deletions) - clear validation errors and proceed
+    // Has changes (including deletions or global fields) - clear validation errors and proceed
     titleError.value = ''
     descriptionError.value = ''
   }
@@ -963,27 +990,33 @@ const handlePublishNow = async () => {
     return
   }
 
-  // If editing a published notification, check for changes across all languages
+  // If editing a published notification, check for changes across all languages OR global fields
   if (isEditMode.value && isEditingPublished.value) {
-    // Check if there are any changes across all languages
+    // Check if there are any changes across all languages OR in global fields
     let hasAnyChanges = false
     
-    for (const langKey of Object.keys(languageFormData)) {
-      const originalData = originalLanguageFormData[langKey]
-      const currentData = languageFormData[langKey]
-      
-      if (!originalData) continue // Skip if no original data for this language
-      
-      // Compare current values with original values
-      const titleChanged = (currentData?.title?.trim() || '') !== (originalData?.title?.trim() || '')
-      const descriptionChanged = (currentData?.description?.trim() || '') !== (originalData?.description?.trim() || '')
-      const linkChanged = (currentData?.linkToSeeMore?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
-      const imageChanged = currentData?.imageFile !== null || 
-                           (existingImageIds[langKey] !== originalImageIds[langKey])
-      
-      if (titleChanged || descriptionChanged || linkChanged || imageChanged) {
-        hasAnyChanges = true
-        break // Found at least one change, no need to check further
+    // Global fields check
+    if (globalFieldsChanged) {
+      hasAnyChanges = true
+    } else {
+      // Check translations
+      for (const langKey of Object.keys(languageFormData)) {
+        const originalData = originalLanguageFormData[langKey]
+        const currentData = languageFormData[langKey]
+        
+        if (!originalData) continue // Skip if no original data for this language
+        
+        // Compare current values with original values
+        const titleChanged = (currentData?.title?.trim() || '') !== (originalData?.title?.trim() || '')
+        const descriptionChanged = (currentData?.description?.trim() || '') !== (originalData?.description?.trim() || '')
+        const linkChanged = (currentData?.linkToSeeMore?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
+        const imageChanged = currentData?.imageFile !== null || 
+                             (existingImageIds[langKey] !== originalImageIds[langKey])
+        
+        if (titleChanged || descriptionChanged || linkChanged || imageChanged) {
+          hasAnyChanges = true
+          break // Found at least one change, no need to check further
+        }
       }
     }
     
@@ -1009,12 +1042,6 @@ const handlePublishNow = async () => {
 }
 
 const handlePublishNowInternal = async () => {
-  // Prevent duplicate calls
-  if (isSavingOrPublishing.value) {
-    console.warn('⚠️ [handlePublishNowInternal] Already saving/publishing, ignoring duplicate call')
-    return
-  }
-  
   isSavingOrPublishing.value = true
 
   const loadingNotification = ElNotification({
@@ -2116,6 +2143,17 @@ const handleConfirmationDialogCancel = () => {
 
 // Check if form has unsaved changes
 const hasUnsavedChanges = computed(() => {
+  // Check if any language has title or description filled (new content)
+  // OR if existing data has been modified (edit mode)
+  
+  // Check global fields first
+  const globalFieldsModified = 
+    formData.platform !== originalFormData.platform ||
+    formData.categoryTypeId !== originalFormData.categoryTypeId ||
+    formData.pushToPlatforms !== originalFormData.pushToPlatforms
+  
+  if (globalFieldsModified) return true
+
   // Check if any language has title or description filled
   const hasContent = Object.values(languageFormData).some(
     (langData) => langData.title?.trim() || langData.description?.trim(),
@@ -2128,6 +2166,24 @@ const hasUnsavedChanges = computed(() => {
 
   // Check if any existing image IDs are set (for edit mode)
   const hasExistingImage = Object.values(existingImageIds).some((id) => id !== null)
+
+  // In edit mode, check for modifications to existing data
+  if (isEditMode.value) {
+    for (const langKey of Object.keys(languageFormData)) {
+      const originalData = originalLanguageFormData[langKey]
+      const currentData = languageFormData[langKey]
+      
+      if (!originalData) continue
+      
+      const titleChanged = (currentData?.title?.trim() || '') !== (originalData?.title?.trim() || '')
+      const descriptionChanged = (currentData?.description?.trim() || '') !== (originalData?.description?.trim() || '')
+      const linkChanged = (currentData?.linkToSeeMore?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
+      const imageChanged = currentData?.imageFile !== null || 
+                           (existingImageIds[langKey] !== originalImageIds[langKey])
+      
+      if (titleChanged || descriptionChanged || linkChanged || imageChanged) return true
+    }
+  }
 
   return hasContent || hasImage || hasExistingImage
 })
@@ -2200,13 +2256,6 @@ const handleLeaveDialogCancel = () => {
 }
 
 const handleUpdateConfirmationConfirm = async () => {
-  // Prevent duplicate calls
-  if (isSavingOrPublishing.value) {
-    console.warn('⚠️ [handleUpdateConfirmationConfirm] Already saving/publishing, ignoring duplicate call')
-    showUpdateConfirmationDialog.value = false
-    return
-  }
-  
   // Close dialog and proceed with update
   showUpdateConfirmationDialog.value = false
   await handlePublishNowInternal()

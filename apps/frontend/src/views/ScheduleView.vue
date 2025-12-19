@@ -267,6 +267,9 @@ const handleSendNow = async (notification: Notification) => {
     // Refresh notifications after publishing
     await fetchNotifications()
     
+    // REDIRECT TO CURRENT DATE: Set currentWeekStart to today so the user sees the notification on today's date
+    currentWeekStart.value = new Date()
+    
     // Clear HomeView cache to ensure fresh data when navigating to Home
     try {
       localStorage.removeItem('notifications_cache')
@@ -346,11 +349,27 @@ const formatDateForComparison = (date: Date) => {
 const getNotificationsForDay = (date: Date): Notification[] => {
   const dateStr = formatDateForComparison(date)
   return notifications.value.filter((n) => {
+    // Filter by date
     const raw = (n as any).sendSchedule || (n as any).templateStartAt || (n as any).date
     if (!raw) return false
     const scheduleDate = new Date(raw)
     if (isNaN(scheduleDate.getTime())) return false
-    return formatDateForComparison(scheduleDate) === dateStr
+    const dateMatches = formatDateForComparison(scheduleDate) === dateStr
+    if (!dateMatches) return false
+    
+    // Filter by selected bakongPlatform
+    // If no platform is selected, show all (shouldn't happen with current setup)
+    if (!selectedPlatform.value) return true
+    
+    const notificationPlatform = (n as any).bakongPlatform
+    // If notification has no platform, don't show it when filtering
+    if (!notificationPlatform) return false
+    
+    // Compare platforms (case-insensitive)
+    const normalizedNotificationPlatform = String(notificationPlatform).toUpperCase().trim()
+    const normalizedSelectedPlatform = String(selectedPlatform.value).toUpperCase().trim()
+    
+    return normalizedNotificationPlatform === normalizedSelectedPlatform
   })
 }
 
@@ -377,8 +396,9 @@ const fetchNotifications = async () => {
     const rawTemplatesResponse = await api.get('/api/v1/template/all')
     const rawTemplatesMap = new Map<number, any>()
     
-    if (Array.isArray(rawTemplatesResponse.data)) {
-      rawTemplatesResponse.data.forEach((template: any) => {
+    const rawTemplatesData = rawTemplatesResponse.data?.data || rawTemplatesResponse.data
+    if (Array.isArray(rawTemplatesData)) {
+      rawTemplatesData.forEach((template: any) => {
         const id = template.templateId || template.id
         rawTemplatesMap.set(id, template)
       })
@@ -395,23 +415,32 @@ const fetchNotifications = async () => {
       }
       
       // Get sendSchedule from raw template data
-      const rawTemplate = rawTemplatesMap.get(Number(n.id))
+      // Use templateId if available, otherwise fall back to id
+      const templateId = Number(n.templateId || n.id)
+      const rawTemplate = rawTemplatesMap.get(templateId)
       
-      // Convert sendSchedule to ISO string if it's a Date object
-      let sendSchedule: string | Date | undefined
-      if (rawTemplate?.sendSchedule) {
-        sendSchedule = rawTemplate.sendSchedule instanceof Date 
-          ? rawTemplate.sendSchedule.toISOString() 
-          : rawTemplate.sendSchedule
+      // Get date for calendar display
+      // For sent/published notifications, use updatedAt (the time it was sent)
+      // For scheduled notifications, use sendSchedule
+      let displayDate: string | Date | undefined
+      
+      if (normalizedStatus === 'SENT' || n.isSent) {
+        // Use updatedAt for sent notifications, fallback to createdAt
+        displayDate = n.updatedAt || n.createdAt
+      } else if (rawTemplate?.sendSchedule) {
+        displayDate = rawTemplate.sendSchedule
       } else if (rawTemplate?.templateStartAt) {
-        sendSchedule = rawTemplate.templateStartAt instanceof Date
-          ? rawTemplate.templateStartAt.toISOString()
-          : rawTemplate.templateStartAt
-      } else if (n.createdAt) {
-        sendSchedule = n.createdAt instanceof Date
-          ? n.createdAt.toISOString()
-          : n.createdAt
+        displayDate = rawTemplate.templateStartAt
+      } else if (n.sendSchedule) {
+        displayDate = n.sendSchedule
+      } else {
+        displayDate = n.createdAt
       }
+      
+      // Ensure displayDate is an ISO string for consistent parsing in getNotificationsForDay
+      const finalDisplayDate = displayDate instanceof Date 
+        ? displayDate.toISOString() 
+        : displayDate
       
       // Format time helper for scheduledTime display
       const formatTimeFromDate = (date: Date | string | null | undefined): string | null => {
@@ -430,8 +459,8 @@ const fetchNotifications = async () => {
       return {
         ...n,
         status: normalizedStatus,
-        // Use sendSchedule from raw template for accurate date matching (as ISO string)
-        sendSchedule: sendSchedule as string,
+        // Use finalDisplayDate for accurate date matching in the calendar
+        sendSchedule: finalDisplayDate as string,
         templateStartAt: rawTemplate?.templateStartAt instanceof Date
           ? rawTemplate.templateStartAt.toISOString()
           : rawTemplate?.templateStartAt,
@@ -439,9 +468,11 @@ const fetchNotifications = async () => {
           ? rawTemplate.templateEndAt.toISOString()
           : rawTemplate?.templateEndAt,
         // Include scheduledTime from notification API for time display, or format from sendSchedule
-        scheduledTime: (n as any).scheduledTime || formatTimeFromDate(sendSchedule),
+        scheduledTime: (n as any).scheduledTime || formatTimeFromDate(finalDisplayDate),
         // Ensure description is set (use content if description is missing)
         description: n.description || n.content || '',
+        // Include bakongPlatform: prioritize from notification response, then raw template
+        bakongPlatform: (n as any).bakongPlatform || rawTemplate?.bakongPlatform || undefined,
       } as Notification
     })
     
@@ -458,6 +489,12 @@ const fetchNotifications = async () => {
 // Watch for week changes to refresh data
 watch(currentWeekStart, () => {
   fetchNotifications()
+})
+
+// Watch for platform filter changes - no need to refetch, just filter existing data
+watch(selectedPlatform, () => {
+  // Data is already filtered in getNotificationsForDay computed function
+  // This watch ensures reactivity when platform changes
 })
 
 onMounted(() => {

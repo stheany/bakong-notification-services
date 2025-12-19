@@ -282,11 +282,13 @@ export const notificationApi = {
           status: notification.status,
           type: notification.type,
           createdAt: notification.createdAt,
+          updatedAt: notification.updatedAt,
           templateId: notification.templateId,
           isSent: notification.isSent,
           sendType: notification.sendType,
           scheduledTime: notification.scheduledTime,
           language: notification.language,
+          bakongPlatform: notification.bakongPlatform,
         }
       })
 
@@ -532,7 +534,7 @@ export const notificationApi = {
   },
 
   async updateNotification(id: number, notification: Partial<Notification>): Promise<Notification> {
-    const response = await api.put(`/api/v1/template/${id}`, notification)
+    const response = await api.post(`/api/v1/template/${id}/update-publish`, notification)
     return response.data
   },
 

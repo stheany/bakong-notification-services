@@ -5,6 +5,7 @@ import {
   Inject,
   forwardRef,
   Logger,
+  HttpException,
 } from '@nestjs/common'
 import { SchedulerRegistry } from '@nestjs/schedule'
 import { InjectRepository } from '@nestjs/typeorm'
@@ -705,7 +706,8 @@ export class TemplateService implements OnModuleInit {
             })
           }
           const now = moment.utc()
-          if (scheduledTime.isBefore(now)) {
+          // Add 1-minute grace period for network latency and clock skew
+          if (scheduledTime.isBefore(now.clone().subtract(1, 'minute'))) {
             throw new BadRequestException({
               responseCode: 1,
               errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
@@ -1041,7 +1043,17 @@ export class TemplateService implements OnModuleInit {
       }
       return this.formatTemplateResponse(finalTemplate)
     } catch (error) {
-      throw new Error(error)
+      console.error('Error updating template:', error)
+      if (error instanceof BadRequestException || error instanceof HttpException) {
+        throw error
+      }
+      const errorMessage = error?.message || error?.toString() || 'Bad Request Exception'
+      throw new BadRequestException({
+        responseCode: 1,
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        responseMessage: errorMessage,
+        data: error?.data || null,
+      })
     }
   }
 
@@ -1070,7 +1082,39 @@ export class TemplateService implements OnModuleInit {
       } else {
         if (dto.sendType !== undefined) updateFields.sendType = dto.sendType
         if (dto.isSent !== undefined) updateFields.isSent = dto.isSent
-        if (dto.sendSchedule !== undefined) updateFields.sendSchedule = dto.sendSchedule
+        if (dto.sendSchedule !== undefined) {
+          // Validate and parse sendSchedule for scheduled notifications
+          if (dto.sendSchedule) {
+            const scheduledTime = moment.utc(dto.sendSchedule)
+            if (!scheduledTime.isValid()) {
+              throw new BadRequestException({
+                responseCode: 1,
+                errorCode: ErrorCode.VALIDATION_FAILED,
+                responseMessage: 'Invalid sendSchedule date format',
+                data: {
+                  providedDate: dto.sendSchedule,
+                  expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:30:00)',
+                },
+              })
+            }
+            const now = moment.utc()
+            // Add 1-minute grace period for network latency and clock skew
+            if (scheduledTime.isBefore(now.clone().subtract(1, 'minute'))) {
+              throw new BadRequestException({
+                responseCode: 1,
+                errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
+                responseMessage: ResponseMessage.TEMPLATE_SEND_SCHEDULE_IN_PAST,
+                data: {
+                  scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
+                  currentTime: now.format('h:mm A MMM D, YYYY'),
+                },
+              })
+            }
+            updateFields.sendSchedule = scheduledTime.toDate()
+          } else {
+            updateFields.sendSchedule = null
+          }
+        }
       }
       if (dto.notificationType !== undefined) {
         updateFields.notificationType = dto.notificationType
@@ -1211,7 +1255,22 @@ export class TemplateService implements OnModuleInit {
       }
     } catch (error) {
       console.error('Error editing published notification:', error)
-      throw new Error(error)
+      // Preserve the original error if it's already an HttpException or Error
+      if (error instanceof BadRequestException || error instanceof HttpException) {
+        throw error
+      }
+      // If it's a BaseResponseDto wrapped in an Error, extract it
+      if (error instanceof BaseResponseDto) {
+        throw new BadRequestException(error)
+      }
+      // Otherwise, wrap in BadRequestException with proper message
+      const errorMessage = error?.message || error?.toString() || 'Bad Request Exception'
+      throw new BadRequestException({
+        responseCode: 1,
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        responseMessage: errorMessage,
+        data: error?.data || null,
+      })
     }
   }
 
@@ -1588,6 +1647,7 @@ export class TemplateService implements OnModuleInit {
       templateId: template.id,
       isSent: template.isSent,
       sendType: template.sendType,
+      updatedAt: template.updatedAt,
       scheduledTime: template.sendSchedule
         ? TimezoneUtils.formatCambodiaTime(template.sendSchedule)
         : null,
