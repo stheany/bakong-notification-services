@@ -201,7 +201,7 @@ export class DateUtils {
 
   static formatUTCToCambodiaDateTime(utcDate: Date | string): { date: string; time: string } {
     const date = new Date(utcDate)
-    const cambodiaDateStr = date.toLocaleString('en-US', {
+    const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: 'Asia/Phnom_Penh',
       year: 'numeric',
       month: 'numeric',
@@ -210,10 +210,17 @@ export class DateUtils {
       minute: '2-digit',
       hour12: false,
     })
-    const [datePart, timePart] = cambodiaDateStr.split(', ')
+
+    const parts = formatter.formatToParts(date)
+    const month = parts.find((p) => p.type === 'month')?.value
+    const day = parts.find((p) => p.type === 'day')?.value
+    const year = parts.find((p) => p.type === 'year')?.value
+    const hour = parts.find((p) => p.type === 'hour')?.value
+    const minute = parts.find((p) => p.type === 'minute')?.value
+
     return {
-      date: datePart || '',
-      time: timePart || '',
+      date: `${month}/${day}/${year}`,
+      time: `${hour}:${minute}`,
     }
   }
 

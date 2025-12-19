@@ -282,11 +282,13 @@ export const notificationApi = {
           status: notification.status,
           type: notification.type,
           createdAt: notification.createdAt,
+          updatedAt: notification.updatedAt,
           templateId: notification.templateId,
           isSent: notification.isSent,
           sendType: notification.sendType,
           scheduledTime: notification.scheduledTime,
           language: notification.language,
+          bakongPlatform: notification.bakongPlatform,
         }
       })
 
@@ -337,11 +339,10 @@ export const notificationApi = {
               date: template.date,
               // Map status based on isSent and sendType
               // If isSent is true, it's published (regardless of sendType)
-              // If isSent is false and has sendSchedule, it's scheduled
-              // Otherwise it's draft
+              // If isSent is false, status is determined by sendType
               status: template.isSent
                 ? 'published'
-                : template.sendSchedule || template.sendType === 'SEND_SCHEDULE'
+                : template.sendType === 'SEND_SCHEDULE' || template.sendType === 'SEND_INTERVAL'
                   ? 'scheduled'
                   : 'draft',
               type: template.notificationType,
@@ -532,7 +533,7 @@ export const notificationApi = {
   },
 
   async updateNotification(id: number, notification: Partial<Notification>): Promise<Notification> {
-    const response = await api.put(`/api/v1/template/${id}`, notification)
+    const response = await api.post(`/api/v1/template/${id}/update-publish`, notification)
     return response.data
   },
 
@@ -586,7 +587,7 @@ export const notificationApi = {
       }
 
       // Use longer timeout for template updates (60 seconds)
-      const response = await api.post(`/api/v1/template/${id}/update`, sanitizedData, {
+      const response = await api.post(`/api/v1/template/${id}/update-publish`, sanitizedData, {
         timeout: 60000,
       })
       return response.data
