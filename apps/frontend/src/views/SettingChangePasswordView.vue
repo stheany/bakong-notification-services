@@ -135,7 +135,7 @@
             </div>
           </form>
           <div
-            class="w-full max-w-[300px] h-auto min-h-[56px] opacity-100 flex flex-col sm:flex-row justify-start items-center gap-3 sm:gap-[15px] mt-10!"
+            class="w-full max-w-[300px] h-auto min-h-[56px] opacity-100 flex flex-col sm:flex-row justify-start items-center gap-3 sm:gap-[15px] mt-[25px]!"
           >
             <button
               type="button"
