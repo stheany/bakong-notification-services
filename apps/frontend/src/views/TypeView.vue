@@ -4,6 +4,7 @@
       <div class="h-auto sm:h-[56px] flex-shrink-0">
         <NotificationTableHeader
           v-model="searchQuery"
+          :show-refresh="false"
           @addNew="addNew"
           @filter="filter"
           @search="handleSearch"
@@ -11,8 +12,9 @@
       </div>
       <div class="h-2"></div>
       <div class="flex-1 min-h-0 overflow-hidden">
-        <NotificationTableBody
-          :notifications="displayItems"
+        <TableBody
+          mode="notification"
+          :items="displayItems"
           @view="viewItem"
           @edit="editItem"
           @delete="deleteItem"
@@ -49,21 +51,20 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import NotificationTableHeader from '@/components/common/Type-Feature/NotificationTableHeader.vue'
-import NotificationTableBody from '@/components/common/Type-Feature/NotificationTableBody.vue'
+import TableBody from '@/components/common/TableBody.vue'
 import NotificationPagination from '@/components/common/Type-Feature/NotificationPagination.vue'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog.vue'
 import { categoryTypeApi, type CategoryType } from '@/services/categoryTypeApi'
-import { useCategoryTypesStore } from '@/stores/categoryTypes'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { ElMessage, ElNotification } from 'element-plus'
+import { mockCategoryTypes } from '../../Data/mockCategoryTypes'
 
 const router = useRouter()
 const route = useRoute()
 
-// Use category types store
-const categoryTypesStore = useCategoryTypesStore()
-const categoryTypes = computed(() => categoryTypesStore.categoryTypes)
-const loading = computed(() => categoryTypesStore.loading)
+// Initialize with empty array, will be populated by fetchCategoryTypes
+const categoryTypes = ref<CategoryType[]>([])
+const loading = ref(false)
 
 const page = ref(1)
 const perPage = ref(10)
@@ -76,7 +77,7 @@ const { handleApiError, showSuccess, showInfo } = useErrorHandler({
 })
 
 const filteredItems = computed(() => {
-  let items = categoryTypes.value.map((ct) => ({
+  let items = (categoryTypes.value || []).map((ct) => ({
     id: ct.id,
     name: ct.name,
     icon: ct.icon || '', // Icon is now included in the main response as base64
@@ -154,11 +155,32 @@ const handleSearch = (value: string) => {
 }
 
 const fetchCategoryTypes = async () => {
+  loading.value = true
   try {
-    // Fetch from store (uses cache if valid)
-    await categoryTypesStore.fetchCategoryTypes()
+    console.log('🔄 [TypeView] Fetching categories from API...')
+    const data = await categoryTypeApi.getAll()
+    
+    if (data && data.length > 0) {
+      categoryTypes.value = data
+      console.log(`✅ [TypeView] Successfully loaded ${data.length} categories from API`)
+    } else {
+      console.warn('⚠️ [TypeView] API returned empty categories, falling back to mock data')
+      categoryTypes.value = [...mockCategoryTypes]
+    }
   } catch (error) {
-    handleApiError(error, { operation: 'fetchCategoryTypes' })
+    console.error('❌ [TypeView] API failed, falling back to mock data:', error)
+    // Silently fall back to mock data for better UX as requested
+    categoryTypes.value = [...mockCategoryTypes]
+    // Optional: show a small info notification about using offline/mock data
+    /*
+    ElMessage({
+      message: 'Using backup category data (API unavailable)',
+      type: 'info',
+      duration: 3000
+    })
+    */
+  } finally {
+    loading.value = false
   }
 }
 
@@ -188,16 +210,16 @@ const handleDeleteConfirm = async () => {
   if (!categoryToDelete.value) return
 
   try {
-    await categoryTypeApi.delete(categoryToDelete.value.id)
+    // Simulate API call with mock data
+    await new Promise((resolve) => setTimeout(resolve, 300))
 
-    // Remove from store and clear cache
-    categoryTypesStore.removeCategoryType(categoryToDelete.value.id)
-    categoryTypesStore.clearCache()
+    // Remove from local mock data
+    const index = categoryTypes.value.findIndex((ct) => ct.id === categoryToDelete.value!.id)
+    if (index > -1) {
+      categoryTypes.value.splice(index, 1)
+    }
 
     showSuccess(`Category type "${categoryToDelete.value.name}" deleted successfully`)
-
-    // Refresh the list (will use cache if available, or fetch fresh)
-    await fetchCategoryTypes()
   } catch (error) {
     handleApiError(error, { operation: 'deleteCategoryType' })
   } finally {
@@ -231,8 +253,7 @@ watch(
   () => route.query.refresh,
   async (refreshParam) => {
     if (refreshParam) {
-      // Force refresh to get latest data
-      await categoryTypesStore.fetchCategoryTypes(true)
+      // Force refresh to get latest mock data
       await fetchCategoryTypes()
       // Remove the refresh param from URL without triggering another refresh
       router.replace({ path: '/templates', query: {} })

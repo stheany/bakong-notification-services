@@ -182,7 +182,7 @@ onMounted(() => {
   line-height: 150%;
   color: #001346;
   text-align: right;
-}
+} 
 
 .profile-action-section {
   display: flex;
