@@ -263,6 +263,16 @@ export const getNotificationMessage = (
   }
 
   // Default fallback
+  if (result?.isSent === true || result?.status === 'published') {
+    return {
+      title: 'Success',
+      message: `Notification${bakongPlatformText} has been published successfully.`,
+      type: 'success',
+      duration: 3000,
+      dangerouslyUseHTMLString: true,
+    }
+  }
+
   return {
     title: 'Info',
     message: `Notification${bakongPlatformText} has been saved as a draft.`,

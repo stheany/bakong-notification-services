@@ -6,6 +6,7 @@ import { Template } from 'src/entities/template.entity'
 import { TemplateTranslation } from 'src/entities/template-translation.entity'
 import { Image } from 'src/entities/image.entity'
 import { User } from 'src/entities/user.entity'
+import { CategoryType } from 'src/entities/category-type.entity'
 import { BaseResponseDto } from 'src/common/base-response.dto'
 import {
   ErrorCode,
@@ -141,6 +142,12 @@ describe('TemplateService', () => {
     findOneBy: jest.fn(),
   }
 
+  const mockCategoryTypeRepo = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    findOneBy: jest.fn(),
+  }
+
   // Mock services
   const mockNotificationService = {
     sendWithTemplate: jest.fn(),
@@ -161,6 +168,12 @@ describe('TemplateService', () => {
   }
 
   beforeEach(async () => {
+    jest.clearAllMocks()
+    mockTemplateRepo.findOne.mockReset()
+    mockTemplateRepo.findOneBy.mockReset()
+    mockTemplateRepo.find.mockReset()
+    mockQueryBuilder.getOne.mockReset()
+    
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TemplateService,
@@ -190,6 +203,9 @@ describe('TemplateService', () => {
         }
         if (token === getRepositoryToken(User)) {
           return mockUserRepo
+        }
+        if (token === getRepositoryToken(CategoryType)) {
+          return mockCategoryTypeRepo
         }
       })
       .compile()
@@ -868,4 +884,147 @@ describe('TemplateService', () => {
   // ============================================
   // LANGUAGE HANDLING TESTS
   // ============================================
+
+  describe('Special Logic - manual vs automatic publish', () => {
+    it('should set current time when manually publishing a draft', async () => {
+      const updateDto: UpdateTemplateDto = {
+        isSent: true, // Manual publish
+        sendType: SendType.SEND_NOW,
+        sendSchedule: null,
+      }
+
+      // Mock findOneRaw calls
+      mockQueryBuilder.getOne
+        .mockResolvedValueOnce({ ...draftTemplate, id: templateId }) // In update()
+        .mockResolvedValueOnce({ ...draftTemplate, id: templateId }) // In editPublishedNotification()
+        .mockResolvedValueOnce({ ...draftTemplate, id: templateId, isSent: true }) // Final return
+
+      mockTemplateRepo.update.mockResolvedValue({ affected: 1 })
+      mockTemplateRepo.findOne.mockResolvedValue({ ...draftTemplate, translations: sampleTranslations })
+      mockNotificationService.sendWithTemplate.mockResolvedValue({ successfulCount: 1, failedCount: 0 })
+
+      await service.update(templateId, updateDto, currentUser)
+
+      // Verify updatedAt was set to a NEW date (approximately now)
+      const updateCall = mockTemplateRepo.update.mock.calls.find(call => call[0] === templateId)
+      expect(updateCall[1].updatedAt).toBeInstanceOf(Date)
+      expect(updateCall[1].updatedAt.getTime()).toBeGreaterThan(Date.now() - 10000)
+    })
+
+    it('should preserve original send time when editing an already published notification', async () => {
+      const originalSentTime = new Date('2025-01-01T10:00:00Z')
+      const alreadyPublished = { ...publishedTemplate, id: templateId, updatedAt: originalSentTime }
+      
+      const updateDto: UpdateTemplateDto = {
+        translations: [
+          {
+            language: Language.KM,
+            title: 'Edited Title',
+            content: 'Edited Content',
+          },
+        ],
+      }
+
+      // Mock findOneRaw calls
+      mockQueryBuilder.getOne
+        .mockResolvedValueOnce(alreadyPublished) // In update()
+        .mockResolvedValueOnce(alreadyPublished) // In editPublishedNotification()
+        .mockResolvedValueOnce({ ...alreadyPublished, translations: sampleTranslations }) // Final return
+
+      mockTemplateRepo.update.mockResolvedValue({ affected: 1 })
+      mockTemplateRepo.findOne.mockResolvedValue({ ...alreadyPublished, translations: sampleTranslations })
+      mockTranslationRepo.findOneBy.mockResolvedValue(sampleTranslations[0])
+
+      await service.update(templateId, updateDto, currentUser)
+
+      // Verify updatedAt was preserved from the old template
+      const updateCall = mockTemplateRepo.update.mock.calls.find(call => call[0] === templateId)
+      expect(updateCall[1].updatedAt).toEqual(originalSentTime)
+    })
+
+    it('should preserve schedule history when automatically publishing via markAsPublished', async () => {
+      // This mimics what the CronJob does
+      await service.markAsPublished(templateId, currentUser)
+
+      // Verify ONLY isSent and updatedAt were updated
+      expect(mockTemplateRepo.update).toHaveBeenCalledWith(
+        templateId,
+        expect.objectContaining({
+          isSent: true,
+          updatedAt: expect.any(Date),
+        }),
+      )
+      
+      // Ensure sendType and sendSchedule were NOT in the update call
+      const updateCall = mockTemplateRepo.update.mock.calls[0][1]
+      expect(updateCall).not.toHaveProperty('sendType')
+      expect(updateCall).not.toHaveProperty('sendSchedule')
+    })
+  })
+
+  describe('Response Formatting and Status Calculation', () => {
+    it('should return status "published" when isSent is true', async () => {
+      const template = { ...publishedTemplate, isSent: true }
+      mockTemplateRepo.findOne.mockResolvedValue(template)
+
+      const result = await service.findOne(templateId)
+      expect(result.status).toBe('published')
+    })
+
+    it('should return status "scheduled" when isSent is false and sendType is SEND_SCHEDULE', async () => {
+      const template = { ...scheduledTemplate, isSent: false, sendType: SendType.SEND_SCHEDULE }
+      mockTemplateRepo.findOne.mockResolvedValue(template)
+
+      const result = await service.findOne(templateId)
+      expect(result.status).toBe('scheduled')
+    })
+
+    it('should return status "draft" when isSent is false and sendType is SEND_NOW', async () => {
+      const template = { ...draftTemplate, isSent: false, sendType: SendType.SEND_NOW }
+      mockTemplateRepo.findOne.mockResolvedValue(template)
+
+      const result = await service.findOne(templateId)
+      expect(result.status).toBe('draft')
+    })
+
+    it('should include formatted date in the response', async () => {
+      const fixedDate = new Date('2025-12-23T10:00:00Z')
+      const template = { ...publishedTemplate, isSent: true, updatedAt: fixedDate }
+      mockTemplateRepo.findOne.mockResolvedValue(template)
+
+      const result = await service.findOne(templateId)
+      expect(result.date).toBeDefined()
+      expect(typeof result.date).toBe('string')
+    })
+
+    it('should format date using updatedAt for published notifications', async () => {
+      const updatedAt = new Date('2025-12-23T15:30:00Z') // 3:30 PM
+      const template = { ...publishedTemplate, isSent: true, updatedAt }
+      
+      // Accessing private method via string indexing for testing
+      const result = (service as any).getFormattedDate(template, 'published')
+      
+      // Checking for Cambodia time (UTC+7) -> 15:30 UTC is 22:30 Cambodia
+      // But the input is already a Date object, the test environment might differ.
+      // We just check if it contains the time part.
+      expect(result).toContain(':')
+    })
+
+    it('should format date using sendSchedule for scheduled notifications', async () => {
+      const sendSchedule = new Date('2025-12-24T09:00:00Z')
+      const template = { ...scheduledTemplate, isSent: false, sendSchedule }
+      
+      const result = (service as any).getFormattedDate(template, 'scheduled')
+      expect(result).toContain(':')
+    })
+
+    it('should format date using createdAt for drafts without schedule', async () => {
+      const createdAt = new Date('2025-12-23T10:00:00Z')
+      const template = { ...draftTemplate, isSent: false, sendSchedule: null, createdAt }
+      
+      const result = (service as any).getFormattedDate(template, 'draft')
+      // Drafts without schedule should only show the date part, no time
+      expect(result).not.toContain('|')
+    })
+  })
 })

@@ -165,7 +165,7 @@ const fetchCategoryTypes = async () => {
       console.log(`✅ [TypeView] Successfully loaded ${data.length} categories from API`)
     } else {
       console.warn('⚠️ [TypeView] API returned empty categories, falling back to mock data')
-      categoryTypes.value = [...mockCategoryTypes]
+    categoryTypes.value = [...mockCategoryTypes]
     }
   } catch (error) {
     console.error('❌ [TypeView] API failed, falling back to mock data:', error)

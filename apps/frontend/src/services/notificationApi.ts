@@ -337,14 +337,12 @@ export const notificationApi = {
               image: translation.image ? `/api/v1/image/${translation.image.fileId}` : '',
               linkPreview: translation.linkPreview,
               date: template.date,
-              // Map status based on isSent and sendType
-              // If isSent is true, it's published (regardless of sendType)
-              // If isSent is false, status is determined by sendType
-              status: template.isSent
+              // Use backend-provided status if available, otherwise map based on isSent and sendType
+              status: template.status || (template.isSent
                 ? 'published'
                 : template.sendType === 'SEND_SCHEDULE' || template.sendType === 'SEND_INTERVAL'
                   ? 'scheduled'
-                  : 'draft',
+                  : 'draft'),
               type: template.notificationType,
               createdAt: template.createdAt,
               templateId: template.templateId || template.id,

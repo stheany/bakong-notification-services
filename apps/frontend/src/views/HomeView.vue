@@ -877,11 +877,12 @@ const handlePublishNotification = async (notification: Notification) => {
           return
         }
 
-        // Prepare update payload with existing template data
+        // Prepare update payload with SEND_NOW status
+        // Manual "Publish now" clicks transform the record to an immediate send
         const updatePayload: any = {
-          sendType: SendType.SEND_NOW,
           isSent: true,
-          sendSchedule: null, // Clear schedule when publishing immediately
+          sendType: SendType.SEND_NOW,
+          sendSchedule: null,
         }
 
         // Include platforms from template (default to [IOS, ANDROID] if not set)
@@ -1001,11 +1002,14 @@ const handlePublishNotification = async (notification: Notification) => {
           if (isPartialSuccess) {
             // Update notification status if some were successful
             const notificationIndex = notifications.value.findIndex((n) => n.id === notification.id)
-            if (notificationIndex !== -1 && successfulCount > 0) {
+            if (notificationIndex !== -1) {
               notifications.value[notificationIndex].status = 'published'
               notifications.value[notificationIndex].isSent = true
             }
             activeTab.value = 'published'
+            
+            // Force a full refresh from server to ensure new timestamps/dates show immediately
+            await fetchNotifications(true)
             return
           }
         }
@@ -1054,6 +1058,9 @@ const handlePublishNotification = async (notification: Notification) => {
             notifications.value[notificationIndex].isSent = true
           }
           activeTab.value = 'published'
+          
+          // Force a full refresh from server to ensure new timestamps/dates show immediately
+          await fetchNotifications(true)
         } else {
           // Check if this is a flash notification - even if no successfulCount, show flash message
           const notificationType =

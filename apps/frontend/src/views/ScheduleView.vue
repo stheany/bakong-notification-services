@@ -181,11 +181,12 @@ const handleSendNow = async (notification: Notification) => {
       return
     }
 
-    // Prepare update payload with existing template data
+    // Prepare update payload with SEND_NOW status
+    // Manual "Publish now" clicks transform the record to an immediate send
     const updatePayload: any = {
-      sendType: SendType.SEND_NOW,
       isSent: true,
-      sendSchedule: null, // Clear schedule when publishing immediately
+      sendType: SendType.SEND_NOW,
+      sendSchedule: null,
     }
 
     // Include platforms from template (default to [IOS, ANDROID] if not set)
