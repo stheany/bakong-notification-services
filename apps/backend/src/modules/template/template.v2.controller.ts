@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Query, Req, Version } from '@nestjs/common'
 import { UserRole } from '@bakong/shared'
 import { Roles } from 'src/common/middleware/roles.guard'
 import { BaseResponseDto } from 'src/common/base-response.dto'
@@ -8,32 +8,17 @@ import { UpdateTemplateDto } from './dto/update-template.dto'
 import { TemplateService } from './template.service'
 
 @Controller('template')
-export class TemplateController {
+export class TemplateV2Controller {
   constructor(private readonly templateService: TemplateService) {}
 
   @Roles(UserRole.ADMIN_USER)
   @Post('create')
+  @Version('2')
   async create(@Body() dto: CreateTemplateDto, @Req() req: any) {
-    console.log('🎯 [CONTROLLER] /template/create endpoint called')
-    console.log('🎯 [CONTROLLER] Request data:', {
-      notificationType: dto.notificationType,
-      sendType: dto.sendType,
-      isSent: dto.isSent,
-      platforms: dto.platforms,
-      hasTranslations: dto.translations?.length > 0,
-    })
-
+    console.log('🎯 [V2][CONTROLLER] /template/create endpoint called')
     try {
       const currentUser = req.user
-      console.log('🎯 [CONTROLLER] Current user:', currentUser?.username || 'NO USER')
-
-      console.log('🎯 [CONTROLLER] Calling templateService.create...')
       const template = await this.templateService.create(dto, currentUser, req)
-      console.log(
-        '🎯 [CONTROLLER] Template service returned, notificationType:',
-        template.notificationType,
-      )
-
       return new BaseResponseDto({
         responseCode: 0,
         responseMessage: `Create ${template.notificationType} successfully`,
@@ -41,39 +26,18 @@ export class TemplateController {
         data: template,
       })
     } catch (error: any) {
-      console.error('🎯 [CONTROLLER] ❌ ERROR in create endpoint:', {
-        message: error?.message,
-        stack: error?.stack,
-        error: BaseFunctionHelper.safeLogObject(error),
-      })
-
+      console.error('🎯 [V2][CONTROLLER] ❌ ERROR in create endpoint:', error?.message)
       throw error
     }
   }
 
   @Roles(UserRole.ADMIN_USER)
   @Post(':id/update')
+  @Version('2')
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateTemplateDto, @Req() req: any) {
-    console.log('🎯 [CONTROLLER] /template/:id/update endpoint called for template:', id)
-    // Use safe logging to prevent logging large image buffers or content
-    const safeDto = BaseFunctionHelper.safeLogObject({
-      platforms: updateUserDto.platforms,
-      isSent: updateUserDto.isSent,
-      sendType: updateUserDto.sendType,
-      hasTranslations: updateUserDto.translations?.length > 0,
-      translationCount: updateUserDto.translations?.length || 0,
-    })
-    console.log('🎯 [CONTROLLER] Update request data:', safeDto)
-
+    console.log('🎯 [V2][CONTROLLER] /template/:id/update endpoint called for template:', id)
     const currentUser = req.user
     const template = await this.templateService.update(+id, updateUserDto, currentUser, req)
-
-    console.log('🎯 [CONTROLLER] Update result:', {
-      templateId: template.templateId,
-      platforms: template.platforms,
-      isSent: template.isSent,
-    })
-
     return new BaseResponseDto({
       responseCode: 0,
       responseMessage: `Update ${template.notificationType} successfully`,
@@ -84,6 +48,7 @@ export class TemplateController {
 
   @Roles(UserRole.ADMIN_USER)
   @Post(':id/remove')
+  @Version('2')
   async remove(@Param('id') id: string, @Req() req: any) {
     const template = await this.templateService.remove(+id, req)
     return new BaseResponseDto({
@@ -101,12 +66,14 @@ export class TemplateController {
 
   @Roles(UserRole.ADMIN_USER)
   @Get('all')
+  @Version('2')
   async getAll(@Query('language') language?: string, @Req() req?: any) {
     return this.templateService.all(language, req)
   }
 
   @Roles(UserRole.ADMIN_USER, UserRole.NORMAL_USER, UserRole.API_USER)
   @Get(':id')
+  @Version('2')
   async findOne(@Param('id') id: string, @Req() req: any) {
     const template = await this.templateService.findOne(+id, req)
     return new BaseResponseDto({
@@ -119,13 +86,13 @@ export class TemplateController {
 
   @Roles(UserRole.ADMIN_USER, UserRole.NORMAL_USER, UserRole.API_USER)
   @Get()
+  @Version('2')
   async findTemplates(
     @Query() query: any,
     @Query('language') language?: string,
     @Query('format') format?: string,
     @Req() req?: any,
   ) {
-    // Transform query parameters from strings to proper types
     const page = query.page ? parseInt(query.page, 10) : undefined
     const size = query.size ? parseInt(query.size, 10) : undefined
     const isAscending =
@@ -145,3 +112,4 @@ export class TemplateController {
     return this.templateService.findTemplates(page, size, isAscending, language, req)
   }
 }
+

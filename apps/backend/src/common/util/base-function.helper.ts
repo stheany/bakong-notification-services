@@ -45,7 +45,7 @@ export class BaseFunctionHelper {
 
     if (req) {
       let protocol = req.protocol || (req.secure ? 'https' : 'http')
-      const host = req.get('host') || req.headers?.host
+      const host = typeof req.get === 'function' ? req.get('host') : req.headers?.host || req.host
 
       if (host) {
         // Force HTTPS for production/staging domains (even if request came via HTTP proxy)
@@ -57,7 +57,10 @@ export class BaseFunctionHelper {
 
         if (isProductionDomain && protocol === 'http') {
           // Check if X-Forwarded-Proto header indicates HTTPS (common with reverse proxies)
-          const forwardedProto = req.get('x-forwarded-proto') || req.headers?.['x-forwarded-proto']
+          const forwardedProto =
+            typeof req.get === 'function'
+              ? req.get('x-forwarded-proto')
+              : req.headers?.['x-forwarded-proto']
           if (forwardedProto === 'https' || nodeEnv === 'production') {
             protocol = 'https'
           }

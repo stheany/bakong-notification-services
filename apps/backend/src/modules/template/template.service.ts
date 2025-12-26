@@ -31,6 +31,7 @@ import {
   Language,
 } from '@bakong/shared'
 import { ValidationHelper } from 'src/common/util/validation.helper'
+import { BaseFunctionHelper } from 'src/common/util/base-function.helper'
 
 @Injectable()
 export class TemplateService implements OnModuleInit {
@@ -49,13 +50,14 @@ export class TemplateService implements OnModuleInit {
     public readonly notificationService: NotificationService,
     private readonly schedulerRegistry: SchedulerRegistry,
     private readonly imageService: ImageService,
+    private readonly baseFunctionHelper: BaseFunctionHelper,
   ) {}
 
   async onModuleInit() {
     await this.pickPendingSchedule()
   }
 
-  async create(dto: CreateTemplateDto, currentUser?: any) {
+  async create(dto: CreateTemplateDto, currentUser?: any, req?: any) {
     console.log('🔵 [TEMPLATE CREATE] Starting template creation:', {
       notificationType: dto.notificationType,
       sendType: dto.sendType,
@@ -471,7 +473,7 @@ export class TemplateService implements OnModuleInit {
         let sendError: any = null
         let noUsersForPlatform = false
         try {
-          sendResult = await this.notificationService.sendWithTemplate(templateWithTranslations)
+          sendResult = await this.notificationService.sendWithTemplate(templateWithTranslations, req)
           console.log('🔵 [TEMPLATE CREATE] sendWithTemplate returned:', sendResult)
         } catch (error: any) {
           console.error('🔵 [TEMPLATE CREATE] ❌ ERROR in sendWithTemplate:', {
@@ -623,10 +625,10 @@ export class TemplateService implements OnModuleInit {
       ;(templateWithTranslations as any).failedCount = (template as any).failedCount
       ;(templateWithTranslations as any).failedUsers = (template as any).failedUsers
     }
-    return this.formatTemplateResponse(templateWithTranslations)
+    return this.formatTemplateResponse(templateWithTranslations, req)
   }
 
-  async update(id: number, dto: UpdateTemplateDto, currentUser?: any) {
+  async update(id: number, dto: UpdateTemplateDto, currentUser?: any, req?: any) {
     const {
       platforms,
       bakongPlatform,
@@ -654,10 +656,10 @@ export class TemplateService implements OnModuleInit {
           isSent: true,
           updatedAt: new Date(),
         })
-        const updatedTemplate = await this.findOneRaw(id)
-        return this.formatTemplateResponse(updatedTemplate)
-      }
-      return await this.editPublishedNotification(id, dto, currentUser)
+    const updatedTemplate = await this.findOneRaw(id)
+    return this.formatTemplateResponse(updatedTemplate, req)
+  }
+      return await this.editPublishedNotification(id, dto, currentUser, req)
     }
 
     this.validateModificationTemplate(template)
@@ -990,7 +992,7 @@ export class TemplateService implements OnModuleInit {
     }
   }
 
-  async editPublishedNotification(id: number, dto: UpdateTemplateDto, currentUser?: any) {
+  async editPublishedNotification(id: number, dto: UpdateTemplateDto, currentUser?: any, req?: any) {
     const oldTemplate = await this.findOneRaw(id)
 
     try {
@@ -1119,7 +1121,7 @@ export class TemplateService implements OnModuleInit {
 
         // Return the updated template (same ID)
         const templateToReturn = await this.findOneRaw(id)
-        return this.formatTemplateResponse(templateToReturn)
+        return this.formatTemplateResponse(templateToReturn, req)
       } else {
         // Handle non-published notifications (drafts being edited)
         const updatedTemplate = await this.findOneRaw(id)
@@ -1152,7 +1154,7 @@ export class TemplateService implements OnModuleInit {
 
         // Return the updated template (same ID)
         const templateToReturn = await this.findOneRaw(id)
-        return this.formatTemplateResponse(templateToReturn)
+        return this.formatTemplateResponse(templateToReturn, req)
       }
     } catch (error) {
       console.error('Error editing published notification:', error)
@@ -1160,7 +1162,7 @@ export class TemplateService implements OnModuleInit {
     }
   }
 
-  async remove(id: number) {
+  async remove(id: number, req?: any) {
     const template = await this.findOneRaw(id)
     this.validateModificationTemplate(template, true)
 
@@ -1169,10 +1171,10 @@ export class TemplateService implements OnModuleInit {
     }
 
     await this.repo.delete(id)
-    return this.formatTemplateResponse(template)
+    return this.formatTemplateResponse(template, req)
   }
 
-  async forceDeleteTemplate(id: number) {
+  async forceDeleteTemplate(id: number, req?: any) {
     const template = await this.findOneRaw(id)
 
     if (template.isSent) {
@@ -1180,16 +1182,17 @@ export class TemplateService implements OnModuleInit {
     }
 
     await this.repo.delete(id)
-    return this.formatTemplateResponse(template)
+    return this.formatTemplateResponse(template, req)
   }
 
-  all(language?: string) {
+  all(language?: string, req?: any) {
     const defaultLanguage = language || 'KM'
 
     const templates = this.repo
       .createQueryBuilder('template')
       .leftJoinAndSelect('template.translations', 'translation')
       .leftJoinAndSelect('translation.image', 'image')
+      .leftJoinAndSelect('template.categoryTypeEntity', 'categoryTypeEntity')
       .where('translation.language = :language', { language: defaultLanguage })
       .addOrderBy('template.sendSchedule', 'DESC')
       .addOrderBy('template.updatedAt', 'DESC')
@@ -1204,11 +1207,17 @@ export class TemplateService implements OnModuleInit {
           b.isSent && b.updatedAt ? b.updatedAt : b.sendSchedule || b.updatedAt || b.createdAt
         return dateB.getTime() - dateA.getTime()
       })
-      return items.map((item) => this.formatTemplateResponse(item))
+      return items.map((item) => this.formatTemplateResponse(item, req))
     })
   }
 
-  async findTemplates(page?: number, size?: number, isAscending?: boolean, language?: string) {
+  async findTemplates(
+    page?: number,
+    size?: number,
+    isAscending?: boolean,
+    language?: string,
+    req?: any,
+  ) {
     const { skip, take } = PaginationUtils.normalizePagination(page || 1, size || 12)
     const defaultLanguage = language || 'KM'
 
@@ -1216,6 +1225,7 @@ export class TemplateService implements OnModuleInit {
       .createQueryBuilder('template')
       .leftJoinAndSelect('template.translations', 'translation')
       .leftJoinAndSelect('translation.image', 'image')
+      .leftJoinAndSelect('template.categoryTypeEntity', 'categoryTypeEntity')
       .where('translation.language = :language', { language: defaultLanguage })
 
     const [allItems, total] = await queryBuilder.getManyAndCount()
@@ -1230,7 +1240,7 @@ export class TemplateService implements OnModuleInit {
 
     const items = allItems.slice(skip, skip + take)
 
-    const formattedItems = items.map((item) => this.formatTemplateResponse(item))
+    const formattedItems = items.map((item) => this.formatTemplateResponse(item, req))
     const paginationMeta = PaginationUtils.calculatePaginationMeta(
       page || 1,
       size || 12,
@@ -1252,6 +1262,7 @@ export class TemplateService implements OnModuleInit {
     size?: number,
     _isAscending?: boolean,
     _language?: string,
+    req?: any,
   ) {
     try {
       const { skip, take } = PaginationUtils.normalizePagination(page || 1, size || 100)
@@ -1308,7 +1319,7 @@ export class TemplateService implements OnModuleInit {
             delete (template.translations[0].image as any).file
           }
 
-          return this.formatTemplateAsNotification(template, displayNameMap)
+          return this.formatTemplateAsNotification(template, displayNameMap, req)
         })
         .filter((notification) => notification !== null)
 
@@ -1345,10 +1356,10 @@ export class TemplateService implements OnModuleInit {
     }
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, req?: any) {
     const template = await this.repo.findOne({
       where: { id },
-      relations: ['translations', 'translations.image'],
+      relations: ['translations', 'translations.image', 'categoryTypeEntity'],
     })
     if (!template) {
       throw new BadRequestException(
@@ -1360,7 +1371,7 @@ export class TemplateService implements OnModuleInit {
       )
     }
 
-    return this.formatTemplateResponse(template)
+    return this.formatTemplateResponse(template, req)
   }
 
   async findOneRaw(id: number) {
@@ -1383,9 +1394,23 @@ export class TemplateService implements OnModuleInit {
 
     return template
   }
-  private formatTemplateResponse(template: Template) {
+  private formatTemplateResponse(template: Template, req?: any) {
     // Parse platforms to ensure it's always an array in the response
     const parsedPlatforms = ValidationHelper.parsePlatforms(template.platforms)
+
+    const baseUrl = this.baseFunctionHelper
+      ? this.baseFunctionHelper.getBaseUrl(req)
+      : 'http://localhost:4005'
+    
+    // Detect V2 version
+    const isV2 = (req as any)?.version === '2' || req?.url?.includes('/v2/') || req?.originalUrl?.includes('/v2/')
+
+    const categoryIcon = (isV2 && template.categoryTypeId)
+      ? `${baseUrl}/api/v1/category-type/${template.categoryTypeId}/icon`
+      : undefined
+
+    // Determine request language for categoryType translation
+    const language = (req?.query?.language || req?.body?.language || 'EN') as Language
 
     const formattedTemplate: any = {
       templateId: template.id,
@@ -1393,8 +1418,14 @@ export class TemplateService implements OnModuleInit {
       bakongPlatform: template.bakongPlatform,
       sendType: template.sendType,
       notificationType: template.notificationType,
-      categoryType: template.categoryTypeEntity?.name,
+      categoryType:
+        template.categoryTypeEntity && language === Language.KM && (template.categoryTypeEntity as any).namekh
+          ? (template.categoryTypeEntity as any).namekh
+          : template.categoryTypeEntity && language === Language.JP && (template.categoryTypeEntity as any).namejp
+          ? (template.categoryTypeEntity as any).namejp
+          : template.categoryTypeEntity?.name,
       categoryTypeId: template.categoryTypeId,
+      categoryIcon: categoryIcon,
       priority: template.priority,
       sendInterval: template.sendInterval
         ? {
@@ -1459,7 +1490,11 @@ export class TemplateService implements OnModuleInit {
     return formattedTemplate
   }
 
-  private formatTemplateAsNotification(template: Template, displayNameMap?: Map<string, string>) {
+  private formatTemplateAsNotification(
+    template: Template,
+    displayNameMap?: Map<string, string>,
+    req?: any,
+  ) {
     const translation = template.translations?.[0]
     if (!translation) {
       return null
@@ -1507,6 +1542,17 @@ export class TemplateService implements OnModuleInit {
     // Parse platforms using shared helper function
     const platforms = ValidationHelper.parsePlatforms(template.platforms)
 
+    const baseUrl = this.baseFunctionHelper
+      ? this.baseFunctionHelper.getBaseUrl(req)
+      : 'http://localhost:4005'
+    
+    // Detect V2 version
+    const isV2 = (req as any)?.version === '2' || req?.url?.includes('/v2/') || req?.originalUrl?.includes('/v2/')
+
+    const categoryIcon = (isV2 && template.categoryTypeId)
+      ? `${baseUrl}/api/v1/category-type/${template.categoryTypeId}/icon`
+      : undefined
+
     return {
       id: template.id,
       author: author,
@@ -1518,6 +1564,8 @@ export class TemplateService implements OnModuleInit {
       date: date,
       status: status,
       type: template.notificationType,
+      categoryType: template.categoryTypeEntity?.name || null,
+      categoryIcon: categoryIcon,
       createdAt: template.createdAt,
       templateId: template.id,
       isSent: template.isSent,

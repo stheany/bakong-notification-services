@@ -47,7 +47,7 @@ describe('TemplateController', () => {
     controller.create(dto, { user: { id: 1 } })
 
     expect(service.create).toHaveBeenCalled()
-    expect(service.create).toHaveBeenCalledWith(dto, { user: { id: 1 } })
+    expect(service.create).toHaveBeenCalledWith(dto, { id: 1 }, { user: { id: 1 } })
   })
 
   it('should call update service method', () => {
@@ -55,35 +55,36 @@ describe('TemplateController', () => {
     const id = '1'
     controller.update(id, dto, { user: { id: 1 } })
     expect(service.update).toHaveBeenCalled()
-    expect(service.update).toHaveBeenCalledWith(+id, dto, { user: { id: 1 } })
+    expect(service.update).toHaveBeenCalledWith(+id, dto, { id: 1 }, { user: { id: 1 } })
   })
 
   it('should call remove service method', () => {
     const id = '1'
-    controller.remove(id)
+    const req = { user: { id: 1 } }
+    controller.remove(id, req)
 
     expect(service.remove).toHaveBeenCalled()
-    expect(service.remove).toHaveBeenCalledWith(+id)
+    expect(service.remove).toHaveBeenCalledWith(+id, { id: 1 }, req)
   })
 
   it('should call all service method', () => {
-    controller.getAll()
+    controller.getAll(undefined, {})
     expect(service.all).toHaveBeenCalled()
   })
 
   it('should call findOne service method', () => {
     const id = '1'
-    controller.findOne(id)
+    controller.findOne(id, {})
 
     expect(service.findOne).toHaveBeenCalled()
-    expect(service.findOne).toHaveBeenCalledWith(+id)
+    expect(service.findOne).toHaveBeenCalledWith(+id, {})
   })
 
   it('should call findTemplates service method', () => {
     const params = { page: 1, size: 10, isAscending: true }
-    controller.findTemplates(params)
+    controller.findTemplates(params, undefined, undefined, {})
 
     expect(service.findTemplates).toHaveBeenCalled()
-    expect(service.findTemplates).toHaveBeenCalledWith(params.page, params.size, params.isAscending)
+    expect(service.findTemplates).toHaveBeenCalledWith(params.page, params.size, params.isAscending, undefined, {})
   })
 })

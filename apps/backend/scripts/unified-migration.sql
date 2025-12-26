@@ -204,6 +204,63 @@ CREATE TABLE IF NOT EXISTS notification (
 -- ============================================================================
 \echo '🔧 Step 5: Adding missing columns (migrations)...'
 
+-- ============================================================================
+-- Step 5.x: Add translation columns to category_type + populate translations
+-- ============================================================================
+\echo '🌐 Step 5.x: Adding category_type translation columns (namekh, namejp)...'
+
+DO $$
+BEGIN
+    -- Add namejp column
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'category_type'
+          AND column_name = 'namejp'
+    ) THEN
+        ALTER TABLE public.category_type ADD COLUMN namejp varchar(255);
+        RAISE NOTICE '✅ Added category_type.namejp';
+    ELSE
+        RAISE NOTICE 'ℹ️  category_type.namejp already exists';
+    END IF;
+
+    -- Add namekh column
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'category_type'
+          AND column_name = 'namekh'
+    ) THEN
+        ALTER TABLE public.category_type ADD COLUMN namekh varchar(255);
+        RAISE NOTICE '✅ Added category_type.namekh';
+    ELSE
+        RAISE NOTICE 'ℹ️  category_type.namekh already exists';
+    END IF;
+END$$;
+
+\echo '📝 Updating existing category_type translations...'
+
+UPDATE public.category_type
+SET
+  namekh = CASE name
+    WHEN 'Product & Feature' THEN 'ផលិតផល និងលក្ខណៈពិសេស'
+    WHEN 'Event'             THEN 'ព្រឹត្តិការណ៍'
+    WHEN 'News'              THEN 'ព័ត៌មាន'
+    WHEN 'Other'             THEN 'ផ្សេងៗ'
+    ELSE namekh
+  END,
+  namejp = CASE name
+    WHEN 'Product & Feature' THEN '製品・機能'
+    WHEN 'Event'             THEN 'イベント'
+    WHEN 'News'              THEN 'ニュース'
+    WHEN 'Other'             THEN 'その他'
+    ELSE namejp
+  END
+WHERE name IN ('Product & Feature', 'Event', 'News', 'Other');
+
+\echo '   ✅ category_type translations updated'
+\echo ''
+
 -- Add bakongPlatform to template table
 DO $$
 BEGIN
@@ -1045,6 +1102,8 @@ COMMENT ON COLUMN "category_type".name IS 'Unique name of the category type';
 COMMENT ON COLUMN "category_type".icon IS 'Binary icon data for the category type';
 COMMENT ON COLUMN "category_type"."mimeType" IS 'MIME type of the icon (e.g., image/png, image/svg+xml)';
 COMMENT ON COLUMN "category_type"."originalFileName" IS 'Original filename of the uploaded icon';
+COMMENT ON COLUMN "category_type".namekh IS 'Khmer translation of the category name';
+COMMENT ON COLUMN "category_type".namejp IS 'Japanese translation of the category name';
 COMMENT ON COLUMN "template"."categoryTypeId" IS 'Foreign key reference to category_type table';
 COMMENT ON COLUMN notification."sendCount" IS 'Number of times notification has been sent';
 COMMENT ON COLUMN bakong_user."syncStatus" IS 'JSONB column tracking sync status. Structure: {"status": "SUCCESS"|"FAILED", "lastSyncAt": "ISO8601 timestamp", "lastSyncMessage": "message string"}';
@@ -1099,4 +1158,3 @@ WHERE schemaname = 'public';
 \echo '📚 For detailed deployment guide, see: apps/backend/scripts/MIGRATION_GUIDE.md'
 \echo '📋 For quick reference, see: apps/backend/scripts/QUICK_REFERENCE.md'
 \echo ''
-

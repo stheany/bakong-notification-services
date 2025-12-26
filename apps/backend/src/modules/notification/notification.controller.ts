@@ -4,7 +4,7 @@ import { NotificationInboxDto } from './dto/notification-inbox.dto'
 import { NotificationService } from './notification.service'
 import SentNotificationDto from './dto/send-notification.dto'
 import { BaseResponseDto } from 'src/common/base-response.dto'
-import { ErrorCode, ResponseMessage, BakongApp } from '@bakong/shared'
+import { ErrorCode, ResponseMessage, BakongApp, inferBakongPlatform } from '@bakong/shared'
 import { NotificationType } from '@bakong/shared'
 import { BaseFunctionHelper } from 'src/common/util/base-function.helper'
 import { Roles } from 'src/common/middleware/roles.guard'
@@ -49,7 +49,7 @@ export class NotificationController {
         // Mobile app ALWAYS provides bakongPlatform in the request
         // Fallback: Only infer if mobile didn't provide it (shouldn't happen, but for backward compatibility)
         if (!dto.bakongPlatform) {
-          const inferredBakongPlatform = this.inferBakongPlatform(
+          const inferredBakongPlatform = inferBakongPlatform(
             dto.participantCode,
             dto.accountId,
           )
@@ -197,42 +197,6 @@ export class NotificationController {
   @Roles(UserRole.ADMIN_USER, UserRole.API_USER)
   async postNotificationInbox(@Body() dto: NotificationInboxDto, @Req() req: any) {
     return await this.service.getNotificationCenter(dto, req)
-  }
-
-  /**
-   * Infer bakongPlatform from participantCode or accountId
-   * Priority: participantCode > accountId domain
-   */
-  private inferBakongPlatform(participantCode?: string, accountId?: string): BakongApp | undefined {
-    // Check participantCode first (higher priority)
-    if (participantCode) {
-      const normalized = participantCode.toUpperCase()
-      if (normalized.startsWith('BKRT')) {
-        return BakongApp.BAKONG
-      }
-      if (normalized.startsWith('BKJR')) {
-        return BakongApp.BAKONG_JUNIOR
-      }
-      if (normalized.startsWith('TOUR')) {
-        return BakongApp.BAKONG_TOURIST
-      }
-    }
-
-    // Check accountId domain
-    if (accountId) {
-      const normalized = accountId.toLowerCase()
-      if (normalized.includes('@bkrt')) {
-        return BakongApp.BAKONG
-      }
-      if (normalized.includes('@bkjr')) {
-        return BakongApp.BAKONG_JUNIOR
-      }
-      if (normalized.includes('@tour')) {
-        return BakongApp.BAKONG_TOURIST
-      }
-    }
-
-    return undefined
   }
 
   @Post('test-token')

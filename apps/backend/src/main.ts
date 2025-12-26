@@ -8,7 +8,7 @@ import { GlobalValidationPipe } from './common/middleware/validator.pipe'
 import { configService } from './common/services/config.service'
 import { FirebaseManager } from './common/services/firebase-manager.service'
 import { AppModule } from './modules/app.module'
-import { ClassSerializerInterceptor } from '@nestjs/common'
+import { ClassSerializerInterceptor, VersioningType } from '@nestjs/common'
 
 // Environment file is automatically loaded by config.service.ts based on NODE_ENV
 // It will look for: env.development, env.staging, or env.production
@@ -68,7 +68,11 @@ async function bootstrap() {
   })
 
   app.use(helmet())
-  app.setGlobalPrefix('/api/v1')
+  app.setGlobalPrefix('api')
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  })
   app.useGlobalPipes(GlobalValidationPipe)
   app.useGlobalInterceptors(
     new ResponseFormatInterceptor(),

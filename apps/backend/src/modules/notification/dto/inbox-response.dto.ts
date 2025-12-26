@@ -13,6 +13,7 @@ export interface NotificationData {
   language: string
   notificationType: string
   categoryType: string
+  categoryIcon?: string
   bakongPlatform?: string
   createdDate: string
   timestamp: string
@@ -33,6 +34,7 @@ export class InboxResponseDto implements NotificationData {
   linkPreview: string
   notificationType: string
   categoryType: string
+  categoryIcon?: string
   bakongPlatform?: string
   createdDate: string
   timestamp: string
@@ -44,6 +46,7 @@ export class InboxResponseDto implements NotificationData {
     baseUrl: string,
     templateService?: TemplateService,
     imageService?: ImageService,
+    req?: any,
   ) {
     const userTranslation =
       templateService?.findBestTranslation(data.template, language) ||
@@ -89,6 +92,23 @@ export class InboxResponseDto implements NotificationData {
         `❌ [InboxResponseDto] CRITICAL: categoryType is still invalid after all fallbacks! Template: ${data.templateId}, Setting to 'NEWS'`,
       )
       this.categoryType = 'NEWS'
+    }
+
+    // Apply translations for categoryType based on language
+    if (data.template?.categoryTypeEntity) {
+      const entity = data.template.categoryTypeEntity as any
+      if (language === Language.KM && entity.namekh) {
+        this.categoryType = entity.namekh
+      } else if (language === Language.JP && entity.namejp) {
+        this.categoryType = entity.namejp
+      }
+    }
+
+    // Populate categoryIcon URL only for API V2
+    const isV2 = (req as any)?.version === '2' || req?.url?.includes('/v2/') || req?.originalUrl?.includes('/v2/')
+    
+    if (isV2 && data.template?.categoryTypeId) {
+      this.categoryIcon = `${baseUrl}/api/v1/category-type/${data.template.categoryTypeId}/icon`
     }
     
     this.bakongPlatform = data.template?.bakongPlatform
@@ -187,7 +207,12 @@ export class InboxResponseDto implements NotificationData {
     imageUrl = '',
     notificationId?: number,
     sendCount?: number,
+    baseUrl?: string,
+    req?: any,
   ): NotificationData {
+    // Detect V2 version
+    const isV2 = (req as any)?.version === '2' || req?.url?.includes('/v2/') || req?.originalUrl?.includes('/v2/')
+
     const baseData: NotificationData = {
       id: Number(notificationId),
       templateId: Number(template.id),
@@ -200,8 +225,16 @@ export class InboxResponseDto implements NotificationData {
         template.categoryTypeEntity?.name &&
         typeof template.categoryTypeEntity.name === 'string' &&
         template.categoryTypeEntity.name.trim() !== ''
-          ? template.categoryTypeEntity.name
+          ? (language === Language.KM && template.categoryTypeEntity.namekh
+              ? template.categoryTypeEntity.namekh
+              : language === Language.JP && template.categoryTypeEntity.namejp
+              ? template.categoryTypeEntity.namejp
+              : template.categoryTypeEntity.name)
           : 'NEWS',
+      categoryIcon:
+        isV2 && template.categoryTypeId && baseUrl
+          ? `${baseUrl}/api/v1/category-type/${template.categoryTypeId}/icon`
+          : undefined,
       bakongPlatform: template.bakongPlatform,
       createdDate: DateFormatter.formatDateByLanguage(template.createdAt, language as Language),
       timestamp: new Date().toISOString(),
@@ -225,6 +258,8 @@ export class InboxResponseDto implements NotificationData {
     imageUrl = '',
     notificationId?: number,
     sendCount?: number,
+    baseUrl?: string,
+    req?: any,
   ): NotificationData {
     const baseData = this.buildBaseNotificationData(
       template,
@@ -233,6 +268,8 @@ export class InboxResponseDto implements NotificationData {
       imageUrl,
       notificationId,
       sendCount,
+      baseUrl,
+      req,
     )
 
     if (template.notificationType === NotificationType.FLASH_NOTIFICATION) {
@@ -329,6 +366,9 @@ export class InboxResponseDto implements NotificationData {
   
     const stringDataPayload: Record<string, string> = {}
     Object.entries(dataPayload).forEach(([key, value]) => {
+      // Skip undefined fields (e.g., categoryIcon in V1)
+      if (value === undefined) return
+      
       // CRITICAL: Ensure categoryType is never empty string
       if (key === 'categoryType' && (!value || String(value).trim() === '')) {
         stringDataPayload[key] = 'NEWS'
@@ -362,7 +402,9 @@ export class InboxResponseDto implements NotificationData {
       timestamp: new Date().toISOString(),
       ...(extra
         ? Object.fromEntries(
-            Object.entries(extra).map(([key, value]) => [key, String(value || '')]),
+            Object.entries(extra)
+              .filter(([_, value]) => value !== undefined)
+              .map(([key, value]) => [key, String(value || '')]),
           )
         : {}),
     }
@@ -412,7 +454,8 @@ export class InboxResponseDto implements NotificationData {
     if (notification) {
       Object.entries(notification).forEach(([key, value]) => {
         // Skip 'type' field from notification object to prevent overwriting
-        if (key !== 'type') {
+        // Also skip undefined fields (e.g., categoryIcon in V1)
+        if (key !== 'type' && value !== undefined) {
           dataPayload[key] = String(value ?? '')
         }
       })

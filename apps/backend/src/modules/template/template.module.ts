@@ -6,6 +6,7 @@ import { TemplateTranslation } from 'src/entities/template-translation.entity'
 import { CategoryType } from 'src/entities/category-type.entity'
 import { TemplateService } from './template.service'
 import { TemplateController } from './template.controller'
+import { TemplateV2Controller } from './template.v2.controller'
 import { NotificationModule } from '../notification/notification.module'
 import { ImageModule } from '../image/image.module'
 import { Image } from 'src/entities/image.entity'
@@ -45,6 +46,6 @@ import { Logger } from '@nestjs/common'
     },
   ],
   exports: [TemplateService],
-  controllers: [TemplateController],
+  controllers: [TemplateController, TemplateV2Controller],
 })
 export class TemplateModule {}

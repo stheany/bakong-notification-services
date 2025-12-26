@@ -18,6 +18,7 @@ export * from './utils/date.utils'
 export * from './utils/common.utils'
 export * from './utils/constants'
 export * from './utils/pagination.utils'
+export * from './utils/notification.utils'
 export { DateUtils, DateFormatter } from './utils/date.utils'
 export {
   ValidationUtils,

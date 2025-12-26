@@ -27,4 +27,8 @@ describe('NotificationController', () => {
   it('should be defined', () => {
     expect(controller).toBeDefined()
   })
+
+  it('HIII', () => {
+    expect(controller).toBeDefined()
+  })
 })

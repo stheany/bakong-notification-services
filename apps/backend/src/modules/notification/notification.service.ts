@@ -170,6 +170,7 @@ export class NotificationService {
 
   async sendWithTemplate(
     template: Template,
+    req?: any,
   ): Promise<{
     successfulCount: number
     failedCount: number
@@ -423,7 +424,7 @@ export class NotificationService {
       template,
       defaultTranslation,
       validUsers,
-      undefined,
+      req,
       'individual',
     )) as {
       notificationId: number | null
@@ -503,6 +504,9 @@ export class NotificationService {
         const trans = this.templateService.findBestTranslation(notification.template, dto.language)
         const imageUrl = trans?.imageId ? this.imageService.buildImageUrl(trans.imageId, req) : ''
 
+        const baseUrl = this.baseFunctionHelper
+          ? this.baseFunctionHelper.getBaseUrl(req)
+          : 'http://localhost:4005'
         const result = InboxResponseDto.buildSendApiNotificationData(
           notification.template,
           trans,
@@ -510,6 +514,8 @@ export class NotificationService {
           typeof imageUrl === 'string' ? imageUrl : '',
           notification.id,
           notification.sendCount,
+          baseUrl,
+          req,
         )
 
         return BaseResponseDto.success({
@@ -793,6 +799,9 @@ export class NotificationService {
       // Only mark as published if FCM send was successful
       await this.templateService.markAsPublished(template.id, req?.user)
 
+      const baseUrl = this.baseFunctionHelper
+        ? this.baseFunctionHelper.getBaseUrl(req)
+        : 'http://localhost:4005'
       const whatNews = InboxResponseDto.buildSendApiNotificationData(
         template,
         responseTranslation,
@@ -800,6 +809,8 @@ export class NotificationService {
         typeof imageUrl === 'string' ? imageUrl : '',
         firstRecord.id,
         firstRecord.sendCount,
+        baseUrl,
+        req,
       )
 
       // Include successful count and failed users in response
@@ -867,9 +878,31 @@ export class NotificationService {
       const fcmUsers = this.baseFunctionHelper.filterValidFCMUsers(validUsers, mode)
       console.log('📨 [sendFCM] Filtered FCM users:', fcmUsers.length)
 
+      // SORTING: Sort users by accountId descending to match V1 behavior 
+      // (ensures tny_ttny@bkrt is processed before android_theany1)
+      if (mode === 'shared') {
+        fcmUsers.sort((a, b) => (b.accountId || '').localeCompare(a.accountId || ''))
+      }
+
+      const sentTokens = new Set<string>()
+
       for (const user of fcmUsers) {
         let notificationId: number | null = null
         try {
+          const token = user.fcmToken?.trim()
+          
+          // DEDUPLICATION: Check if this token has already received a notification in this batch
+          if (mode === 'shared' && token && sentTokens.has(token)) {
+            console.log(`⏭️ [sendFCM] Skipping user ${user.accountId}: duplicate token (already targeted)`)
+            sharedFailedCount++
+            sharedFailedUsers.push({
+              accountId: user.accountId,
+              error: 'Duplicate FCM token - skipped to avoid device spam',
+              errorCode: 'DUPLICATE_TOKEN',
+            })
+            continue
+          }
+
           console.log('📨 [sendFCM] Sending to user:', {
             accountId: user.accountId,
             platform: user.platform,
@@ -909,6 +942,7 @@ export class NotificationService {
             notificationIdStr,
             imageUrlString,
             mode,
+            req,
           )
 
           console.log('📨 [sendFCM] Response from sendFCMPayloadToPlatform:', {
@@ -929,6 +963,12 @@ export class NotificationService {
               mode,
             )
             console.log('✅ [sendFCM] Successfully sent to user:', user.accountId)
+            
+            // Mark token as sent for deduplication
+            if (mode === 'shared' && token) {
+              sentTokens.add(token)
+            }
+
             if (mode === 'individual') {
               successfulNotifications.push({ id: notificationId! })
             } else if (mode === 'shared') {
@@ -1105,6 +1145,7 @@ export class NotificationService {
     notificationIdStr: string,
     imageUrlString: string,
     mode: 'individual' | 'shared',
+    req?: any,
   ): Promise<string | null> {
     // Parse template platforms using shared helper function
     const templatePlatformsArray = ValidationHelper.parsePlatforms(template.platforms)
@@ -1149,12 +1190,18 @@ export class NotificationService {
     if (platform.ios) {
       console.log('📱 [sendFCMPayloadToPlatform] Preparing iOS notification...')
 
+      const baseUrl = this.baseFunctionHelper
+        ? this.baseFunctionHelper.getBaseUrl(req)
+        : 'http://localhost:4005'
       const whatNews = InboxResponseDto.buildBaseNotificationData(
         template,
         translation,
         translation.language,
         imageUrlString,
         parseInt(notificationIdStr),
+        undefined,
+        baseUrl,
+        req,
       )
 
       // Note: Mobile app will determine redirect screen based on notificationType:
@@ -1288,6 +1335,17 @@ export class NotificationService {
           ? categoryTypeName
           : 'NEWS'
 
+      const baseUrl = this.baseFunctionHelper
+        ? this.baseFunctionHelper.getBaseUrl(req)
+        : 'http://localhost:4005'
+      
+      // Detect V2 version
+      const isV2 = (req as any)?.version === '2' || req?.url?.includes('/v2/') || req?.originalUrl?.includes('/v2/')
+
+      const categoryIcon = (isV2 && template.categoryTypeId)
+        ? `${baseUrl}/api/v1/category-type/${template.categoryTypeId}/icon`
+        : undefined
+
       console.log('📱 [sendFCMPayloadToPlatform] Android categoryType check:', {
         templateId: template.id,
         categoryTypeEntityExists: !!template.categoryTypeEntity,
@@ -1304,6 +1362,7 @@ export class NotificationService {
         // Mobile app expects category name like "NEWS", "ANNOUNCEMENT", etc., not numeric ID
         // CRITICAL: Use robust null/empty/type check to ensure it's always a valid string
         categoryType: String(safeCategoryType),
+        categoryIcon: categoryIcon,
         language: String(translation.language),
         accountId: String(user.accountId),
         platform: String(user.platform || 'android'),
@@ -1707,6 +1766,9 @@ export class NotificationService {
     const imageUrl = selectedTranslation?.imageId
       ? this.imageService.buildImageUrl(selectedTranslation.imageId, req)
       : ''
+    const baseUrl = this.baseFunctionHelper
+      ? this.baseFunctionHelper.getBaseUrl(req)
+      : 'http://localhost:4005'
     const whatNews = InboxResponseDto.buildSendApiNotificationData(
       selectedTemplate,
       selectedTranslation,
@@ -1714,6 +1776,8 @@ export class NotificationService {
       typeof imageUrl === 'string' ? imageUrl : '',
       saved.id,
       saved.sendCount,
+      baseUrl,
+      req,
     )
     return BaseResponseDto.success({
       data: { whatnews: whatNews },
@@ -1977,9 +2041,12 @@ export class NotificationService {
             new InboxResponseDto(
               notif as Notification,
               language as Language,
-              this.baseFunctionHelper.getBaseUrl(req),
+              this.baseFunctionHelper
+                ? this.baseFunctionHelper.getBaseUrl(req)
+                : 'http://localhost:4005',
               this.templateService,
               this.imageService,
+              req,
             ),
         ),
         PaginationUtils.generateResponseMessage(
