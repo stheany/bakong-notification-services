@@ -889,20 +889,6 @@ export class NotificationService {
       const validUsers = await ValidationHelper.validateFCMTokens(refreshedWithTokens, fcm)
       if (!validUsers.length) throw new Error('No valid FCM tokens found after user data sync')
 
-      const savedRecords = await Promise.all(
-        validUsers.map((u) =>
-          this.storeNotification({
-            accountId: u.accountId,
-            templateId: template.id,
-            fcmToken: u.fcmToken,
-            sendCount: 1,
-            firebaseMessageId: 0,
-          }),
-        ),
-      )
-
-      const firstRecord = savedRecords[0]
-
       let fcmResult: { successfulCount: number; failedCount: number; failedUsers?: string[]; failedDueToInvalidTokens?: boolean } | void
       try {
         fcmResult = await this.sendFCM(
@@ -910,8 +896,7 @@ export class NotificationService {
           translation,
           validUsers,
           req,
-          'shared',
-          firstRecord.id,
+          'individual',
         )
       } catch (err) {
         throw new Error(`FCM ASYNC SEND ERROR: ${err}`)
@@ -1705,11 +1690,19 @@ export class NotificationService {
       // Android mobile app requires this field to be a string value
       // Use the same robust check as buildBaseNotificationData
       const categoryTypeName = template.categoryTypeEntity?.name
+      const normalizeCategoryType = (value: string) =>
+        value
+          .trim()
+          .toUpperCase()
+          .replace(/\s*&\s*/g, '_AND_')
+          .replace(/\s+/g, '_')
+          .replace(/_+/g, '_')
+
       const safeCategoryType =
         categoryTypeName &&
         typeof categoryTypeName === 'string' &&
         categoryTypeName.trim() !== ''
-          ? categoryTypeName
+          ? normalizeCategoryType(categoryTypeName)
           : 'NEWS'
 
       console.log('📱 [sendFCMPayloadToPlatform] Android categoryType check:', {

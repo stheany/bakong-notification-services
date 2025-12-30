@@ -105,7 +105,6 @@ import {
 } from '@/utils/helpers'
 import { DateUtils } from '@bakong/shared'
 import { mapBackendStatusToFrontend } from '../utils/helpers'
-import { api } from '@/services/api'
 const route = useRoute()
 const correctNotificationStatus = (notification: Notification): Notification => {
   let status = notification.status
@@ -755,9 +754,7 @@ const handlePublishNotification = async (notification: Notification) => {
       }
     } else {
       try {
-        const fullTemplate = await api.get(`/api/v1/template/${notificationId}`)
-        const template = fullTemplate.data?.data || fullTemplate.data
-        const isAlreadySent = template?.isSent === true || notification.isSent === true
+        const isAlreadySent = notification.isSent === true
         if (isAlreadySent) {
           ElNotification({
             title: 'Info',
@@ -779,30 +776,9 @@ const handlePublishNotification = async (notification: Notification) => {
           applyFilters()
           return
         }
-        const translations = template?.translations || []
-        let hasValidData = false
-        for (const translation of translations) {
-          const hasTitle = translation?.title && translation.title.trim() !== ''
-          const hasContent = translation?.content && translation.content.trim() !== ''
-          if (hasTitle && hasContent) {
-            hasValidData = true
-            break
-          }
-        }
-        if (!hasValidData) {
-          publishingNotifications.delete(key)
-          ElNotification({
-            title: 'Error',
-            message: 'This record cannot be sent. Please review the <strong>title</strong> and <strong>content</strong> and other fields, then try again.',
-            type: 'error',
-            duration: 4000,
-            dangerouslyUseHTMLString: true,
-          })
-          return
-        }
         const result = await notificationApi.sendNotification(
           Number(notificationId),
-          template?.notificationType || notification.type,
+          undefined,
           true,
         )
         if (result?.responseCode !== 0 || result?.errorCode !== 0) {
@@ -836,14 +812,13 @@ const handlePublishNotification = async (notification: Notification) => {
         const bakongPlatform =
           resultData?.bakongPlatform ||
           resultData?.whatnews?.bakongPlatform ||
-          (notification as any)?.bakongPlatform ||
-          template?.bakongPlatform
+          (notification as any)?.bakongPlatform
         const platformName = getFormattedPlatformName({
           platformName: resultData?.platformName,
           bakongPlatform: bakongPlatform,
           notification: notification as any,
         })
-        const platforms = resultData?.platforms || template?.platforms || []
+        const platforms = resultData?.platforms || (notification as any)?.platforms || []
         let devicePlatform = 'ALL'
         if (Array.isArray(platforms) && platforms.length > 0) {
           if (platforms.length === 1) {
@@ -899,7 +874,6 @@ const handlePublishNotification = async (notification: Notification) => {
           const notificationType =
             resultData?.notificationType ||
             resultData?.whatnews?.notificationType ||
-            template?.notificationType ||
             notification.type
           const isFlashNotification = notificationType === NotificationType.FLASH_NOTIFICATION
           let message = ''
@@ -938,7 +912,6 @@ const handlePublishNotification = async (notification: Notification) => {
           const notificationType =
             resultData?.notificationType ||
             resultData?.whatnews?.notificationType ||
-            template?.notificationType ||
             notification.type
           const isFlashNotification = notificationType === NotificationType.FLASH_NOTIFICATION
           if (isFlashNotification) {
@@ -964,7 +937,7 @@ const handlePublishNotification = async (notification: Notification) => {
             }
             activeTab.value = 'published'
           } else {
-            const isAlreadySent = resultData?.isSent === true || template?.isSent === true
+            const isAlreadySent = resultData?.isSent === true || notification.isSent === true
             if (isAlreadySent) {
               ElNotification({
                 title: 'Info',

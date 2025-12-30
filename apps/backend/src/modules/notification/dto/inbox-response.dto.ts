@@ -80,7 +80,7 @@ export class InboxResponseDto implements NotificationData {
     // This ensures Android always receives a valid string value
     this.categoryType =
       categoryTypeName && typeof categoryTypeName === 'string' && categoryTypeName.trim() !== ''
-        ? categoryTypeName.trim()
+        ? InboxResponseDto.normalizeCategoryType(categoryTypeName)
         : 'NEWS'
     
     // Final validation: Ensure categoryType is never null/undefined/empty
@@ -205,7 +205,7 @@ export class InboxResponseDto implements NotificationData {
         template.categoryTypeEntity?.name &&
         typeof template.categoryTypeEntity.name === 'string' &&
         template.categoryTypeEntity.name.trim() !== ''
-          ? template.categoryTypeEntity.name
+          ? InboxResponseDto.normalizeCategoryType(template.categoryTypeEntity.name)
           : 'NEWS',
       bakongPlatform: template.bakongPlatform,
       createdDate: DateFormatter.formatDateByLanguage(
@@ -468,5 +468,14 @@ export class InboxResponseDto implements NotificationData {
     // FLASH_NOTIFICATION now sends FCM push like other notification types
     // Mobile app will display it differently (as popup/flash screen)
     return this.buildIOSAlertPayload(token, title, body, notificationId, notification)
+  }
+
+  private static normalizeCategoryType(value: string): string {
+    return value
+      .trim()
+      .toUpperCase()
+      .replace(/\s*&\s*/g, '_AND_')
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_')
   }
 }
