@@ -57,8 +57,9 @@
                 @command="(command: Platform) => (formData.pushToPlatforms = command)"
                 trigger="click"
                 class="custom-dropdown"
+                :disabled="isEditingPublished"
               >
-                <span class="dropdown-trigger">
+                <span class="dropdown-trigger" :class="{ disabled: isEditingPublished }">
                   {{ formatPlatform(formData.pushToPlatforms) }}
                   <el-icon class="dropdown-icon">
                     <ArrowDown />
@@ -120,8 +121,9 @@
               @command="(command: BakongApp) => (formData.platform = command)"
               trigger="click"
               class="custom-dropdown full-width-dropdown"
+              :disabled="isEditingPublished"
             >
-              <span class="dropdown-trigger full-width-trigger">
+              <span class="dropdown-trigger full-width-trigger" :class="{ disabled: isEditingPublished }">
                 {{ formatBakongApp(formData.platform) }}
                 <el-icon class="dropdown-icon">
                   <ArrowDown />
@@ -171,8 +173,12 @@
                 </div>
                 <div class="schedule-option-right">
                   <span class="option-label">Set time and date</span>
-                  <label class="toggle-switch">
-                    <input v-model="formData.scheduleEnabled" type="checkbox" />
+                  <label class="toggle-switch" :class="{ disabled: isEditingPublished }">
+                    <input
+                      v-model="formData.scheduleEnabled"
+                      type="checkbox"
+                      :disabled="isEditingPublished"
+                    />
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
@@ -191,6 +197,7 @@
                     :prefix-icon="null"
                     :clear-icon="null"
                     :disabled-date="disabledDate"
+                    :disabled="isEditingPublished"
                     @change="(val: string | null) => { formData.scheduleDate = val ?? ''; console.log('Date changed:', val) }"
                   />
                 </div>
@@ -209,6 +216,7 @@
                     :disabled-minutes="
                       (hour: number) => disabledMinutes(hour, formData.scheduleDate)
                     "
+                    :disabled="isEditingPublished"
                     @change="(val: string | null) => { formData.scheduleTime = val; console.log('Time changed:', val) }"
                   />
                 </div>
@@ -341,6 +349,18 @@
     @confirm="handleUpdateConfirmationConfirm"
     @cancel="handleUpdateConfirmationCancel"
   />
+  <ConfirmationDialog
+    v-model="showMissingLanguageDialog"
+    title="Missing Language Content"
+    :message="missingLanguagesMessage"
+    :confirm-text="formData.scheduleEnabled ? 'Schedule Anyway' : 'Publish Anyway'"
+    cancel-text="Back to edit"
+    type="warning"
+    confirm-button-type="primary"
+    :dangerously-use-h-t-m-l-string="true"
+    @confirm="handleMissingLanguageConfirm"
+    @cancel="handleMissingLanguageCancel"
+  />
 </template>
 
 <script setup lang="ts">
@@ -391,6 +411,7 @@ const notificationId = computed(() => route.params.id as string)
 const fromTab = computed(() => (route.query.fromTab as string) || '')
 const isEditingPublished = ref(false)
 const wasScheduled = ref(false)
+const originalScheduleISO = ref<string | null>(null)
 const isLoadingData = ref(false)
 
 // Dynamic button text based on context
@@ -545,12 +566,16 @@ const initializeCategoryTypes = async () => {
         (ct: CategoryTypeData) => ct.name === 'News' || ct.name === 'NEWS',
       )
       const defaultCategoryId = newsCategory?.id || categoryTypes.value[0].id
-      formData.categoryTypeId = defaultCategoryId
       
-      // If we're creating a new notification, synchronize the original value
-      // so the default selection isn't counted as an "unsaved change"
-      if (!isEditMode.value) {
-        originalFormData.categoryTypeId = defaultCategoryId
+      // ONLY set default if not already set (e.g., loaded from existing notification)
+      if (formData.categoryTypeId === null) {
+        formData.categoryTypeId = defaultCategoryId
+        
+        // If we're creating a new notification, synchronize the original value
+        // so the default selection isn't counted as an "unsaved change"
+        if (!isEditMode.value) {
+          originalFormData.categoryTypeId = defaultCategoryId
+        }
       }
     }
   } catch (error) {
@@ -665,6 +690,7 @@ const loadNotificationData = async () => {
     if (template.sendSchedule) {
       formData.scheduleEnabled = true
       wasScheduled.value = true
+      originalScheduleISO.value = template.sendSchedule
       try {
         const { date, time } = DateUtils.formatUTCToCambodiaDateTime(template.sendSchedule)
         if (date && time) {
@@ -674,6 +700,18 @@ const loadNotificationData = async () => {
         }
       } catch (error) {
         console.error('Error parsing schedule date/time:', error)
+      }
+    } else if (isEditingPublished.value && template.updatedAt) {
+      // For published notifications without a schedule field, show the actual publish time
+      try {
+        const { date, time } = DateUtils.formatUTCToCambodiaDateTime(template.updatedAt)
+        if (date && time) {
+          formData.scheduleDate = date
+          formData.scheduleTime = time
+          console.log('✅ [Load Data] Set published time:', { date, time })
+        }
+      } catch (error) {
+        console.error('Error parsing updated date/time:', error)
       }
     }
 
@@ -706,6 +744,16 @@ const loadNotificationData = async () => {
         // Store translation ID to preserve it during updates
         existingTranslationIds[lang] = t.id || null
       }
+
+      // Automatically select the first language tab that has content (Priority: KM -> EN -> JP)
+      const languagePriority = [Language.KM, Language.EN, Language.JP]
+      for (const lang of languagePriority) {
+        if (languageFormData[lang]?.title?.trim() || languageFormData[lang]?.description?.trim()) {
+          activeLanguage.value = lang
+          console.log('📑 [Load Data] Set active tab based on content priority:', lang)
+          break
+        }
+      }
     }
 
     // Wait for Vue to process all reactive changes (like the scheduleEnabled watcher)
@@ -736,6 +784,8 @@ onMounted(async () => {
 const showConfirmationDialog = ref(false)
 const showLeaveDialog = ref(false)
 const showUpdateConfirmationDialog = ref(false)
+const showMissingLanguageDialog = ref(false)
+const missingLanguagesMessage = ref('')
 let pendingNavigation: (() => void) | null = null
 let isSavingOrPublishing = ref(false) // Flag to prevent blocking during save/publish
 const isDiscarding = ref(false) // Flag to allow navigation when discarding changes
@@ -963,23 +1013,35 @@ const handlePublishNow = async () => {
   // Only validate if there's no existing data or no changes (creating new content)
   // If there are changes (including deletions or global fields), skip validation and allow update
   if (!hasChangesForCurrentLang) {
-    validateTitle()
-    validateDescription()
-    
-    // Check if there are validation errors
-    if (
-      !currentTitle.value ||
-      !currentDescription.value ||
-      titleError.value ||
-      descriptionError.value
-    ) {
-      // Re-validate to ensure errors are set
-      if (!titleError.value) validateTitle()
-      if (!descriptionError.value) validateDescription()
+    // Check if ANY language has content before strictly validating the current tab
+    const anyLanguageHasContent = Object.values(languageFormData).some(
+      langData => langData.title?.trim() && langData.description?.trim()
+    )
+
+    if (!anyLanguageHasContent) {
+      validateTitle()
+      validateDescription()
       
-      // Don't show notification - errors are already visible inline below the form fields
-      // Just prevent publishing
-      return
+      // Check if there are validation errors
+      if (
+        !currentTitle.value ||
+        !currentDescription.value ||
+        titleError.value ||
+        descriptionError.value
+      ) {
+        // Re-validate to ensure errors are set
+        if (!titleError.value) validateTitle()
+        if (!descriptionError.value) validateDescription()
+        
+        // Don't show notification - errors are already visible inline below the form fields
+        // Just prevent publishing
+        return
+      }
+    } else {
+      // If some other language has content, but current doesn't, we'll handle it 
+      // in the missingLanguages check below. Clear errors for now.
+      titleError.value = ''
+      descriptionError.value = ''
     }
   } else {
     // Has changes (including deletions or global fields) - clear validation errors and proceed
@@ -999,12 +1061,51 @@ const handlePublishNow = async () => {
     return
   }
 
-  // If editing a published notification, check for changes across all languages OR global fields
+  // Note: Removed old notification warning popup - backend now handles old notifications better
+  // by attempting to send to all format-valid tokens regardless of validation results
+
+  // Check for missing languages before publishing
+  const missingLangs: string[] = []
+  const langs = [
+    { key: 'KM', label: 'Khmer' },
+    { key: 'EN', label: 'English' },
+    { key: 'JP', label: 'Japanese' }
+  ]
+  
+  langs.forEach(lang => {
+    const data = languageFormData[lang.key]
+    const hasTitle = data?.title?.trim() !== ''
+    const hasDescription = data?.description?.trim() !== ''
+    
+    if (!hasTitle || !hasDescription) {
+      missingLangs.push(lang.label)
+    }
+  })
+
+  // If some languages are missing content, show warning dialog
+  // But only if at least one language has content (which validation ensures for current tab)
+  // and only show when not editing an already published notification
+  if (!isEditingPublished.value && missingLangs.length > 0 && missingLangs.length < 3) {
+    const missingText = missingLangs.join(' and ')
+    const availableLangs = langs.filter(l => !missingLangs.includes(l.label)).map(l => l.label)
+    const availableText = availableLangs.join(' or ')
+    
+    missingLanguagesMessage.value = `<strong>${missingText}</strong> content is missing. Users will see the <strong>${availableText}</strong> version instead. Continue?`
+    showMissingLanguageDialog.value = true
+    return
+  }
+
+  // Otherwise, proceed with publish/update
   if (isEditMode.value && isEditingPublished.value) {
     // Check if there are any changes across all languages OR in global fields
     let hasAnyChanges = false
     
     // Global fields check
+    const globalFieldsChanged = 
+      formData.platform !== originalFormData.platform ||
+      formData.categoryTypeId !== originalFormData.categoryTypeId ||
+      formData.pushToPlatforms !== originalFormData.pushToPlatforms
+      
     if (globalFieldsChanged) {
       hasAnyChanges = true
     } else {
@@ -1043,9 +1144,6 @@ const handlePublishNow = async () => {
     }
   }
 
-  // Note: Removed old notification warning popup - backend now handles old notifications better
-  // by attempting to send to all format-valid tokens regardless of validation results
-
   // Otherwise, proceed with publish/update
   await handlePublishNowInternal()
 }
@@ -1069,7 +1167,8 @@ const handlePublishNowInternal = async () => {
   let redirectTab = 'published'
 
   try {
-    let sendType = SendType.SEND_NOW
+    // Determine send type based on whether schedule is enabled
+    let sendType = formData.scheduleEnabled ? SendType.SEND_SCHEDULE : SendType.SEND_NOW
     let isSent = true
 
     // Common schedule validation logic for both create and edit modes
@@ -1109,7 +1208,8 @@ const handlePublishNowInternal = async () => {
           const nowUTC = new Date()
           const diffMs = scheduleDateTime.getTime() - nowUTC.getTime()
           
-          if (diffMs <= 0) {
+          // Require scheduled time to be at least 1 minute in the future to prevent race conditions
+          if (diffMs < 1 * 60 * 1000) {
             ElNotification({
               title: 'Error',
               message: 'Scheduled time must be in the future. Please select a future time.',
@@ -1137,13 +1237,15 @@ const handlePublishNowInternal = async () => {
     if (isEditMode.value) {
       // If editing a published notification, always keep it published
       if (isEditingPublished.value) {
-        sendType = SendType.SEND_NOW
+        // Preserving original isSent status
         isSent = true
         redirectTab = 'published'
-        // Clear schedule fields to prevent any scheduling
-        formData.scheduleEnabled = false
-        formData.scheduleDate = ''
-        formData.scheduleTime = ''
+        
+        // Preserve sendType if it was originally scheduled or interval-based
+        if (formData.scheduleEnabled) {
+          sendType = SendType.SEND_SCHEDULE
+        }
+        // NOTE: We no longer clear schedule fields here to allow viewing historical schedule
       } else {
         // Editing draft or scheduled notification
         if (formData.scheduleEnabled) {
@@ -1186,7 +1288,11 @@ const handlePublishNowInternal = async () => {
     const translations = []
 
     for (const [langKey, langData] of Object.entries(languageFormData)) {
-      if (langData.title && langData.description) {
+      // Include if it has content OR if it already exists in the database (to allow clearing it)
+      const hasContent = langData.title && langData.description
+      const isExisting = isEditMode.value && existingTranslationIds[langKey]
+      
+      if (hasContent || isExisting) {
         if (langData.linkToSeeMore && !isValidUrl(langData.linkToSeeMore)) {
           ElNotification({
             title: 'Error',
@@ -1367,16 +1473,16 @@ const handlePublishNowInternal = async () => {
       priority: 1,
     }
 
-    // Only set schedule if not editing a published notification
-    if (formData.scheduleEnabled && !(isEditMode.value && isEditingPublished.value)) {
+    // For manual "Publish now" actions, we clear the schedule to indicate it was sent immediately
+    if (formData.scheduleEnabled && !isEditingPublished.value) {
       const scheduleDateTime = DateUtils.parseScheduleDateTime(
         String(formData.scheduleDate),
         String(formData.scheduleTime),
       )
       templateData.sendSchedule = scheduleDateTime.toISOString()
-    } else if (isEditMode.value && isEditingPublished.value) {
-      // Explicitly clear schedule when editing published notification
-      templateData.sendSchedule = undefined
+    } else {
+      // Manual publish or editing published notification clears the schedule
+      templateData.sendSchedule = null as any
     }
 
     let result
@@ -1644,6 +1750,14 @@ const handlePublishNowInternal = async () => {
       error.message ||
       'An unexpected error occurred while creating the notification'
 
+    // If we have an error response object from the server, use it
+    if (error.response?.data && typeof error.response.data === 'object') {
+      const data = error.response.data
+      if (data.responseMessage) {
+        errorMessage = data.responseMessage
+      }
+    }
+
     // If we still don't have a message, provide a status-based message
     if (!errorMessage || errorMessage === 'undefined' || errorMessage === 'null') {
       const status = error.response?.status
@@ -1710,9 +1824,9 @@ const handleSaveDraft = async (forceDraft: boolean = false) => {
   
   if (hasValidationError) {
     // Set errors for active language if they exist
-    const activeTitle = currentTitle.value?.trim() || ''
-    if (activeTitle && activeTitle.length > DB_TITLE_MAX_LENGTH) {
-      titleError.value = `Title is too long (max ${DB_TITLE_MAX_LENGTH}), current length: ${activeTitle.length}.`
+      const activeTitle = currentTitle.value?.trim() || ''
+      if (activeTitle && activeTitle.length > DB_TITLE_MAX_LENGTH) {
+        titleError.value = `Title is too long (max ${DB_TITLE_MAX_LENGTH}), current length: ${activeTitle.length}.`
     }
     
     // Show notification with all validation errors
@@ -1807,6 +1921,16 @@ const handleSaveDraft = async (forceDraft: boolean = false) => {
       translations.push(translationData)
     }
 
+    // Filter translations to only include those with actual content (title, content, or image)
+    // OR those that already exist in the database (to allow clearing them)
+    const translationsToSave = translations.filter((t) => {
+      const hasTitle = t.title && String(t.title).trim() !== ''
+      const hasContent = t.content && String(t.content).trim() !== ''
+      const hasImage = (t.image && String(t.image).trim() !== '') || (t.imageId && String(t.imageId).trim() !== '')
+      const isExisting = !!t.id
+      return hasTitle || hasContent || hasImage || isExisting
+    })
+
     // 2. Upload images if needed
     let uploadedImages: {
       language?: string
@@ -1825,19 +1949,19 @@ const handleSaveDraft = async (forceDraft: boolean = false) => {
         uploadedImages = await notificationApi.uploadImages(uploadItems)
         
         // Update state and translations with new file IDs
-        uploadedImages.forEach((u) => {
-          if (u.language && u.fileId) {
-            const langKey = String(u.language)
-            existingImageIds[langKey] = u.fileId
+    uploadedImages.forEach((u) => {
+      if (u.language && u.fileId) {
+        const langKey = String(u.language)
+        existingImageIds[langKey] = u.fileId
             
-            const transIndex = translations.findIndex(t => t.language === mapLanguageToEnum(langKey))
+            const transIndex = translationsToSave.findIndex(t => t.language === mapLanguageToEnum(langKey))
             if (transIndex !== -1) {
-              translations[transIndex].image = u.fileId
+              translationsToSave[transIndex].image = u.fileId
             }
 
-            if (languageFormData[langKey]) {
-              languageFormData[langKey].imageFile = null
-              languageFormData[langKey].imageUrl = `/api/v1/image/${u.fileId}`
+        if (languageFormData[langKey]) {
+          languageFormData[langKey].imageFile = null
+          languageFormData[langKey].imageUrl = `/api/v1/image/${u.fileId}`
               if (langKey === activeLanguage.value) {
                 currentImageFile.value = null
                 currentImageUrl.value = `/api/v1/image/${u.fileId}`
@@ -1845,7 +1969,7 @@ const handleSaveDraft = async (forceDraft: boolean = false) => {
             }
           }
         })
-      } catch (error) {
+        } catch (error) {
         console.error('Error uploading images during draft save:', error)
         throw new Error('Failed to upload images. Please try again.')
       }
@@ -1863,7 +1987,7 @@ const handleSaveDraft = async (forceDraft: boolean = false) => {
       bakongPlatform: formData.platform,
       sendType: finalSendType,
       isSent: false,
-      translations: translations,
+      translations: translationsToSave,
       notificationType: mapTypeToNotificationType(formData.notificationType),
       categoryTypeId: formData.categoryTypeId ?? undefined,
       priority: 1,
@@ -1916,17 +2040,31 @@ const handleSaveDraft = async (forceDraft: boolean = false) => {
       }, 500)
     } else {
       router.push(`/?tab=${redirectTab}`).then(() => {
-        isSavingOrPublishing.value = false
-      })
+          isSavingOrPublishing.value = false
+        })
     }
   } catch (error: any) {
     isSavingOrPublishing.value = false
     loadingNotification.close()
     console.error('Error saving draft:', error)
+
+    let errorMessage = 
+      error.response?.data?.responseMessage || 
+      error.response?.data?.message || 
+      error.message || 
+      'An unexpected error occurred while saving the draft'
     
+    // If we have an error response object from the server, use it
+    if (error.response?.data && typeof error.response.data === 'object') {
+      const data = error.response.data
+      if (data.responseMessage) {
+        errorMessage = data.responseMessage
+      }
+    }
+
     ElNotification({
       title: 'Error',
-      message: error.message || 'An unexpected error occurred while saving the draft',
+      message: errorMessage,
       type: 'error',
       duration: 5000,
     })
@@ -2048,6 +2186,34 @@ const handleLeaveDialogConfirm = async () => {
   pendingNavigation = null
   
   if (isEditingPublished.value || fromTab.value === 'scheduled' || wasScheduled.value) {
+    // Check for missing languages before publishing/updating
+    const missingLangs: string[] = []
+    const langs = [
+      { key: 'KM', label: 'Khmer' },
+      { key: 'EN', label: 'English' },
+      { key: 'JP', label: 'Japanese' }
+    ]
+    
+    langs.forEach(lang => {
+      const data = languageFormData[lang.key]
+      const hasTitle = data?.title?.trim() !== ''
+      const hasDescription = data?.description?.trim() !== ''
+      
+      if (!hasTitle || !hasDescription) {
+        missingLangs.push(lang.label)
+      }
+    })
+
+    if (!isEditingPublished.value && missingLangs.length > 0 && missingLangs.length < 3) {
+      const missingText = missingLangs.join(' and ')
+      const availableLangs = langs.filter(l => !missingLangs.includes(l.label)).map(l => l.label)
+      const availableText = availableLangs.join(' or ')
+      
+      missingLanguagesMessage.value = `<strong>${missingText}</strong> content is missing. Users will see the <strong>${availableText}</strong> version instead. Continue?`
+      showMissingLanguageDialog.value = true
+      return
+    }
+
     // For published or scheduled notifications, "Update and leave" should preserve their status
     // handlePublishNowInternal correctly handles the update and redirect logic
     await handlePublishNowInternal()
@@ -2087,6 +2253,63 @@ const handleUpdateConfirmationCancel = () => {
   } else {
     router.push(`/?tab=${redirectTab}`)
   }
+}
+
+const handleMissingLanguageConfirm = async () => {
+  showMissingLanguageDialog.value = false
+  
+  // If editing a published notification, we still need to show the update confirmation
+  if (isEditMode.value && isEditingPublished.value) {
+    // Check for changes across all languages OR in global fields
+    let hasAnyChanges = false
+    
+    // Global fields check
+    const globalFieldsChanged = 
+      formData.platform !== originalFormData.platform ||
+      formData.categoryTypeId !== originalFormData.categoryTypeId ||
+      formData.pushToPlatforms !== originalFormData.pushToPlatforms
+      
+    if (globalFieldsChanged) {
+      hasAnyChanges = true
+    } else {
+      // Check translations
+      for (const langKey of Object.keys(languageFormData)) {
+        const originalData = originalLanguageFormData[langKey]
+        const currentData = languageFormData[langKey]
+        
+        if (!originalData) continue
+        
+        const titleChanged = (currentData?.title?.trim() || '') !== (originalData?.title?.trim() || '')
+        const descriptionChanged = (currentData?.description?.trim() || '') !== (originalData?.description?.trim() || '')
+        const linkChanged = (currentData?.linkToSeeMore?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
+        const imageChanged = currentData?.imageFile !== null || 
+                             (existingImageIds[langKey] !== originalImageIds[langKey])
+        
+        if (titleChanged || descriptionChanged || linkChanged || imageChanged) {
+          hasAnyChanges = true
+          break
+        }
+      }
+    }
+    
+    if (hasAnyChanges) {
+      showUpdateConfirmationDialog.value = true
+    } else {
+      // No changes at all - just navigate to home
+      const redirectTab = fromTab.value || 'published'
+      setTimeout(() => {
+        window.location.href = `/?tab=${redirectTab}`
+      }, 100)
+    }
+    return
+  }
+  
+  await handlePublishNowInternal()
+}
+
+const handleMissingLanguageCancel = () => {
+  showMissingLanguageDialog.value = false
+  isSavingOrPublishing.value = false
 }
 
 const formatBakongApp = (app: BakongApp | undefined): string => {
@@ -2808,5 +3031,35 @@ input:checked + .toggle-slider:before {
   .create-notification-container {
     flex-direction: column;
   }
+}
+
+.dropdown-trigger.disabled {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+  color: rgb(64, 59, 59);
+  cursor: not-allowed;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.toggle-switch.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.toggle-switch.disabled input {
+  cursor: not-allowed;
+}
+
+.schedule-options-container:has(.toggle-switch.disabled) {
+  pointer-events: none;
+}
+
+.schedule-date-picker :deep(.el-input__wrapper.is-disabled),
+.schedule-time-picker :deep(.el-input__wrapper.is-disabled) {
+  background-color: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
 }
 </style>

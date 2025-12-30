@@ -5,7 +5,8 @@
         <div class="dialog-content">
           <div class="dialog-text-container">
             <h3 class="dialog-title">{{ title }}</h3>
-            <p class="dialog-message">{{ message }}</p>
+            <p v-if="dangerouslyUseHTMLString" class="dialog-message" v-html="message"></p>
+            <p v-else class="dialog-message">{{ message }}</p>
           </div>
 
           <div class="dialog-actions">
@@ -33,6 +34,7 @@ interface Props {
   cancelText?: string
   type?: 'danger' | 'warning' | 'info' | 'success'
   confirmButtonType?: 'primary' | 'danger' | 'warning' | 'info' | 'success'
+  dangerouslyUseHTMLString?: boolean
 }
 
 interface Emits {
