@@ -1,6 +1,5 @@
 import { api, uploadApi } from './api'
 import { TimezoneUtils } from '@bakong/shared'
-
 export interface CreateTemplateRequest {
   imageId?: string
   platforms: string[]
@@ -24,7 +23,6 @@ export interface CreateTemplateRequest {
   categoryTypeId?: number
   priority?: number
 }
-
 export interface Notification {
   author: any
   image: string
@@ -50,13 +48,11 @@ export interface Notification {
   templateStartAt?: string
   templateEndAt?: string
 }
-
 enum NotificationType {
   FLASH_NOTIFICATION = 'FLASH_NOTIFICATION',
   ANNOUNCEMENT = 'ANNOUNCEMENT',
   NOTIFICATION = 'NOTIFICATION',
 }
-
 export interface PaginatedResponse<T> {
   data: T[]
   total: number
@@ -64,7 +60,6 @@ export interface PaginatedResponse<T> {
   pageSize: number
   totalPages: number
 }
-
 export interface NotificationFilters {
   page?: number
   pageSize?: number
@@ -73,11 +68,9 @@ export interface NotificationFilters {
   search?: string
   language?: string
 }
-
 const toCambodiaTime = (utcDate: Date | string): Date => {
   return TimezoneUtils.toCambodiaTime(utcDate)
 }
-
 const formatNotificationDate = (date: Date | string): string => {
   const cambodiaDate = toCambodiaTime(date)
   return cambodiaDate.toLocaleDateString('en-GB', {
@@ -86,12 +79,10 @@ const formatNotificationDate = (date: Date | string): string => {
     year: 'numeric',
   })
 }
-
 export interface TestTokenRequest {
   token: string
   bakongPlatform?: string
 }
-
 export interface TestTokenResponse {
   isValid: boolean
   formatValid: boolean
@@ -100,24 +91,16 @@ export interface TestTokenResponse {
   errorCode?: string
   messageId?: string
 }
-
 export const testFCMToken = async (data: TestTokenRequest): Promise<TestTokenResponse> => {
   const response = await api.post('/api/v1/notification/test-token', data)
   console.log('🔍 [testFCMToken] Full API response:', response.data)
-
-  // Handle response structure: response.data.data contains the TestTokenResponse
   const result = response.data?.data || response.data
-
   console.log('🔍 [testFCMToken] Parsed result:', result)
-
-  // Ensure we have the expected structure
   if (!result || typeof result !== 'object') {
     throw new Error('Invalid response structure from token test endpoint')
   }
-
   return result as TestTokenResponse
 }
-
 export interface SyncUsersResponse {
   totalCount: number
   updatedCount: number
@@ -127,24 +110,16 @@ export interface SyncUsersResponse {
   updatedIds: string[]
   updatedIdsCount: number
 }
-
 export const syncUsers = async (): Promise<SyncUsersResponse> => {
   const response = await api.post('/api/v1/notification/sync-users')
   console.log('🔍 [syncUsers] Full API response:', response.data)
-
-  // Handle response structure: response.data.data contains the SyncUsersResponse
   const result = response.data?.data || response.data
-
   console.log('🔍 [syncUsers] Parsed result:', result)
-
-  // Ensure we have the expected structure
   if (!result || typeof result !== 'object') {
     throw new Error('Invalid response structure from sync users endpoint')
   }
-
   return result as SyncUsersResponse
 }
-
 export interface InboxRequest {
   fcmToken: string
   accountId: string
@@ -155,13 +130,11 @@ export interface InboxRequest {
   page?: number | null
   size?: number | null
 }
-
 export interface InboxSyncResponse {
   accountId: string
   bakongPlatform: string
   syncedAt: string
 }
-
 export interface InboxNotificationCenterResponse {
   notifications: any[]
   page: number
@@ -173,17 +146,11 @@ export interface InboxNotificationCenterResponse {
   hasNextPage: boolean
   userBakongPlatform?: string
 }
-
 export const testInbox = async (data: InboxRequest): Promise<any> => {
   const response = await api.post('/api/v1/notification/inbox', data)
   console.log('🔍 [testInbox] Full API response:', response.data)
-
-  // Backend returns BaseResponseDto format:
-  // { responseCode, errorCode, responseMessage, data }
-  // Return the full response object so TestView can access all fields
   return response.data
 }
-
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
   switch (backendStatus) {
     case 'SENT':
@@ -198,7 +165,6 @@ const mapBackendStatusToFrontend = (backendStatus: string): string => {
       return 'draft'
   }
 }
-
 const getAuthorName = (template: any): string => {
   if (template.publishedBy) {
     return template.publishedBy
@@ -211,7 +177,6 @@ const getAuthorName = (template: any): string => {
   }
   return 'System'
 }
-
 export const notificationApi = {
   async getAllNotifications(
     filters: NotificationFilters = {},
@@ -226,7 +191,6 @@ export const notificationApi = {
           isAscending: false,
         },
       })
-
       if (response.status === 304) {
         return {
           data: [],
@@ -236,13 +200,10 @@ export const notificationApi = {
           totalPages: 0,
         }
       }
-
       let notifications = []
       let meta = null
-
       if (response.data && Array.isArray(response.data)) {
         notifications = response.data
-
         meta = {
           page: filters.page || 1,
           size: filters.pageSize || 100,
@@ -269,7 +230,6 @@ export const notificationApi = {
       } else {
         throw new Error('Invalid response format from backend')
       }
-
       const mappedNotifications = notifications.map((notification: any) => {
         return {
           id: notification.id,
@@ -291,7 +251,6 @@ export const notificationApi = {
           bakongPlatform: notification.bakongPlatform,
         }
       })
-
       return {
         data: mappedNotifications,
         total: meta?.total || mappedNotifications.length,
@@ -301,7 +260,6 @@ export const notificationApi = {
       }
     } catch (error: any) {
       console.error('Error fetching notifications:', error)
-
       if (error.response?.status === 401) {
         console.log('User does not have permission to view notifications')
         return {
@@ -312,11 +270,9 @@ export const notificationApi = {
           totalPages: 0,
         }
       }
-
       throw error
     }
   },
-
   async getNotifications(
     filters: NotificationFilters = {},
   ): Promise<PaginatedResponse<Notification>> {
@@ -327,7 +283,6 @@ export const notificationApi = {
           .map((template: any) => {
             const translation = template.translations?.[0]
             if (!translation) return null
-
             return {
               id: template.templateId || template.id,
               author: getAuthorName(template),
@@ -337,7 +292,6 @@ export const notificationApi = {
               image: translation.image ? `/api/v1/image/${translation.image.fileId}` : '',
               linkPreview: translation.linkPreview,
               date: template.date,
-              // Use backend-provided status if available, otherwise map based on isSent and sendType
               status: template.status || (template.isSent
                 ? 'published'
                 : template.sendType === 'SEND_SCHEDULE' || template.sendType === 'SEND_INTERVAL'
@@ -351,7 +305,6 @@ export const notificationApi = {
             }
           })
           .filter(Boolean)
-
         let filteredNotifications = notifications.filter((n) => n !== null) as Notification[]
         if (filters.status) {
           filteredNotifications = filteredNotifications.filter((n) => n.status === filters.status)
@@ -368,13 +321,11 @@ export const notificationApi = {
               n.type.toLowerCase().includes(searchLower),
           )
         }
-
         const page = filters.page || 1
         const pageSize = filters.pageSize || 10
         const startIndex = (page - 1) * pageSize
         const endIndex = startIndex + pageSize
         const paginatedData = filteredNotifications.slice(startIndex, endIndex)
-
         return {
           data: paginatedData,
           total: filteredNotifications.length,
@@ -383,7 +334,6 @@ export const notificationApi = {
           totalPages: Math.ceil(filteredNotifications.length / pageSize),
         }
       }
-
       return {
         data: [],
         total: 0,
@@ -396,13 +346,10 @@ export const notificationApi = {
       throw error
     }
   },
-
   async getNotificationById(id: number): Promise<Notification> {
     const response = await api.get(`/api/v1/template/${id}`)
     const template = response.data
-
     const translation = template.translations?.[0]
-
     return {
       id: template.id,
       type: template.notificationType || template.categoryType || NotificationType.ANNOUNCEMENT,
@@ -419,12 +366,10 @@ export const notificationApi = {
       image: '',
     }
   },
-
   async createNotification(notification: Omit<Notification, 'id'>): Promise<Notification> {
     const response = await api.post('/api/v1/template/create', notification)
     return response.data
   },
-
   async createTemplate(templateData: CreateTemplateRequest): Promise<any> {
     try {
       const response = await api.post('/api/v1/template/create', templateData)
@@ -437,25 +382,20 @@ export const notificationApi = {
         responseData: error.response?.data,
         status: error.response?.status,
       })
-      // Re-throw to let the calling component handle the error display
       throw error
     }
   },
-
   async uploadImage(file: File): Promise<string> {
     try {
       const formData = new FormData()
       formData.append('files', file)
-
       const response = await uploadApi.post('/api/v1/image/upload', formData)
-
       return response.data.data.fileId || response.data.data.files?.[0]?.fileId
     } catch (error) {
       console.error('Error uploading image:', error)
       throw error
     }
   },
-
   async uploadImages(
     items: { file: File; language?: string }[] | File[],
   ): Promise<{ language?: string; fileId: string; mimeType: string; originalFileName: string }[]> {
@@ -465,41 +405,28 @@ export const notificationApi = {
         Array.isArray(items) && (items as any[])[0] && (items as any[])[0].file
           ? (items as any)
           : (items as File[]).map((f) => ({ file: f }))
-
-      // Validate total size before upload (safety check)
-      // Nginx limit is 20MB, but we'll use 18MB as safe limit (leaves 2MB buffer for FormData overhead)
       const MAX_TOTAL_SIZE = 18 * 1024 * 1024 // 18MB
       const MAX_SINGLE_FILE_SIZE = 10 * 1024 * 1024 // 10MB per file (backend limit)
-
       let totalSize = 0
       const sizeErrors: string[] = []
-
       normalized.forEach((item, index) => {
         const fileSize = item.file.size
-
-        // Check individual file size
         if (fileSize > MAX_SINGLE_FILE_SIZE) {
           sizeErrors.push(
             `File ${index + 1} (${item.file.name}) is ${(fileSize / 1024 / 1024).toFixed(2)}MB, exceeds 10MB limit`,
           )
         }
-
         totalSize += fileSize
       })
-
-      // Check total size
       if (totalSize > MAX_TOTAL_SIZE) {
         const totalMB = (totalSize / 1024 / 1024).toFixed(2)
         throw new Error(
           `Total upload size (${totalMB}MB) exceeds limit (18MB). Please compress images further or upload fewer images.`,
         )
       }
-
-      // Check individual file errors
       if (sizeErrors.length > 0) {
         throw new Error(sizeErrors.join('; '))
       }
-
       const languages: string[] = []
       normalized.forEach((item) => {
         formData.append('files', item.file)
@@ -508,9 +435,7 @@ export const notificationApi = {
       if (languages.length) {
         formData.append('languages', JSON.stringify(languages))
       }
-
       const response = await uploadApi.post('/api/v1/image/upload', formData)
-
       return (
         response.data.data.files ||
         (response.data.data.fileId
@@ -529,35 +454,31 @@ export const notificationApi = {
       throw error
     }
   },
-
   async updateNotification(id: number, notification: Partial<Notification>): Promise<Notification> {
     const response = await api.post(`/api/v1/template/${id}/update-publish`, notification)
     return response.data
   },
-
   async deleteNotification(id: number): Promise<void> {
     await api.post(`/api/v1/template/${id}/remove`)
   },
-
   async sendNotificationNow(id: number): Promise<void> {
     await api.post(`/api/v1/template/${id}/send-now`)
   },
-
   async sendNotification(
     templateId: number,
-    language: string = 'KM',
     notificationType?: string,
+    publishNow?: boolean,
   ): Promise<any> {
     try {
       const payload: any = {
-        language: language,
         templateId: templateId,
       }
-
       if (notificationType) {
         payload.notificationType = notificationType
       }
-
+      if (publishNow === true) {
+        payload.publishNow = true
+      }
       const response = await api.post('/api/v1/notification/send', payload)
       return response.data
     } catch (error) {
@@ -565,14 +486,11 @@ export const notificationApi = {
       throw error
     }
   },
-
   async scheduleNotification(id: number, scheduleTime: string): Promise<void> {
     await api.post(`/api/v1/template/${id}/schedule`, { scheduleTime })
   },
-
   async updateTemplate(id: number, templateData: CreateTemplateRequest): Promise<any> {
     try {
-      // Ensure no file buffers are included in the request - only fileIds (strings)
       const sanitizedData = {
         ...templateData,
         translations: templateData.translations?.map((t) => ({
@@ -583,8 +501,6 @@ export const notificationApi = {
           linkPreview: t.linkPreview,
         })),
       }
-
-      // Use longer timeout for template updates (60 seconds)
       const response = await api.post(`/api/v1/template/${id}/update-publish`, sanitizedData, {
         timeout: 60000,
       })
@@ -597,7 +513,6 @@ export const notificationApi = {
         responseData: error.response?.data,
         status: error.response?.status,
       })
-      // Re-throw to let the calling component handle the error display
       throw error
     }
   },

@@ -2076,8 +2076,8 @@ export class TemplateService implements OnModuleInit {
 
     if (dto.templateId) {
       const template = await this.findTemplateById(dto.templateId.toString())
-      // Verify template is published (not draft)
-      if (template && !template.isSent) {
+      // Verify template is published (not draft) unless explicitly publishing now
+      if (template && !template.isSent && dto.publishNow !== true) {
         throw new Error(
           `Template ${dto.templateId} is a draft and cannot be sent. Please publish it first.`,
         )

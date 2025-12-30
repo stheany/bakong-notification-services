@@ -620,6 +620,13 @@ export class NotificationService {
 
   async sendNow(dto: SentNotificationDto, req?: any) {
     try {
+      const languageValidation = dto.language
+        ? ValidationHelper.validateLanguage(String(dto.language))
+        : null
+      const normalizedLanguage = languageValidation?.isValid
+        ? (languageValidation.normalizedValue as Language)
+        : Language.KM
+
       if (dto.notificationId) {
         // Mobile app fetching specific notification (e.g., after clicking flash notification)
         const notification = await this.notiRepo.findOne({
@@ -651,13 +658,16 @@ export class NotificationService {
           }
         }
 
-        const trans = this.templateService.findBestTranslation(notification.template, dto.language)
+        const trans = this.templateService.findBestTranslation(
+          notification.template,
+          normalizedLanguage,
+        )
         const imageUrl = trans?.imageId ? this.imageService.buildImageUrl(trans.imageId, req) : ''
 
         const result = InboxResponseDto.buildSendApiNotificationData(
           notification.template,
           trans,
-          dto.language,
+          normalizedLanguage,
           typeof imageUrl === 'string' ? imageUrl : '',
           notification.id,
           notification.sendCount,
@@ -740,7 +750,7 @@ export class NotificationService {
 
       if (!template) throw new Error(ResponseMessage.TEMPLATE_NOT_FOUND)
 
-      const translationValidation = ValidationHelper.validateTranslation(template, dto.language)
+      const translationValidation = ValidationHelper.validateTranslation(template, normalizedLanguage)
       if (!translationValidation.isValid) throw new Error(translationValidation.errorMessage)
       const translation = translationValidation.translation
 
@@ -936,25 +946,13 @@ export class NotificationService {
         }
       }
 
-      const responseTranslation = this.templateService.findBestTranslation(template, dto.language)
-      const imageUrl = responseTranslation?.imageId
-        ? this.imageService.buildImageUrl(responseTranslation.imageId, req)
-        : ''
-
       // Only mark as published if FCM send was successful
       await this.templateService.markAsPublished(template.id, req?.user)
 
-      const whatNews = InboxResponseDto.buildSendApiNotificationData(
-        template,
-        responseTranslation,
-        dto.language,
-        typeof imageUrl === 'string' ? imageUrl : '',
-        firstRecord.id,
-        firstRecord.sendCount,
-      )
+      const templateResponse = await this.templateService.findOne(template.id)
 
       // Include successful count and failed users in response
-      const responseData: any = { whatnews: whatNews }
+      const responseData: any = { ...templateResponse }
       if (fcmResult && typeof fcmResult === 'object' && 'successfulCount' in fcmResult) {
         responseData.successfulCount = fcmResult.successfulCount
         responseData.failedCount = fcmResult.failedCount
@@ -1002,17 +1000,24 @@ export class NotificationService {
       let sharedFailedCount = 0
       const sharedFailedUsers: Array<{ accountId: string; error: string; errorCode?: string }> = []
 
-      const imageUrl = translation.imageId
-        ? this.imageService.buildImageUrl(translation.imageId, req)
+      const defaultTranslation = translation
+      const defaultImageUrl = defaultTranslation.imageId
+        ? this.imageService.buildImageUrl(defaultTranslation.imageId, req)
         : ''
-      const imageUrlString = typeof imageUrl === 'string' ? imageUrl : ''
-      const title = this.baseFunctionHelper.truncateText('title', translation.title)
-      const body = this.baseFunctionHelper.truncateText('content', translation.content)
+      const defaultImageUrlString = typeof defaultImageUrl === 'string' ? defaultImageUrl : ''
+      const defaultTitle = this.baseFunctionHelper.truncateText(
+        'title',
+        defaultTranslation.title || '',
+      )
+      const defaultBody = this.baseFunctionHelper.truncateText(
+        'content',
+        defaultTranslation.content || '',
+      )
 
       console.log('📨 [sendFCM] Notification details:', {
-        title: title,
-        bodyLength: body?.length || 0,
-        hasImage: !!imageUrlString,
+        title: defaultTitle,
+        bodyLength: defaultBody?.length || 0,
+        hasImage: !!defaultImageUrlString,
       })
 
       const fcmUsers = this.baseFunctionHelper.filterValidFCMUsers(validUsers, mode)
@@ -1021,6 +1026,28 @@ export class NotificationService {
       for (const user of fcmUsers) {
         let notificationId: number | null = null
         try {
+          const userLanguage = user.language
+            ? ValidationHelper.validateLanguage(String(user.language))
+            : null
+          const preferredLanguage = userLanguage?.isValid
+            ? (userLanguage.normalizedValue as Language)
+            : undefined
+          const selectedTranslation =
+            this.templateService.findBestTranslation(template, preferredLanguage) ||
+            defaultTranslation
+          const title = this.baseFunctionHelper.truncateText(
+            'title',
+            selectedTranslation.title || '',
+          )
+          const body = this.baseFunctionHelper.truncateText(
+            'content',
+            selectedTranslation.content || '',
+          )
+          const imageUrl = selectedTranslation.imageId
+            ? this.imageService.buildImageUrl(selectedTranslation.imageId, req)
+            : ''
+          const imageUrlString = typeof imageUrl === 'string' ? imageUrl : ''
+
           console.log('📨 [sendFCM] Sending to user:', {
             accountId: user.accountId,
             platform: user.platform,
@@ -1054,7 +1081,7 @@ export class NotificationService {
           const response = await this.sendFCMPayloadToPlatform(
             user,
             template,
-            translation,
+            selectedTranslation,
             title,
             body,
             notificationIdStr,
