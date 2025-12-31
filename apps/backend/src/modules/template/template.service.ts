@@ -5,6 +5,7 @@ import {
   Inject,
   forwardRef,
   Logger,
+  HttpException,
 } from '@nestjs/common'
 import { SchedulerRegistry } from '@nestjs/schedule'
 import { InjectRepository } from '@nestjs/typeorm'
@@ -69,11 +70,13 @@ export class TemplateService implements OnModuleInit {
     if (dto.imageId) {
       const image = await this.imageRepo.findOne({ where: { fileId: dto.imageId } })
       if (!image) {
-        throw new BaseResponseDto({
-          responseCode: 1,
-          errorCode: ErrorCode.IMAGE_NOT_FOUND,
-          responseMessage: ResponseMessage.IMAGE_NOT_FOUND,
-        })
+        throw new BadRequestException(
+          new BaseResponseDto({
+            responseCode: 1,
+            errorCode: ErrorCode.IMAGE_NOT_FOUND,
+            responseMessage: ResponseMessage.IMAGE_NOT_FOUND,
+          }),
+        )
       }
     }
 
@@ -93,26 +96,32 @@ export class TemplateService implements OnModuleInit {
       })
 
       if (!scheduledTime.isValid()) {
-        throw new BaseResponseDto({
-          errorCode: ErrorCode.VALIDATION_FAILED,
-          responseMessage: 'Invalid sendSchedule date format',
-          data: {
-            providedDate: dto.sendSchedule,
-            expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:30:00)',
-          },
-        })
+        throw new BadRequestException(
+          new BaseResponseDto({
+            errorCode: ErrorCode.VALIDATION_FAILED,
+            responseMessage: 'Invalid sendSchedule date format',
+            data: {
+              providedDate: dto.sendSchedule,
+              expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:30:00)',
+            },
+          }),
+        )
       }
 
-      if (scheduledTime.isBefore(now)) {
-        throw new BaseResponseDto({
-          errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
-          responseMessage: ResponseMessage.TEMPLATE_SEND_SCHEDULE_IN_PAST,
-          data: {
-            scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
-            currentTime: now.format('h:mm A MMM D, YYYY'),
-            timezone: 'Asia/Phnom_Penh',
-          },
-        })
+      // Add 1-minute grace period for network latency and clock skew
+      if (scheduledTime.isBefore(now.clone().subtract(1, 'minute'))) {
+        throw new BadRequestException(
+          new BaseResponseDto({
+            responseCode: 1,
+            errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
+            responseMessage: ResponseMessage.TEMPLATE_SEND_SCHEDULE_IN_PAST,
+            data: {
+              scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
+              currentTime: now.format('h:mm A MMM D, YYYY'),
+              timezone: 'Asia/Phnom_Penh',
+            },
+          }),
+        )
       }
     }
 
@@ -122,49 +131,57 @@ export class TemplateService implements OnModuleInit {
       const now = moment()
 
       if (!startTime.isValid()) {
-        throw new BaseResponseDto({
-          errorCode: ErrorCode.VALIDATION_FAILED,
-          responseMessage: 'Invalid sendInterval.startAt date format',
-          data: {
-            providedDate: dto.sendInterval.startAt,
-            expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:30:00)',
-          },
-        })
+        throw new BadRequestException(
+          new BaseResponseDto({
+            errorCode: ErrorCode.VALIDATION_FAILED,
+            responseMessage: 'Invalid sendInterval.startAt date format',
+            data: {
+              providedDate: dto.sendInterval.startAt,
+              expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:30:00)',
+            },
+          }),
+        )
       }
 
       if (!endTime.isValid()) {
-        throw new BaseResponseDto({
-          errorCode: ErrorCode.VALIDATION_FAILED,
-          responseMessage: 'Invalid sendInterval.endAt date format',
-          data: {
-            providedDate: dto.sendInterval.endAt,
-            expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:40:00)',
-          },
-        })
+        throw new BadRequestException(
+          new BaseResponseDto({
+            errorCode: ErrorCode.VALIDATION_FAILED,
+            responseMessage: 'Invalid sendInterval.endAt date format',
+            data: {
+              providedDate: dto.sendInterval.endAt,
+              expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:40:00)',
+            },
+          }),
+        )
       }
 
       if (startTime.isBefore(now)) {
-        throw new BaseResponseDto({
-          errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
-          responseMessage: 'sendInterval.startAt cannot be in the past',
-          data: {
-            startTime: startTime.format('h:mm A MMM D, YYYY'),
-            currentTime: now.format('h:mm A MMM D, YYYY'),
-            timezone: 'Asia/Phnom_Penh',
-          },
-        })
+        throw new BadRequestException(
+          new BaseResponseDto({
+            errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
+            responseMessage: ResponseMessage.TEMPLATE_SEND_SCHEDULE_IN_PAST,
+            data: {
+              startTime: startTime.format('h:mm A MMM D, YYYY'),
+              currentTime: now.format('h:mm A MMM D, YYYY'),
+              timezone: 'Asia/Phnom_Penh',
+            },
+          }),
+        )
       }
 
       if (endTime.isBefore(startTime)) {
-        throw new BaseResponseDto({
-          errorCode: ErrorCode.VALIDATION_FAILED,
-          responseMessage: 'sendInterval.endAt must be after startAt',
-          data: {
-            startTime: startTime.format('h:mm A MMM D, YYYY'),
-            endTime: endTime.format('h:mm A MMM D, YYYY'),
-            timezone: 'Asia/Phnom_Penh',
-          },
-        })
+        throw new BadRequestException(
+          new BaseResponseDto({
+            errorCode: ErrorCode.VALIDATION_FAILED,
+            responseMessage: 'sendInterval.endAt must be after startAt',
+            data: {
+              startTime: startTime.format('h:mm A MMM D, YYYY'),
+              endTime: endTime.format('h:mm A MMM D, YYYY'),
+              timezone: 'Asia/Phnom_Penh',
+            },
+          }),
+        )
       }
     }
 
@@ -173,11 +190,13 @@ export class TemplateService implements OnModuleInit {
       !dto.sendSchedule &&
       dto.notificationType !== NotificationType.FLASH_NOTIFICATION
     ) {
-      throw new BaseResponseDto({
-        responseCode: 1,
-        errorCode: ErrorCode.VALIDATION_FAILED,
-        responseMessage: ResponseMessage.VALIDATION_FAILED,
-      })
+      throw new BadRequestException(
+        new BaseResponseDto({
+          responseCode: 1,
+          errorCode: ErrorCode.VALIDATION_FAILED,
+          responseMessage: ResponseMessage.VALIDATION_FAILED,
+        }),
+      )
     }
     // For SEND_NOW: if isSent is explicitly false, it's a draft - don't send
     // If isSent is true or undefined, send immediately
@@ -329,12 +348,14 @@ export class TemplateService implements OnModuleInit {
             : ''
 
         if (template.isSent !== false && (!title || !content)) {
-          throw new BaseResponseDto({
-            responseCode: 1,
-            errorCode: ErrorCode.VALIDATION_FAILED,
-            responseMessage: 'Title and content are required for published notifications',
-            data: {},
-          })
+          throw new BadRequestException(
+            new BaseResponseDto({
+              responseCode: 1,
+              errorCode: ErrorCode.VALIDATION_FAILED,
+              responseMessage: 'Title and content are required for published notifications',
+              data: {},
+            }),
+          )
         }
 
         if (existingTranslation) {
@@ -641,25 +662,10 @@ export class TemplateService implements OnModuleInit {
     } = dto
     const template = await this.findOneRaw(id)
 
-    // If template is already sent, handle it as editing published notification
-    // This includes scheduled notifications that have already been sent
+    // If template is already sent, handle it as published notification
+    // This allows transitioning from draft/scheduled to published through the main update logic
     if (template.isSent) {
-      // If trying to "publish" an already-sent notification (especially scheduled ones),
-      // just clear the schedule and ensure it's marked as published
-      if (dto.sendType === SendType.SEND_NOW && dto.isSent === true && dto.sendSchedule === null) {
-        // This is a "Publish now" action on an already-sent notification
-        // Just clear schedule and ensure it's published - don't resend
-        await this.repo.update(id, {
-          sendType: SendType.SEND_NOW,
-          sendSchedule: null,
-          sendInterval: null,
-          isSent: true,
-          updatedAt: new Date(),
-        })
-    const updatedTemplate = await this.findOneRaw(id)
-    return this.formatTemplateResponse(updatedTemplate, req)
-  }
-      return await this.editPublishedNotification(id, dto, currentUser, req)
+      return await this.editPublishedNotification(id, dto, currentUser)
     }
 
     this.validateModificationTemplate(template)
@@ -695,29 +701,34 @@ export class TemplateService implements OnModuleInit {
       if (sendSchedule !== undefined) {
         if (sendSchedule) {
           const scheduledTime = moment.utc(sendSchedule)
-          if (!scheduledTime.isValid()) {
-            throw new BadRequestException({
-              responseCode: 1,
-              errorCode: ErrorCode.VALIDATION_FAILED,
-              responseMessage: 'Invalid sendSchedule date format',
-              data: {
-                providedDate: sendSchedule,
-                expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:30:00)',
-              },
-            })
-          }
-          const now = moment.utc()
-          if (scheduledTime.isBefore(now)) {
-            throw new BadRequestException({
-              responseCode: 1,
-              errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
-              responseMessage: ResponseMessage.TEMPLATE_SEND_SCHEDULE_IN_PAST,
-              data: {
-                scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
-                currentTime: now.format('h:mm A MMM D, YYYY'),
-              },
-            })
-          }
+      if (!scheduledTime.isValid()) {
+        throw new BadRequestException(
+          new BaseResponseDto({
+            responseCode: 1,
+            errorCode: ErrorCode.VALIDATION_FAILED,
+            responseMessage: 'Invalid sendSchedule date format',
+            data: {
+              providedDate: sendSchedule,
+              expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:30:00)',
+            },
+          }),
+        )
+      }
+      const now = moment.utc()
+      // Add 1-minute grace period for network latency and clock skew
+      if (scheduledTime.isBefore(now.clone().subtract(1, 'minute'))) {
+        throw new BadRequestException(
+          new BaseResponseDto({
+            responseCode: 1,
+            errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
+            responseMessage: ResponseMessage.TEMPLATE_SEND_SCHEDULE_IN_PAST,
+            data: {
+              scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
+              currentTime: now.format('h:mm A MMM D, YYYY'),
+            },
+          }),
+        )
+      }
           updateFields.sendSchedule = scheduledTime.toDate()
         } else {
           updateFields.sendSchedule = null
@@ -750,6 +761,10 @@ export class TemplateService implements OnModuleInit {
           translationsMap.set(t.language, t)
         })
 
+        // Check if this is a draft (isSent === false)
+        // If it was already published (template.isSent) or is being published (dto.isSent), it's not a draft
+        const isDraft = template.isSent === false && dto.isSent !== true
+
         const getFallbackValue = (field: 'title' | 'content', language: Language): string => {
           const current = translationsMap.get(language)
           if (current && current[field] && String(current[field]).trim() !== '') {
@@ -774,6 +789,8 @@ export class TemplateService implements OnModuleInit {
           return ''
         }
 
+        // Only apply fallback logic for published notifications, not drafts
+        if (!isDraft) {
         translations.forEach((translation) => {
           if (
             translation.title === undefined ||
@@ -790,6 +807,7 @@ export class TemplateService implements OnModuleInit {
             translation.content = getFallbackValue('content', translation.language)
           }
         })
+        }
 
         for (const translation of translations) {
           const { language, title, content, image, linkPreview, id: translationId } = translation
@@ -894,8 +912,9 @@ export class TemplateService implements OnModuleInit {
 
       const updatedTemplate = await this.findOneRaw(id)
 
-      // Check if trying to publish a draft (SEND_NOW with isSent=true)
-      if (updatedTemplate.sendType === SendType.SEND_NOW && updatedTemplate.isSent === true) {
+      // Check if trying to publish a notification (isSent=true)
+      // This handles both SEND_NOW and SEND_SCHEDULE (when manually publishing early)
+      if (updatedTemplate.isSent === true && template.isSent === false) {
         // FLASH_NOTIFICATION now sends FCM push like other notification types
         // Mobile app will display it differently (as popup/flash screen)
         console.log(
@@ -907,6 +926,19 @@ export class TemplateService implements OnModuleInit {
           `(type: ${typeof updatedTemplate.platforms})`,
         )
 
+        // Check if this is a retry of a previously failed template
+        const isRetry = !updatedTemplate.isSent || (updatedTemplate as any).failedUsers?.length > 0
+        if (isRetry) {
+          console.log(
+            `🔄 [UPDATE] This appears to be a retry of a previously failed template. Ensuring user data is synced...`,
+          )
+          // Force user sync before retrying to ensure we have latest tokens
+          // Note: sendWithTemplate already calls syncAllUsers internally, but we log this for clarity
+          console.log(
+            `🔄 [UPDATE] User sync will happen in sendWithTemplate - ensure mobile app has updated tokens via /send or /inbox API`,
+          )
+        }
+
         // Try to send the notification
         const templateWithTranslations = await this.repo.findOne({
           where: { id: updatedTemplate.id },
@@ -914,12 +946,29 @@ export class TemplateService implements OnModuleInit {
         })
 
         if (templateWithTranslations && templateWithTranslations.translations) {
-          let sendResult: { successfulCount: number; failedCount: number; failedUsers?: string[] } =
-            { successfulCount: 0, failedCount: 0, failedUsers: [] }
+          let sendResult: {
+            successfulCount: number
+            failedCount: number
+            failedUsers?: string[]
+            failedDueToInvalidTokens?: boolean
+          } = { successfulCount: 0, failedCount: 0, failedUsers: [] }
           let noUsersForPlatform = false
           try {
             sendResult = await this.notificationService.sendWithTemplate(templateWithTranslations)
             console.log(`[UPDATE] sendWithTemplate returned:`, sendResult)
+            
+            // Log detailed failure information for debugging
+            if (sendResult.failedCount > 0 && sendResult.failedUsers?.length) {
+              console.log(
+                `⚠️ [UPDATE] Failed to send to ${sendResult.failedCount} user(s):`,
+                sendResult.failedUsers,
+              )
+              if (sendResult.failedDueToInvalidTokens) {
+                console.log(
+                  `⚠️ [UPDATE] Some failures were due to invalid tokens. Users should update tokens via mobile app.`,
+                )
+              }
+            }
           } catch (error: any) {
             console.error(`[UPDATE] ❌ ERROR in sendWithTemplate:`, error?.message)
             // Check if error is about no users for bakongPlatform
@@ -940,7 +989,9 @@ export class TemplateService implements OnModuleInit {
             ;(reloadedTemplate as any).savedAsDraftNoUsers = true
             return this.formatTemplateResponse(reloadedTemplate)
           } else if (sendResult.successfulCount > 0) {
-            // Successfully sent, mark as published
+            // Successfully sent to at least some users, mark as published
+            // Even if some failed, if ANY succeeded, mark as published
+            console.log(`[UPDATE] ✅ Template ${updatedTemplate.id} published successfully - sent to ${sendResult.successfulCount} user(s)${sendResult.failedCount > 0 ? ` (${sendResult.failedCount} failed)` : ''}`)
             await this.markAsPublished(updatedTemplate.id, currentUser)
             console.log(
               `[UPDATE] Template published successfully, sent to ${sendResult.successfulCount} users`,
@@ -949,19 +1000,42 @@ export class TemplateService implements OnModuleInit {
             ;(updatedTemplate as any).successfulCount = sendResult.successfulCount
             ;(updatedTemplate as any).failedCount = sendResult.failedCount
             ;(updatedTemplate as any).failedUsers = sendResult.failedUsers || []
+            ;(updatedTemplate as any).failedDueToInvalidTokens = sendResult.failedDueToInvalidTokens || false
           } else {
             // No users received the notification - revert to draft
+            // This happens when successfulCount === 0
+            // Distinguish between: no users found (failedCount === 0) vs all users failed (failedCount > 0)
             console.warn(
-              `[UPDATE] No notifications were sent (successfulCount = 0) - reverting to draft`,
+              `[UPDATE] No notifications were sent (successfulCount = 0, failedCount = ${sendResult.failedCount}) - reverting to draft`,
             )
             await this.repo.update(updatedTemplate.id, { isSent: false, updatedAt: new Date() })
+            
+            // Provide helpful error message based on failure reason
+            if (sendResult.failedCount > 0 && sendResult.failedUsers?.length) {
+              console.warn(
+                `[UPDATE] All ${sendResult.failedCount} user(s) failed: ${sendResult.failedUsers.join(', ')}. Users may need to update their FCM tokens via mobile app.`,
+              )
+            } else {
+              console.warn(
+                `[UPDATE] No matching users found. Check platform filters and ensure users exist for bakongPlatform: ${templateWithTranslations.bakongPlatform || 'ALL'}`,
+              )
+            }
+            
             // Reload template to get updated isSent value
             const reloadedTemplate = await this.findOneRaw(id)
-            ;(reloadedTemplate as any).savedAsDraftNoUsers = true
+            // CRITICAL: savedAsDraftNoUsers should ONLY be true when there are literally no users (failedCount === 0)
+            // If failedCount > 0, it means users exist but all failed - this is NOT "no users"
+            // Explicitly set to false if failedCount > 0 to prevent incorrect flag persistence
+            if (sendResult.failedCount > 0) {
+              ;(reloadedTemplate as any).savedAsDraftNoUsers = false
+            } else {
+              ;(reloadedTemplate as any).savedAsDraftNoUsers = sendResult.successfulCount === 0 && sendResult.failedCount === 0
+            }
             // Include send result in template response
             ;(reloadedTemplate as any).successfulCount = sendResult.successfulCount
             ;(reloadedTemplate as any).failedCount = sendResult.failedCount
             ;(reloadedTemplate as any).failedUsers = sendResult.failedUsers || []
+            ;(reloadedTemplate as any).failedDueToInvalidTokens = sendResult.failedDueToInvalidTokens || false
             return this.formatTemplateResponse(reloadedTemplate)
           }
         }
@@ -988,7 +1062,17 @@ export class TemplateService implements OnModuleInit {
       }
       return this.formatTemplateResponse(finalTemplate)
     } catch (error) {
-      throw new Error(error)
+      console.error('Error updating template:', error)
+      if (error instanceof BadRequestException || error instanceof HttpException) {
+        throw error
+      }
+      const errorMessage = error?.message || error?.toString() || 'Bad Request Exception'
+      throw new BadRequestException({
+        responseCode: 1,
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        responseMessage: errorMessage,
+        data: error?.data || null,
+      })
     }
   }
 
@@ -997,10 +1081,10 @@ export class TemplateService implements OnModuleInit {
 
     try {
       // When editing a published notification, always preserve published status
-      // Force sendType to SEND_NOW and isSent to true to keep it in published tab
+      // We keep the original sendType and sendSchedule for historical record
       const isEditingPublished = oldTemplate.isSent === true
 
-      // UPDATE the existing template instead of creating a new one to preserve the ID
+      // Update fields from DTO, prioritizing provided values
       const updateFields: any = {}
       if (dto.platforms !== undefined) {
         updateFields.platforms = ValidationHelper.parsePlatforms(dto.platforms)
@@ -1008,16 +1092,66 @@ export class TemplateService implements OnModuleInit {
       if (dto.bakongPlatform !== undefined) {
         updateFields.bakongPlatform = dto.bakongPlatform
       }
-      // Always keep as SEND_NOW when editing published notification
+
+      // Handle status flags
       if (isEditingPublished) {
-        updateFields.sendType = SendType.SEND_NOW
         updateFields.isSent = true
-        updateFields.sendSchedule = null // Clear any schedule to keep in published tab
-        updateFields.sendInterval = null // Clear any interval to keep in published tab
+        // Allow manual transformation if explicitly provided in DTO
+        if (dto.sendType !== undefined) updateFields.sendType = dto.sendType
+        if (dto.sendSchedule !== undefined) {
+          if (dto.sendSchedule) {
+            const scheduledTime = moment.utc(dto.sendSchedule)
+            if (scheduledTime.isValid()) {
+              updateFields.sendSchedule = scheduledTime.toDate()
+            }
+          } else {
+            updateFields.sendSchedule = null
+          }
+        }
       } else {
         if (dto.sendType !== undefined) updateFields.sendType = dto.sendType
-        if (dto.isSent !== undefined) updateFields.isSent = dto.isSent
-        if (dto.sendSchedule !== undefined) updateFields.sendSchedule = dto.sendSchedule
+        if (dto.isSent !== undefined) {
+          updateFields.isSent = dto.isSent
+          // If manually publishing (isSent: true) from draft/scheduled, ensure current time is set
+          if (dto.isSent === true) {
+            updateFields.updatedAt = new Date()
+          }
+        }
+        if (dto.sendSchedule !== undefined) {
+          // Validate and parse sendSchedule for scheduled notifications
+          if (dto.sendSchedule) {
+            const scheduledTime = moment.utc(dto.sendSchedule)
+            if (!scheduledTime.isValid()) {
+              throw new BadRequestException({
+                responseCode: 1,
+                errorCode: ErrorCode.VALIDATION_FAILED,
+                responseMessage: 'Invalid sendSchedule date format',
+                data: {
+                  providedDate: dto.sendSchedule,
+                  expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:30:00)',
+                },
+              })
+            }
+            const now = moment.utc()
+            // Add 1-minute grace period for network latency and clock skew
+            if (scheduledTime.isBefore(now.clone().subtract(1, 'minute'))) {
+              throw new BadRequestException(
+                new BaseResponseDto({
+                  responseCode: 1,
+                  errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
+                  responseMessage: ResponseMessage.TEMPLATE_SEND_SCHEDULE_IN_PAST,
+                  data: {
+                    scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
+                    currentTime: now.format('h:mm A MMM D, YYYY'),
+                  },
+                }),
+              )
+            }
+            updateFields.sendSchedule = scheduledTime.toDate()
+          } else {
+            updateFields.sendSchedule = null
+          }
+        }
       }
       if (dto.notificationType !== undefined) {
         updateFields.notificationType = dto.notificationType
@@ -1028,7 +1162,15 @@ export class TemplateService implements OnModuleInit {
       if (currentUser?.username) {
         updateFields.updatedBy = currentUser.username
       }
-      updateFields.updatedAt = new Date()
+      
+      // Update updatedAt ONLY if the notification is NOT already published
+      // This preserves the original send time for already-published items
+      if (!isEditingPublished) {
+        updateFields.updatedAt = new Date()
+      } else {
+        // Explicitly set to old value to prevent @UpdateDateColumn from auto-updating
+        updateFields.updatedAt = oldTemplate.updatedAt
+      }
 
       // Update the existing template
       if (Object.keys(updateFields).length > 0) {
@@ -1158,7 +1300,22 @@ export class TemplateService implements OnModuleInit {
       }
     } catch (error) {
       console.error('Error editing published notification:', error)
-      throw new Error(error)
+      // Preserve the original error if it's already an HttpException or Error
+      if (error instanceof BadRequestException || error instanceof HttpException) {
+        throw error
+      }
+      // If it's a BaseResponseDto wrapped in an Error, extract it
+      if (error instanceof BaseResponseDto) {
+        throw new BadRequestException(error)
+      }
+      // Otherwise, wrap in BadRequestException with proper message
+      const errorMessage = error?.message || error?.toString() || 'Bad Request Exception'
+      throw new BadRequestException({
+        responseCode: 1,
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        responseMessage: errorMessage,
+        data: error?.data || null,
+      })
     }
   }
 
@@ -1207,7 +1364,30 @@ export class TemplateService implements OnModuleInit {
           b.isSent && b.updatedAt ? b.updatedAt : b.sendSchedule || b.updatedAt || b.createdAt
         return dateB.getTime() - dateA.getTime()
       })
-      return items.map((item) => this.formatTemplateResponse(item, req))
+      
+      return items.map((item) => {
+        // Sort translations within each item to prioritize content and then the requested language
+        if (item.translations && item.translations.length > 0) {
+          item.translations.sort((a, b) => {
+            const priority = { KM: 1, EN: 2, JP: 3 }
+            
+            // Priority 1: Has actual content (Title or Content)
+            const aHasContent = (a.title && String(a.title).trim() !== '') || (a.content && String(a.content).trim() !== '')
+            const bHasContent = (b.title && String(b.title).trim() !== '') || (b.content && String(b.content).trim() !== '')
+            
+            if (aHasContent && !bHasContent) return -1
+            if (!aHasContent && bHasContent) return 1
+            
+            // Priority 2: Requested language (exact match) - only if both have content or both are empty
+            if (a.language === defaultLanguage && b.language !== defaultLanguage) return -1
+            if (a.language !== defaultLanguage && b.language === defaultLanguage) return 1
+            
+            // Priority 3: Default language priority (KM > EN > JP)
+            return (priority[a.language] || 999) - (priority[b.language] || 999)
+          })
+        }
+        return this.formatTemplateResponse(item)
+      })
     })
   }
 
@@ -1240,7 +1420,29 @@ export class TemplateService implements OnModuleInit {
 
     const items = allItems.slice(skip, skip + take)
 
-    const formattedItems = items.map((item) => this.formatTemplateResponse(item, req))
+    const formattedItems = items.map((item) => {
+      // Sort translations within each item to prioritize content and then the requested language
+      if (item.translations && item.translations.length > 0) {
+        item.translations.sort((a, b) => {
+          const priority = { KM: 1, EN: 2, JP: 3 }
+          
+          // Priority 1: Has actual content (Title or Content)
+          const aHasContent = (a.title && String(a.title).trim() !== '') || (a.content && String(a.content).trim() !== '')
+          const bHasContent = (b.title && String(b.title).trim() !== '') || (b.content && String(b.content).trim() !== '')
+          
+          if (aHasContent && !bHasContent) return -1
+          if (!aHasContent && bHasContent) return 1
+          
+          // Priority 2: Requested language (exact match) - only if both have content or both are empty
+          if (a.language === defaultLanguage && b.language !== defaultLanguage) return -1
+          if (a.language !== defaultLanguage && b.language === defaultLanguage) return 1
+          
+          // Priority 3: Default language priority (KM > EN > JP)
+          return (priority[a.language] || 999) - (priority[b.language] || 999)
+        })
+      }
+      return this.formatTemplateResponse(item)
+    })
     const paginationMeta = PaginationUtils.calculatePaginationMeta(
       page || 1,
       size || 12,
@@ -1266,11 +1468,13 @@ export class TemplateService implements OnModuleInit {
   ) {
     try {
       const { skip, take } = PaginationUtils.normalizePagination(page || 1, size || 100)
+      const requestedLanguage = _language || 'KM'
 
       const queryBuilder = this.repo
         .createQueryBuilder('template')
         .leftJoinAndSelect('template.translations', 'translation')
         .leftJoinAndSelect('translation.image', 'image')
+        .leftJoinAndSelect('template.categoryTypeEntity', 'categoryTypeEntity')
 
       const [items, total] = await queryBuilder.getManyAndCount()
 
@@ -1308,6 +1512,19 @@ export class TemplateService implements OnModuleInit {
         .map((template) => {
           const sortedTranslations = template.translations?.sort((a, b) => {
             const priority = { KM: 1, EN: 2, JP: 3 }
+            
+            // Priority 1: Has actual content (Title or Content)
+            const aHasContent = (a.title && String(a.title).trim() !== '') || (a.content && String(a.content).trim() !== '')
+            const bHasContent = (b.title && String(b.title).trim() !== '') || (b.content && String(b.content).trim() !== '')
+            
+            if (aHasContent && !bHasContent) return -1
+            if (!aHasContent && bHasContent) return 1
+            
+            // Priority 2: Requested language (exact match) - only if both have content or both are empty
+            if (a.language === requestedLanguage && b.language !== requestedLanguage) return -1
+            if (a.language !== requestedLanguage && b.language === requestedLanguage) return 1
+            
+            // Priority 3: Default language priority (KM > EN > JP)
             return (priority[a.language] || 999) - (priority[b.language] || 999)
           })
 
@@ -1344,15 +1561,17 @@ export class TemplateService implements OnModuleInit {
         name: error?.name,
         code: error?.code,
       })
-      throw new BaseResponseDto({
-        responseCode: 1,
-        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
-        responseMessage: error?.message || 'Failed to fetch templates',
-        data: {
-          error: error?.message,
-          context: 'findTemplatesAsNotifications',
-        },
-      })
+      throw new BadRequestException(
+        new BaseResponseDto({
+          responseCode: 1,
+          errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+          responseMessage: error?.message || 'Failed to fetch templates',
+          data: {
+            error: error?.message,
+            context: 'findTemplatesAsNotifications',
+          },
+        }),
+      )
     }
   }
 
@@ -1379,6 +1598,7 @@ export class TemplateService implements OnModuleInit {
       .createQueryBuilder('template')
       .leftJoinAndSelect('template.translations', 'translations')
       .leftJoinAndSelect('translations.image', 'image')
+      .leftJoinAndSelect('template.categoryTypeEntity', 'categoryTypeEntity')
       .where('template.id = :id', { id })
       .getOne()
 
@@ -1394,9 +1614,57 @@ export class TemplateService implements OnModuleInit {
 
     return template
   }
+  private getFormattedDate(template: Template, status: string): string {
+    let dateToShow: Date
+    if (template.isSent && template.updatedAt) {
+      dateToShow = template.updatedAt
+    } else if (template.sendSchedule) {
+      dateToShow = template.sendSchedule
+    } else {
+      dateToShow = template.createdAt
+    }
+
+    const datePart = dateToShow.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'Asia/Phnom_Penh',
+    })
+
+    const isDraftWithoutSchedule = status === 'draft' && !template.sendSchedule
+    const dateString = isDraftWithoutSchedule
+      ? datePart
+      : `${datePart} | ${dateToShow.toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Phnom_Penh',
+        })}`
+
+    // Add '(scheduled time)' suffix for published records that were originally scheduled
+    if (status === 'published' && template.sendType === SendType.SEND_SCHEDULE) {
+      return `${dateString} (scheduled time)`
+    }
+
+    return dateString
+  }
+
   private formatTemplateResponse(template: Template, req?: any) {
     // Parse platforms to ensure it's always an array in the response
     const parsedPlatforms = ValidationHelper.parsePlatforms(template.platforms)
+
+    // Calculate explicit status
+    let status: 'published' | 'scheduled' | 'draft'
+    if (template.isSent) {
+      status = 'published'
+    } else if (
+      template.sendType === SendType.SEND_SCHEDULE ||
+      template.sendType === SendType.SEND_INTERVAL
+    ) {
+      status = 'scheduled'
+    } else {
+      status = 'draft'
+    }
 
     const baseUrl = this.baseFunctionHelper
       ? this.baseFunctionHelper.getBaseUrl(req)
@@ -1414,6 +1682,8 @@ export class TemplateService implements OnModuleInit {
 
     const formattedTemplate: any = {
       templateId: template.id,
+      status, // New explicit status field
+      date: this.getFormattedDate(template, status), // Add formatted date
       platforms: parsedPlatforms, // Always return as array for frontend
       bakongPlatform: template.bakongPlatform,
       sendType: template.sendType,
@@ -1439,13 +1709,18 @@ export class TemplateService implements OnModuleInit {
       createdAt: moment(template.createdAt).toISOString(),
       updatedAt: template.updatedAt ? moment(template.updatedAt).toISOString() : null,
       deletedAt: template.deletedAt ? moment(template.deletedAt).toISOString() : null,
+      // ... existing fields ...
       // Preserve send result properties if they exist
       successfulCount: (template as any).successfulCount,
       failedCount: (template as any).failedCount,
       failedUsers: (template as any).failedUsers,
       failedDueToInvalidTokens: (template as any).failedDueToInvalidTokens,
+      failedUserDetails: (template as any).failedUserDetails, // Include detailed error info for debugging
       // Preserve savedAsDraftNoUsers flag if it exists
-      savedAsDraftNoUsers: (template as any).savedAsDraftNoUsers,
+      // CRITICAL: Only set to true if explicitly set AND failedCount === 0 (no users attempted)
+      // If failedCount > 0, it means users exist but all failed - this is NOT "no users"
+      savedAsDraftNoUsers: (template as any).savedAsDraftNoUsers === true && 
+        ((template as any).failedCount === undefined || (template as any).failedCount === 0),
       translations: template.translations
         ? template.translations.map((translation) => ({
             id: translation.id,
@@ -1475,8 +1750,14 @@ export class TemplateService implements OnModuleInit {
     }
 
     // Add flag if saved as draft due to no users
-    if ((template as any).savedAsDraftNoUsers) {
+    // CRITICAL: Only set to true if failedCount === 0 (no users attempted)
+    // If failedCount > 0, it means users exist but all failed - this is NOT "no users"
+    if ((template as any).savedAsDraftNoUsers === true && 
+        ((template as any).failedCount === undefined || (template as any).failedCount === 0)) {
       formattedTemplate.savedAsDraftNoUsers = true
+    } else {
+      // Explicitly set to false if failedCount > 0 to prevent incorrect flag persistence
+      formattedTemplate.savedAsDraftNoUsers = false
     }
 
     // Include send result properties if they exist
@@ -1485,6 +1766,7 @@ export class TemplateService implements OnModuleInit {
       formattedTemplate.failedCount = (template as any).failedCount
       formattedTemplate.failedUsers = (template as any).failedUsers || []
       formattedTemplate.failedDueToInvalidTokens = (template as any).failedDueToInvalidTokens || false
+      formattedTemplate.failedUserDetails = (template as any).failedUserDetails || [] // Include detailed error info for debugging
     }
 
     return formattedTemplate
@@ -1500,10 +1782,10 @@ export class TemplateService implements OnModuleInit {
       return null
     }
 
-    let status: string
+    let status: 'published' | 'scheduled' | 'draft'
     if (template.isSent) {
       status = 'published'
-    } else if (template.sendType === 'SEND_SCHEDULE' || template.sendType === 'SEND_INTERVAL') {
+    } else if (template.sendType === SendType.SEND_SCHEDULE || template.sendType === SendType.SEND_INTERVAL) {
       status = 'scheduled'
     } else {
       status = 'draft'
@@ -1513,32 +1795,7 @@ export class TemplateService implements OnModuleInit {
     const username = template.publishedBy || template.updatedBy || template.createdBy || 'System'
     // Get displayName from map if available, otherwise fallback to username
     const author = displayNameMap?.get(username) || username
-    let dateToShow: Date
-    if (template.isSent && template.updatedAt) {
-      dateToShow = template.updatedAt
-    } else if (template.sendSchedule) {
-      dateToShow = template.sendSchedule
-    } else {
-      dateToShow = template.createdAt
-    }
-
-    const datePart = dateToShow.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      timeZone: 'Asia/Phnom_Penh',
-    })
-
-    const isDraftWithoutSchedule = status === 'draft' && !template.sendSchedule
-    const date = isDraftWithoutSchedule
-      ? datePart
-      : `${datePart} | ${dateToShow.toLocaleTimeString('en-GB', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-          timeZone: 'Asia/Phnom_Penh',
-        })}`
-
+    
     // Parse platforms using shared helper function
     const platforms = ValidationHelper.parsePlatforms(template.platforms)
 
@@ -1561,15 +1818,16 @@ export class TemplateService implements OnModuleInit {
       content: translation.content,
       image: translation.imageId ? `/api/v1/image/${translation.imageId}` : '',
       linkPreview: translation.linkPreview,
-      date: date,
+      date: this.getFormattedDate(template, status),
       status: status,
-      type: template.notificationType,
-      categoryType: template.categoryTypeEntity?.name || null,
-      categoryIcon: categoryIcon,
+      type: template.categoryTypeEntity?.name || template.notificationType,
+      categoryType: template.categoryTypeEntity?.name,
+      categoryTypeId: template.categoryTypeId,
       createdAt: template.createdAt,
       templateId: template.id,
       isSent: template.isSent,
       sendType: template.sendType,
+      updatedAt: template.updatedAt,
       scheduledTime: template.sendSchedule
         ? TimezoneUtils.formatCambodiaTime(template.sendSchedule)
         : null,
@@ -1716,15 +1974,14 @@ export class TemplateService implements OnModuleInit {
               } at ${new Date()}`,
             )
 
-            // When scheduled notification is sent, mark as published and clear schedule
-            // This moves it from Scheduled tab to Published tab
+            // When scheduled notification is sent, mark as published
+            // Preserving original sendType and sendSchedule for historical records
             const updateResult = await this.repo
               .createQueryBuilder()
               .update(Template)
               .set({
                 isSent: true,
-                sendType: SendType.SEND_NOW, // Change to SEND_NOW so it appears in Published tab
-                sendSchedule: null, // Clear schedule since it's been sent
+                updatedAt: new Date(),
               })
               .where('id = :id', { id: template.id })
               .andWhere('isSent = :isSent', { isSent: false })
@@ -1867,8 +2124,8 @@ export class TemplateService implements OnModuleInit {
 
     if (dto.templateId) {
       const template = await this.findTemplateById(dto.templateId.toString())
-      // Verify template is published (not draft)
-      if (template && !template.isSent) {
+      // Verify template is published (not draft) unless explicitly publishing now
+      if (template && !template.isSent && dto.publishNow !== true) {
         throw new Error(
           `Template ${dto.templateId} is a draft and cannot be sent. Please publish it first.`,
         )

@@ -7,6 +7,7 @@ import {
   IsArray,
   ValidateNested,
   ValidateIf,
+  IsBoolean,
 } from 'class-validator'
 import { Language, NotificationType, Platform, BakongApp } from '@bakong/shared'
 import { ValidationHelper } from 'src/common/util/validation.helper'
@@ -42,6 +43,7 @@ export default class SentNotificationDto {
   @IsEnum(Platform)
   platform?: Platform
 
+  @IsOptional()
   @IsString()
   @Transform(({ value }) => {
     if (typeof value === 'string') {
@@ -51,7 +53,7 @@ export default class SentNotificationDto {
     return value
   })
   @IsEnum(Language, { message: 'Language must be one of: EN, KM, JP' })
-  language: Language
+  language?: Language
 
   @IsOptional()
   @IsNumber()
@@ -91,6 +93,10 @@ export default class SentNotificationDto {
     return value
   })
   bakongPlatform?: BakongApp
+
+  @IsOptional()
+  @IsBoolean()
+  publishNow?: boolean
 }
 
 export class FlashNotificationDto {

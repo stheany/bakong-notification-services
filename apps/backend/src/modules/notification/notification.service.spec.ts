@@ -25,19 +25,25 @@ import { InboxResponseDto } from './dto/inbox-response.dto'
 describe('NotificationService', () => {
   let service: NotificationService
 
-  // Mock repositories
-  const mockBakongUserRepo = {
-    find: jest.fn(),
-    findOne: jest.fn(),
-    save: jest.fn(),
-  }
-
   const mockQueryBuilder = {
     select: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
     getOne: jest.fn(),
+    getMany: jest.fn(),
+    getManyAndCount: jest.fn(),
+  }
+
+  // Mock repositories
+  const mockBakongUserRepo = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    save: jest.fn(),
+    createQueryBuilder: jest.fn(() => mockQueryBuilder),
   }
 
   const mockNotificationRepo = {
@@ -84,7 +90,7 @@ describe('NotificationService', () => {
     id: 1,
     accountId: 'test@bkrt.com',
     bakongPlatform: BakongApp.BAKONG,
-    fcmToken: 'test-fcm-token-123',
+    fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
     platform: Platform.IOS,
     language: Language.EN,
   } as BakongUser
@@ -131,7 +137,7 @@ describe('NotificationService', () => {
     accountId: 'test@bkrt.com',
     sendCount: 1,
     firebaseMessageId: 0,
-    fcmToken: 'test-fcm-token-123',
+    fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
     template: sampleTemplate,
@@ -197,6 +203,15 @@ describe('NotificationService', () => {
       mockTemplateRepo.findOne.mockResolvedValue(template)
       mockTemplateService.findBestTranslation.mockReturnValue(sampleTranslation)
       mockBakongUserRepo.find.mockResolvedValue([sampleUser])
+      mockBakongUserRepo.createQueryBuilder().getMany.mockResolvedValue([sampleUser])
+      mockBaseFunctionHelper.syncAllUsers.mockResolvedValue({
+        updatedCount: 0,
+        totalCount: 1,
+        platformUpdates: 0,
+        languageUpdates: 0,
+        invalidTokens: 0,
+        updatedIds: [],
+      })
       ValidationHelper.validateFCMTokens = jest.fn().mockResolvedValue([sampleUser])
 
       const mockFCM = {
@@ -251,6 +266,15 @@ describe('NotificationService', () => {
       mockTemplateRepo.findOne.mockResolvedValue(template)
       mockTemplateService.findBestTranslation.mockReturnValue(sampleTranslation)
       mockBakongUserRepo.find.mockResolvedValue([user1, user2])
+      mockBakongUserRepo.createQueryBuilder().getMany.mockResolvedValue([user1, user2])
+      mockBaseFunctionHelper.syncAllUsers.mockResolvedValue({
+        updatedCount: 0,
+        totalCount: 2,
+        platformUpdates: 0,
+        languageUpdates: 0,
+        invalidTokens: 0,
+        updatedIds: [],
+      })
       ValidationHelper.validateFCMTokens = jest.fn().mockResolvedValue([user1])
 
       const mockFCM = {
@@ -301,6 +325,15 @@ describe('NotificationService', () => {
 
       mockTemplateRepo.findOne.mockResolvedValue(template)
       mockBakongUserRepo.find.mockResolvedValue([userWithoutToken])
+      mockBakongUserRepo.createQueryBuilder().getMany.mockResolvedValue([userWithoutToken])
+      mockBaseFunctionHelper.syncAllUsers.mockResolvedValue({
+        updatedCount: 0,
+        totalCount: 1,
+        platformUpdates: 0,
+        languageUpdates: 0,
+        invalidTokens: 0,
+        updatedIds: [],
+      })
 
       const result = await service.sendWithTemplate(template as any)
       expect(result.successfulCount).toBe(0)
@@ -316,6 +349,15 @@ describe('NotificationService', () => {
       mockTemplateRepo.findOne.mockResolvedValue(template)
       mockTemplateService.findBestTranslation.mockReturnValue(sampleTranslation)
       mockBakongUserRepo.find.mockResolvedValue([sampleUser])
+      mockBakongUserRepo.createQueryBuilder().getMany.mockResolvedValue([sampleUser])
+      mockBaseFunctionHelper.syncAllUsers.mockResolvedValue({
+        updatedCount: 0,
+        totalCount: 1,
+        platformUpdates: 0,
+        languageUpdates: 0,
+        invalidTokens: 0,
+        updatedIds: [],
+      })
       ValidationHelper.validateFCMTokens = jest.fn().mockResolvedValue([sampleUser])
 
       const mockFCM = {
@@ -395,8 +437,9 @@ describe('NotificationService', () => {
         accountId: 'test@bkrt.com',
         language: Language.EN,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         platform: Platform.IOS,
       } as SentNotificationDto
 
@@ -408,6 +451,7 @@ describe('NotificationService', () => {
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: sampleTemplate,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -440,6 +484,7 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         language: Language.EN,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       } as SentNotificationDto
 
       const templateWithPlatform = {
@@ -450,6 +495,7 @@ describe('NotificationService', () => {
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: templateWithPlatform,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -467,11 +513,13 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         language: Language.EN,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       } as SentNotificationDto
 
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: sampleTemplate,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -527,7 +575,7 @@ describe('NotificationService', () => {
     it('should return notification center data successfully', async () => {
       const dto = {
         accountId: 'test@bkrt.com',
-        fcmToken: 'test-fcm-token-123',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         bakongPlatform: BakongApp.BAKONG,
         language: Language.EN,
         page: 1,
@@ -547,7 +595,7 @@ describe('NotificationService', () => {
       mockBaseFunctionHelper.findUserByAccountId
         .mockResolvedValueOnce(sampleUser) // After sync check
         .mockResolvedValueOnce(sampleUser) // After sync verification
-      mockNotificationRepo.findAndCount.mockResolvedValue([[notificationWithTemplateId], 1])
+      mockQueryBuilder.getManyAndCount.mockResolvedValue([[notificationWithTemplateId], 1])
       mockTemplateRepo.findOne.mockResolvedValue({
         ...sampleTemplate,
         translations: [sampleTranslation],
@@ -566,7 +614,7 @@ describe('NotificationService', () => {
     it('should return error if user not found', async () => {
       const dto = {
         accountId: 'nonexistent@bkrt.com',
-        fcmToken: 'test-fcm-token-123',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         bakongPlatform: BakongApp.BAKONG,
         language: Language.EN,
       } as any
@@ -583,7 +631,7 @@ describe('NotificationService', () => {
     it('should filter notifications by bakongPlatform', async () => {
       const dto = {
         accountId: 'test@bkrt.com',
-        fcmToken: 'test-fcm-token-123',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         bakongPlatform: BakongApp.BAKONG,
         language: Language.EN,
         page: 1,
@@ -620,7 +668,7 @@ describe('NotificationService', () => {
       mockBaseFunctionHelper.findUserByAccountId
         .mockResolvedValueOnce(userWithPlatform) // After sync check
         .mockResolvedValueOnce(userWithPlatform) // After sync verification
-      mockNotificationRepo.findAndCount.mockResolvedValue([[notification1, notification2], 2])
+      mockQueryBuilder.getManyAndCount.mockResolvedValue([[notification1, notification2], 2])
       mockTemplateRepo.findOne
         .mockResolvedValueOnce({ ...templateMatching, translations: [sampleTranslation] })
         .mockResolvedValueOnce({ ...templateNotMatching, translations: [sampleTranslation] })
@@ -642,7 +690,7 @@ describe('NotificationService', () => {
       const params = {
         accountId: 'test@bkrt.com',
         templateId: 1,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         sendCount: 1,
         firebaseMessageId: 0,
       }
@@ -726,11 +774,13 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         language: Language.EN,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       } as SentNotificationDto
 
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: sampleTemplate,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -796,6 +846,7 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         language: Language.EN,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       } as SentNotificationDto
 
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
@@ -803,6 +854,7 @@ describe('NotificationService', () => {
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: sampleTemplate,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -885,11 +937,13 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         language: Language.EN,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       } as SentNotificationDto
 
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: sampleTemplate,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -976,6 +1030,7 @@ describe('NotificationService', () => {
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: template,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -993,8 +1048,9 @@ describe('NotificationService', () => {
         accountId: 'test@bkrt.com',
         language: Language.EN,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         platform: Platform.IOS,
       } as SentNotificationDto
 
@@ -1034,8 +1090,9 @@ describe('NotificationService', () => {
         accountId: 'test@bkrt.com',
         language: Language.EN,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         platform: Platform.IOS,
       } as SentNotificationDto
 
@@ -1059,8 +1116,9 @@ describe('NotificationService', () => {
         accountId: 'test@bkrt.com',
         language: Language.EN,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         platform: Platform.IOS,
       } as SentNotificationDto
 
@@ -1098,8 +1156,9 @@ describe('NotificationService', () => {
         accountId: 'test@bkrt.com',
         language: Language.EN,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         platform: Platform.IOS,
       } as SentNotificationDto
 
@@ -1121,8 +1180,9 @@ describe('NotificationService', () => {
         accountId: 'test@bkrt.com',
         language: Language.EN,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         platform: Platform.IOS,
       } as SentNotificationDto
 
@@ -1165,6 +1225,7 @@ describe('NotificationService', () => {
         ...sampleTemplate,
         id: 3,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         showPerDay: 3,
         maxDayShowing: 5,
         bakongPlatform: BakongApp.BAKONG,
@@ -1175,8 +1236,9 @@ describe('NotificationService', () => {
         accountId: 'test@bkrt.com',
         language: Language.EN,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         platform: Platform.IOS,
       } as SentNotificationDto
 
@@ -1216,6 +1278,7 @@ describe('NotificationService', () => {
         ...sampleTemplate,
         id: 1,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
         translations: [sampleTranslation],
       } as any
@@ -1223,11 +1286,13 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         language: Language.EN,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       } as SentNotificationDto
 
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: announcementTemplate,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -1290,6 +1355,7 @@ describe('NotificationService', () => {
         ...sampleTemplate,
         id: 1,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
         translations: [sampleTranslation],
       } as any
@@ -1297,11 +1363,13 @@ describe('NotificationService', () => {
       const dto: SentNotificationDto = {
         language: Language.EN,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       } as SentNotificationDto
 
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: announcementTemplate,
         notificationType: NotificationType.ANNOUNCEMENT,
+        errorCode: 0,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -1364,6 +1432,10 @@ describe('NotificationService', () => {
   describe('Flash Notification Edge Cases', () => {
     beforeEach(() => {
       jest.clearAllMocks()
+      mockTemplateRepo.find.mockReset()
+      mockTemplateRepo.findOne.mockReset()
+      mockTemplateService.findNotificationTemplate.mockReset()
+      mockTemplateService.findBestTemplateForUser.mockReset()
     })
 
     // Helper function to setup mocks for flash notification flow
@@ -1377,6 +1449,7 @@ describe('NotificationService', () => {
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: template,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
       })
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
@@ -1394,6 +1467,7 @@ describe('NotificationService', () => {
         ...sampleTemplate,
         id: 4,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         showPerDay: null,
         maxDayShowing: undefined,
         bakongPlatform: BakongApp.BAKONG,
@@ -1404,8 +1478,9 @@ describe('NotificationService', () => {
         accountId: 'test@bkrt.com',
         language: Language.EN,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         platform: Platform.IOS,
       } as SentNotificationDto
 
@@ -1426,6 +1501,7 @@ describe('NotificationService', () => {
         ...sampleTemplate,
         id: 1,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         showPerDay: 2,
         maxDayShowing: 3,
         bakongPlatform: BakongApp.BAKONG,
@@ -1439,7 +1515,7 @@ describe('NotificationService', () => {
         notificationType: NotificationType.FLASH_NOTIFICATION,
         templateId: 1,
         bakongPlatform: BakongApp.BAKONG,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         platform: Platform.IOS,
       } as SentNotificationDto
 
@@ -1448,15 +1524,13 @@ describe('NotificationService', () => {
         .mockResolvedValueOnce(sampleUser) // Second call in handleFlashNotification
       mockBaseFunctionHelper.updateUserData.mockResolvedValue({})
       mockBakongUserRepo.find.mockResolvedValue([sampleUser])
-      // When templateId is provided, sendNow uses findNotificationTemplate which calls findOne
+      mockTemplateRepo.find.mockResolvedValue([flashTemplateWithLimits])
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: flashTemplateWithLimits,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
       })
-      // handleFlashNotification also calls findOne when templateId is provided
-      mockTemplateRepo.findOne
-        .mockResolvedValueOnce(flashTemplateWithLimits) // First call in sendNow (via findNotificationTemplate)
-        .mockResolvedValueOnce(flashTemplateWithLimits) // Second call in handleFlashNotification
+      mockTemplateRepo.findOne.mockResolvedValue(flashTemplateWithLimits)
       ValidationHelper.validateTranslation = jest.fn().mockReturnValue({
         isValid: true,
         translation: sampleTranslation,
@@ -1499,6 +1573,7 @@ describe('NotificationService', () => {
         ...sampleTemplate,
         id: 1,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         showPerDay: 2,
         maxDayShowing: 3,
         bakongPlatform: BakongApp.BAKONG,
@@ -1509,8 +1584,9 @@ describe('NotificationService', () => {
         accountId: 'test@bkrt.com',
         language: Language.EN,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         platform: Platform.IOS,
       } as SentNotificationDto
 
@@ -1557,6 +1633,7 @@ describe('NotificationService', () => {
         ...sampleTemplate,
         id: 1,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         showPerDay: 2,
         maxDayShowing: 3,
         bakongPlatform: BakongApp.BAKONG,
@@ -1567,8 +1644,9 @@ describe('NotificationService', () => {
         accountId: 'test@bkrt.com',
         language: Language.EN,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         platform: Platform.IOS,
       } as SentNotificationDto
 
@@ -1590,8 +1668,9 @@ describe('NotificationService', () => {
         accountId: 'test@bkrt.com',
         language: Language.EN,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
         bakongPlatform: BakongApp.BAKONG,
-        fcmToken: 'test-token',
+        fcmToken: 'test-fcm-token-at-least-100-characters-long-1234567890-1234567890-1234567890-1234567890-1234567890-1234567890',
         platform: Platform.IOS,
       } as SentNotificationDto
 
@@ -1604,6 +1683,7 @@ describe('NotificationService', () => {
       mockTemplateService.findNotificationTemplate.mockResolvedValue({
         template: null,
         notificationType: NotificationType.FLASH_NOTIFICATION,
+        errorCode: 0,
       })
       mockTemplateService.findBestTemplateForUser.mockResolvedValue(null)
 

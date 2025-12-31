@@ -57,8 +57,9 @@
                 @command="(command: Platform) => (formData.pushToPlatforms = command)"
                 trigger="click"
                 class="custom-dropdown"
+                :disabled="isEditingPublished"
               >
-                <span class="dropdown-trigger">
+                <span class="dropdown-trigger" :class="{ disabled: isEditingPublished }">
                   {{ formatPlatform(formData.pushToPlatforms) }}
                   <el-icon class="dropdown-icon">
                     <ArrowDown />
@@ -120,8 +121,9 @@
               @command="(command: BakongApp) => (formData.platform = command)"
               trigger="click"
               class="custom-dropdown full-width-dropdown"
+              :disabled="isEditingPublished"
             >
-              <span class="dropdown-trigger full-width-trigger">
+              <span class="dropdown-trigger full-width-trigger" :class="{ disabled: isEditingPublished }">
                 {{ formatBakongApp(formData.platform) }}
                 <el-icon class="dropdown-icon">
                   <ArrowDown />
@@ -171,8 +173,12 @@
                 </div>
                 <div class="schedule-option-right">
                   <span class="option-label">Set time and date</span>
-                  <label class="toggle-switch">
-                    <input v-model="formData.scheduleEnabled" type="checkbox" />
+                  <label class="toggle-switch" :class="{ disabled: isEditingPublished }">
+                    <input
+                      v-model="formData.scheduleEnabled"
+                      type="checkbox"
+                      :disabled="isEditingPublished"
+                    />
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
@@ -191,6 +197,8 @@
                     :prefix-icon="null"
                     :clear-icon="null"
                     :disabled-date="disabledDate"
+                    :disabled="isEditingPublished"
+                    @change="(val: string | null) => { formData.scheduleDate = val ?? ''; console.log('Date changed:', val) }"
                   />
                 </div>
                 <div class="schedule-form-group">
@@ -208,6 +216,8 @@
                     :disabled-minutes="
                       (hour: number) => disabledMinutes(hour, formData.scheduleDate)
                     "
+                    :disabled="isEditingPublished"
+                    @change="(val: string | null) => { formData.scheduleTime = val; console.log('Time changed:', val) }"
                   />
                 </div>
               </div>
@@ -320,7 +330,7 @@
   <ConfirmationDialog
     v-model="showLeaveDialog"
     title="Are you sure you want to leave?"
-    message="If you leave now, your progress will be saved as a draft. You can resume and complete it anytime."
+    :message="isEditMode ? 'If you leave now, any changes you made will be updated. If there are no changes, nothing will be updated.' : 'If you leave now, your progress will be saved as a draft. You can resume and complete it anytime.'"
     :confirm-text="isEditMode ? 'Update and leave' : 'Save as draft & leave'"
     cancel-text="Stay on page"
     type="warning"
@@ -339,12 +349,23 @@
     @confirm="handleUpdateConfirmationConfirm"
     @cancel="handleUpdateConfirmationCancel"
   />
+  <ConfirmationDialog
+    v-model="showMissingLanguageDialog"
+    title="Missing Language Content"
+    :message="missingLanguagesMessage"
+    :confirm-text="formData.scheduleEnabled ? 'Schedule Anyway' : 'Publish Anyway'"
+    cancel-text="Back to edit"
+    type="warning"
+    confirm-button-type="primary"
+    :dangerously-use-h-t-m-l-string="true"
+    @confirm="handleMissingLanguageConfirm"
+    @cancel="handleMissingLanguageCancel"
+  />
 </template>
-
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
-import { ElNotification, ElInputNumber } from 'element-plus'
+import { ElNotification, ElInputNumber, ElMessageBox } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { MobilePreview, ImageUpload, Tabs, Button } from '@/components/common'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog.vue'
@@ -380,16 +401,15 @@ import {
   mapLanguageToEnum,
   compressImage,
 } from '../utils/helpers'
-
 const router = useRouter()
 const route = useRoute()
-
 const isEditMode = computed(() => route.name === 'edit-notification')
 const notificationId = computed(() => route.params.id as string)
 const fromTab = computed(() => (route.query.fromTab as string) || '')
 const isEditingPublished = ref(false)
-
-// Dynamic button text based on context
+const wasScheduled = ref(false)
+const originalScheduleISO = ref<string | null>(null)
+const isLoadingData = ref(false)
 const publishButtonText = computed(() => {
   if (isEditingPublished.value) {
     return 'Update now'
@@ -399,32 +419,24 @@ const publishButtonText = computed(() => {
   }
   return 'Publish now'
 })
-
 const languages = [
   { code: Language.KM, name: 'Khmer' },
   { code: Language.EN, name: 'English' },
   { code: Language.JP, name: 'Japan' },
 ]
-
 const languageTabs = languages.map((lang) => ({
   value: lang.code,
   label: lang.name,
 }))
-
 const activeLanguage = ref<Language>(Language.KM)
-
 const handleLanguageChanged = (tab: { value: string; label: string }) => {
   activeLanguage.value = tab.value as Language
   titleError.value = ''
   descriptionError.value = ''
   linkError.value = ''
 }
-
-// Flash notification settings - defaults and disabled for first version
-
 const datePlaceholder = ref(getCurrentDatePlaceholder())
 const timePlaceholder = ref(getCurrentTimePlaceholder())
-
 type LanguageFormData = {
   title: string
   description: string
@@ -432,7 +444,6 @@ type LanguageFormData = {
   imageFile?: File | null
   imageUrl?: string | null
 }
-
 const languageFormData = reactive<Record<string, LanguageFormData>>({
   [Language.KM]: {
     title: '',
@@ -461,11 +472,43 @@ const existingImageIds = reactive<Record<string, string | null>>({
   [Language.EN]: null,
   [Language.JP]: null,
 })
-
 const existingTranslationIds = reactive<Record<string, number | null>>({
   [Language.KM]: null,
   [Language.EN]: null,
   [Language.JP]: null,
+})
+const originalLanguageFormData = reactive<Record<string, LanguageFormData>>({
+  [Language.KM]: {
+    title: '',
+    description: '',
+    linkToSeeMore: '',
+    imageFile: null,
+    imageUrl: null,
+  },
+  [Language.EN]: {
+    title: '',
+    description: '',
+    linkToSeeMore: '',
+    imageFile: null,
+    imageUrl: null,
+  },
+  [Language.JP]: {
+    title: '',
+    description: '',
+    linkToSeeMore: '',
+    imageFile: null,
+    imageUrl: null,
+  },
+})
+const originalImageIds = reactive<Record<string, string | null>>({
+  [Language.KM]: null,
+  [Language.EN]: null,
+  [Language.JP]: null,
+})
+const originalFormData = reactive({
+  categoryTypeId: null as number | null,
+  pushToPlatforms: Platform.ALL,
+  platform: BakongApp.BAKONG,
 })
 const getTodayDateString = (): string => {
   const now = DateUtils.nowInCambodia()
@@ -474,12 +517,9 @@ const getTodayDateString = (): string => {
   const year = now.getFullYear()
   return `${month}/${day}/${year}`
 }
-
-// Use category types store
 const categoryTypesStore = useCategoryTypesStore()
 const categoryTypes = computed(() => categoryTypesStore.categoryTypes)
 const loadingCategoryTypes = computed(() => categoryTypesStore.loading)
-
 const formData = reactive({
   notificationType: NotificationType.ANNOUNCEMENT, // Default to ANNOUNCEMENT when flash is off
   categoryTypeId: null as number | null,
@@ -492,52 +532,46 @@ const formData = reactive({
   scheduleTime: null as string | null,
   splashEnabled: false,
 })
-
-// Initialize category types from store
 const initializeCategoryTypes = async () => {
   try {
     await categoryTypesStore.initialize()
-    // Set default to first category or NEWS if available
     if (categoryTypes.value.length > 0) {
       const newsCategory = categoryTypes.value.find(
-        (ct) => ct.name === 'News' || ct.name === 'NEWS',
+        (ct: CategoryTypeData) => ct.name === 'News' || ct.name === 'NEWS',
       )
-      formData.categoryTypeId = newsCategory?.id || categoryTypes.value[0].id
+      const defaultCategoryId = newsCategory?.id || categoryTypes.value[0].id
+      if (formData.categoryTypeId === null) {
+        formData.categoryTypeId = defaultCategoryId
+        if (!isEditMode.value) {
+          originalFormData.categoryTypeId = defaultCategoryId
+        }
+      }
     }
   } catch (error) {
     console.error('Failed to initialize category types:', error)
   }
 }
-
 onMounted(() => {
   initializeCategoryTypes()
-  // ... existing onMounted code
 })
-
 const currentTitle = computed({
   get: () => languageFormData[activeLanguage.value]?.title || '',
   set: (value: string) => {
     if (languageFormData[activeLanguage.value]) {
       languageFormData[activeLanguage.value].title = value
     }
-    if (titleError.value) {
-      validateTitle()
-    }
+    validateTitle()
   },
 })
-
 const currentDescription = computed({
   get: () => languageFormData[activeLanguage.value]?.description || '',
   set: (value: string) => {
     if (languageFormData[activeLanguage.value]) {
       languageFormData[activeLanguage.value].description = value
     }
-    if (descriptionError.value) {
-      validateDescription()
-    }
+    validateDescription()
   },
 })
-
 const currentLinkToSeeMore = computed({
   get: () => languageFormData[activeLanguage.value]?.linkToSeeMore || '',
   set: (value: string) => {
@@ -546,7 +580,6 @@ const currentLinkToSeeMore = computed({
     }
   },
 })
-
 const currentImageFile = computed({
   get: () => languageFormData[activeLanguage.value]?.imageFile || null,
   set: (value: File | null) => {
@@ -555,7 +588,6 @@ const currentImageFile = computed({
     }
   },
 })
-
 const currentImageUrl = computed({
   get: () => languageFormData[activeLanguage.value]?.imageUrl || null,
   set: (value: string | null) => {
@@ -564,78 +596,98 @@ const currentImageUrl = computed({
     }
   },
 })
-
-// Detect Khmer content for dynamic font application
 const titleHasKhmer = computed(() => containsKhmer(currentTitle.value))
 const descriptionHasKhmer = computed(() => containsKhmer(currentDescription.value))
-
+const templateCreatedAt = ref<Date | null>(null)
 const loadNotificationData = async () => {
   if (!isEditMode.value || !notificationId.value) return
-
+  isLoadingData.value = true
   try {
     const res = await api.get(`/api/v1/template/${notificationId.value}`)
     const template = res.data?.data
-
-    if (!template) return
-
-    // Check if editing a published notification (either from fromTab query or isSent status)
+    if (!template) {
+      isLoadingData.value = false
+      return
+    }
+    if (template.createdAt) {
+      templateCreatedAt.value = new Date(template.createdAt)
+    } else {
+      templateCreatedAt.value = null
+    }
     isEditingPublished.value = fromTab.value === 'published' || template.isSent === true
-
     formData.notificationType =
       mapNotificationTypeToFormType(template.notificationType) || NotificationType.NOTIFICATION
     formData.categoryTypeId = template.categoryTypeId || null
     formData.platform = (template.bakongPlatform as BakongApp) || BakongApp.BAKONG
-    
-    // Load pushToPlatforms from template.platforms array
+    originalFormData.categoryTypeId = template.categoryTypeId || null
+    originalFormData.platform = (template.bakongPlatform as BakongApp) || BakongApp.BAKONG
     if (template.platforms && Array.isArray(template.platforms) && template.platforms.length > 0) {
-      formData.pushToPlatforms = mapPlatformToFormPlatform(template.platforms)
+      const formPlatform = mapPlatformToFormPlatform(template.platforms)
+      formData.pushToPlatforms = formPlatform
+      originalFormData.pushToPlatforms = formPlatform
     } else {
-      // Default to ALL if platforms not provided
       formData.pushToPlatforms = Platform.ALL
+      originalFormData.pushToPlatforms = Platform.ALL
     }
-
     if (template.sendSchedule) {
       formData.scheduleEnabled = true
+      wasScheduled.value = true
+      originalScheduleISO.value = template.sendSchedule
       try {
-        const scheduleDate = new Date(template.sendSchedule)
-        if (!isNaN(scheduleDate.getTime())) {
-          const cambodiaStr = scheduleDate.toLocaleString('en-US', {
-            timeZone: 'Asia/Phnom_Penh',
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-          })
-          const [datePart, timePart] = cambodiaStr.split(', ')
-          if (datePart && timePart) {
-            const [month, day, year] = datePart.split('/').map(Number)
-            formData.scheduleDate = `${month}/${day}/${year}`
-            formData.scheduleTime = timePart
-          }
+        const { date, time } = DateUtils.formatUTCToCambodiaDateTime(template.sendSchedule)
+        if (date && time) {
+          formData.scheduleDate = date
+          formData.scheduleTime = time
+          console.log('✅ [Load Data] Set schedule:', { date, time })
         }
       } catch (error) {
         console.error('Error parsing schedule date/time:', error)
       }
+    } else if (isEditingPublished.value && template.updatedAt) {
+      try {
+        const { date, time } = DateUtils.formatUTCToCambodiaDateTime(template.updatedAt)
+        if (date && time) {
+          formData.scheduleDate = date
+          formData.scheduleTime = time
+          console.log('✅ [Load Data] Set published time:', { date, time })
+        }
+      } catch (error) {
+        console.error('Error parsing updated date/time:', error)
+      }
     }
-
     formData.splashEnabled = template.notificationType === NotificationType.FLASH_NOTIFICATION
     if (Array.isArray(template.translations)) {
       for (const t of template.translations) {
         const lang = t.language as string as Language
         if (!languageFormData[lang]) continue
-        languageFormData[lang].title = t.title || ''
-        languageFormData[lang].description = t.content || ''
-        languageFormData[lang].linkToSeeMore = t.linkPreview || ''
+        const title = t.title || ''
+        const description = t.content || ''
+        const linkPreview = t.linkPreview || ''
         const fileId = t.image?.fileId || t.image?.fileID || t.imageId || t.image?.id
+        languageFormData[lang].title = title
+        languageFormData[lang].description = description
+        languageFormData[lang].linkToSeeMore = linkPreview
         languageFormData[lang].imageUrl = fileId ? `/api/v1/image/${fileId}` : null
         languageFormData[lang].imageFile = null
         existingImageIds[lang] = fileId || null
-        // Store translation ID to preserve it during updates
+        originalLanguageFormData[lang].title = title
+        originalLanguageFormData[lang].description = description
+        originalLanguageFormData[lang].linkToSeeMore = linkPreview
+        originalLanguageFormData[lang].imageUrl = fileId ? `/api/v1/image/${fileId}` : null
+        originalLanguageFormData[lang].imageFile = null
+        originalImageIds[lang] = fileId || null
         existingTranslationIds[lang] = t.id || null
       }
+      const languagePriority = [Language.KM, Language.EN, Language.JP]
+      for (const lang of languagePriority) {
+        if (languageFormData[lang]?.title?.trim() || languageFormData[lang]?.description?.trim()) {
+          activeLanguage.value = lang
+          console.log('📑 [Load Data] Set active tab based on content priority:', lang)
+          break
+        }
+      }
     }
+    await nextTick()
   } catch (error) {
     console.error('Error loading notification data:', error)
     ElNotification({
@@ -644,52 +696,62 @@ const loadNotificationData = async () => {
       type: 'error',
       duration: 2000,
     })
+  } finally {
+    isLoadingData.value = false
   }
 }
-
 onMounted(async () => {
   datePlaceholder.value = getCurrentDatePlaceholder()
   timePlaceholder.value = getCurrentTimePlaceholder()
-
   if (isEditMode.value) {
     await loadNotificationData()
   }
 })
-
 const showConfirmationDialog = ref(false)
 const showLeaveDialog = ref(false)
 const showUpdateConfirmationDialog = ref(false)
+const showMissingLanguageDialog = ref(false)
+const missingLanguagesMessage = ref('')
 let pendingNavigation: (() => void) | null = null
 let isSavingOrPublishing = ref(false) // Flag to prevent blocking during save/publish
 const isDiscarding = ref(false) // Flag to allow navigation when discarding changes
-
-// Watch splashEnabled toggle to update notificationType
 watch(
   () => formData.splashEnabled,
   (isEnabled) => {
     if (isEnabled) {
-      // When "Show as flash" is turned ON, set to FLASH_NOTIFICATION
       formData.notificationType = NotificationType.FLASH_NOTIFICATION
     } else {
-      // When "Show as flash" is turned OFF, set to ANNOUNCEMENT
       formData.notificationType = NotificationType.ANNOUNCEMENT
     }
   },
 )
-
+watch(
+  () => formData.scheduleEnabled,
+  (isEnabled) => {
+    if (isEnabled && !isLoadingData.value) {
+      formData.scheduleDate = getTodayDateString()
+      formData.scheduleTime = getCurrentTimePlaceholder()
+      console.log('✅ [Schedule Toggle] Enabled - Set date:', formData.scheduleDate, 'time:', formData.scheduleTime)
+    } else if (!isEnabled) {
+      formData.scheduleTime = null
+      console.log('✅ [Schedule Toggle] Disabled - Cleared time')
+    }
+  },
+)
 const titleError = ref('')
 const descriptionError = ref('')
 const linkError = ref('')
-
+const DB_TITLE_MAX_LENGTH = 1024 // Database VARCHAR(1024) limit - matches DB exactly
 const validateTitle = () => {
   const val = currentTitle.value?.trim()
   if (!val) {
     titleError.value = 'Please enter a title'
+  } else if (val.length > DB_TITLE_MAX_LENGTH) {
+    titleError.value = `Title is too long (max ${DB_TITLE_MAX_LENGTH}), current length: ${val.length}.`
   } else {
     titleError.value = ''
   }
 }
-
 const validateDescription = () => {
   const val = currentDescription.value?.trim()
   if (!val) {
@@ -698,7 +760,6 @@ const validateDescription = () => {
     descriptionError.value = ''
   }
 }
-
 const isValidUrl = (val: string): boolean => {
   try {
     if (!val) return true
@@ -708,14 +769,12 @@ const isValidUrl = (val: string): boolean => {
     return false
   }
 }
-
 const validateLink = () => {
   const val = currentLinkToSeeMore.value
   linkError.value = isValidUrl(val)
     ? ''
     : 'Please enter a valid URL starting with http:// or https://'
 }
-
 const handleUploadError = (message: string) => {
   ElNotification({
     title: 'Error',
@@ -724,40 +783,119 @@ const handleUploadError = (message: string) => {
     duration: 2000,
   })
 }
-
 const handleLanguageImageSelected = (file: File) => {
   const currentLang = activeLanguage.value
   languageFormData[currentLang].imageFile = file
-
   const reader = new FileReader()
   reader.onload = (e) => {
     languageFormData[currentLang].imageUrl = e.target?.result as string
   }
   reader.readAsDataURL(file)
 }
-
 const handleLanguageImageRemoved = () => {
   const currentLang = activeLanguage.value
   languageFormData[currentLang].imageFile = null
   languageFormData[currentLang].imageUrl = null
   existingImageIds[currentLang] = null
 }
-
+const isNotificationOld = (): boolean => {
+  if (!templateCreatedAt.value) return false
+  const now = new Date()
+  const daysDiff = (now.getTime() - templateCreatedAt.value.getTime()) / (1000 * 60 * 60 * 24)
+  return daysDiff > 1 // More than 1 day old
+}
 const handlePublishNow = async () => {
-  validateTitle()
-  validateDescription()
-
-  if (
-    !currentTitle.value ||
-    !currentDescription.value ||
-    titleError.value ||
-    descriptionError.value
-  ) {
-    if (!titleError.value) validateTitle()
-    if (!descriptionError.value) validateDescription()
+  const currentLangHasExistingData = isEditMode.value && existingTranslationIds[activeLanguage.value] !== null
+  const currentLangHasUserInput = !!(currentTitle.value?.trim() || currentDescription.value?.trim() || currentImageFile.value)
+  if (isEditMode.value && !currentLangHasExistingData && !currentLangHasUserInput) {
+    let hasAnyChanges = false
+    const globalFieldsChanged = 
+      formData.platform !== originalFormData.platform ||
+      formData.categoryTypeId !== originalFormData.categoryTypeId ||
+      formData.pushToPlatforms !== originalFormData.pushToPlatforms
+    if (globalFieldsChanged) {
+      hasAnyChanges = true
+    } else {
+      for (const langKey of Object.keys(languageFormData)) {
+        const originalData = originalLanguageFormData[langKey]
+        const currentData = languageFormData[langKey]
+        if (!originalData) continue // Skip if no original data for this language
+        const titleChanged = (currentData?.title?.trim() || '') !== (originalData?.title?.trim() || '')
+        const descriptionChanged = (currentData?.description?.trim() || '') !== (originalData?.description?.trim() || '')
+        const linkChanged = (currentData?.linkToSeeMore?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
+        const imageChanged = currentData?.imageFile !== null || 
+                             (existingImageIds[langKey] !== originalImageIds[langKey])
+        if (titleChanged || descriptionChanged || linkChanged || imageChanged) {
+          hasAnyChanges = true
+          break // Found at least one change, no need to check further
+        }
+      }
+    }
+    if (!hasAnyChanges) {
+      const redirectTab = fromTab.value || 'published'
+      setTimeout(() => {
+        window.location.href = `/?tab=${redirectTab}`
+      }, 100)
+      return
+    }
+    const token = localStorage.getItem('auth_token')
+    if (!token || token.trim() === '') {
+      ElNotification({
+        title: 'Error',
+        message: 'Please login first',
+        type: 'error',
+        duration: 2000,
+      })
+      router.push('/login')
+      return
+    }
+    titleError.value = ''
+    descriptionError.value = ''
+    await handlePublishNowInternal()
     return
   }
-
+  let hasChangesForCurrentLang = false
+  const globalFieldsChanged = 
+    formData.platform !== originalFormData.platform ||
+    formData.categoryTypeId !== originalFormData.categoryTypeId ||
+    formData.pushToPlatforms !== originalFormData.pushToPlatforms
+  if (globalFieldsChanged) {
+    hasChangesForCurrentLang = true
+  } else if (isEditMode.value && currentLangHasExistingData) {
+    const currentLang = activeLanguage.value
+    const originalData = originalLanguageFormData[currentLang]
+    const titleChanged = (currentTitle.value?.trim() || '') !== (originalData?.title?.trim() || '')
+    const descriptionChanged = (currentDescription.value?.trim() || '') !== (originalData?.description?.trim() || '')
+    const linkChanged = (currentLinkToSeeMore.value?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
+    const imageChanged = currentImageFile.value !== null || 
+                         (existingImageIds[currentLang] !== originalImageIds[currentLang])
+    hasChangesForCurrentLang = titleChanged || descriptionChanged || linkChanged || imageChanged
+  }
+  if (!hasChangesForCurrentLang) {
+    const anyLanguageHasContent = Object.values(languageFormData).some(
+      langData => langData.title?.trim() && langData.description?.trim()
+    )
+    if (!anyLanguageHasContent) {
+      validateTitle()
+      validateDescription()
+      if (
+        !currentTitle.value ||
+        !currentDescription.value ||
+        titleError.value ||
+        descriptionError.value
+      ) {
+        if (!titleError.value) validateTitle()
+        if (!descriptionError.value) validateDescription()
+        return
+      }
+    } else {
+      titleError.value = ''
+      descriptionError.value = ''
+    }
+  } else {
+    titleError.value = ''
+    descriptionError.value = ''
+  }
   const token = localStorage.getItem('auth_token')
   if (!token || token.trim() === '') {
     ElNotification({
@@ -769,20 +907,67 @@ const handlePublishNow = async () => {
     router.push('/login')
     return
   }
-
-  // If editing a published notification, show confirmation dialog first
-  if (isEditMode.value && isEditingPublished.value) {
-    showUpdateConfirmationDialog.value = true
+  const missingLangs: string[] = []
+  const langs = [
+    { key: 'KM', label: 'Khmer' },
+    { key: 'EN', label: 'English' },
+    { key: 'JP', label: 'Japanese' }
+  ]
+  langs.forEach(lang => {
+    const data = languageFormData[lang.key]
+    const hasTitle = data?.title?.trim() !== ''
+    const hasDescription = data?.description?.trim() !== ''
+    if (!hasTitle || !hasDescription) {
+      missingLangs.push(lang.label)
+    }
+  })
+  if (!isEditingPublished.value && missingLangs.length > 0 && missingLangs.length < 3) {
+    const missingText = missingLangs.join(' and ')
+    const availableLangs = langs.filter(l => !missingLangs.includes(l.label)).map(l => l.label)
+    const availableText = availableLangs.join(' or ')
+    missingLanguagesMessage.value = `<strong>${missingText}</strong> content is missing. Users will see the <strong>${availableText}</strong> version instead. Continue?`
+    showMissingLanguageDialog.value = true
     return
   }
-
-  // Otherwise, proceed with publish/update
+  if (isEditMode.value && isEditingPublished.value) {
+    let hasAnyChanges = false
+    const globalFieldsChanged = 
+      formData.platform !== originalFormData.platform ||
+      formData.categoryTypeId !== originalFormData.categoryTypeId ||
+      formData.pushToPlatforms !== originalFormData.pushToPlatforms
+    if (globalFieldsChanged) {
+      hasAnyChanges = true
+    } else {
+      for (const langKey of Object.keys(languageFormData)) {
+        const originalData = originalLanguageFormData[langKey]
+        const currentData = languageFormData[langKey]
+        if (!originalData) continue // Skip if no original data for this language
+        const titleChanged = (currentData?.title?.trim() || '') !== (originalData?.title?.trim() || '')
+        const descriptionChanged = (currentData?.description?.trim() || '') !== (originalData?.description?.trim() || '')
+        const linkChanged = (currentData?.linkToSeeMore?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
+        const imageChanged = currentData?.imageFile !== null || 
+                             (existingImageIds[langKey] !== originalImageIds[langKey])
+        if (titleChanged || descriptionChanged || linkChanged || imageChanged) {
+          hasAnyChanges = true
+          break // Found at least one change, no need to check further
+        }
+      }
+    }
+    if (hasAnyChanges) {
+      showUpdateConfirmationDialog.value = true
+      return
+    } else {
+      const redirectTab = fromTab.value || 'published'
+      setTimeout(() => {
+        window.location.href = `/?tab=${redirectTab}`
+      }, 100)
+      return
+    }
+  }
   await handlePublishNowInternal()
 }
-
 const handlePublishNowInternal = async () => {
   isSavingOrPublishing.value = true
-
   const loadingNotification = ElNotification({
     title: isEditMode.value ? 'Updating notification...' : 'Creating notification...',
     message: isEditMode.value
@@ -791,48 +976,26 @@ const handlePublishNowInternal = async () => {
     type: 'warning',
     duration: 0,
   })
-
-  // Declare redirectTab outside try block so it's accessible in catch and after try-catch
+  await nextTick()
   let redirectTab = 'published'
-
   try {
-    let sendType = SendType.SEND_NOW
+    let sendType = formData.scheduleEnabled ? SendType.SEND_SCHEDULE : SendType.SEND_NOW
     let isSent = true
-
-    // When editing, determine redirect tab based on notification status and fromTab
-    if (isEditMode.value) {
-      // If editing a published notification, always keep it published
-      if (isEditingPublished.value) {
-      sendType = SendType.SEND_NOW
-      isSent = true
-      redirectTab = 'published'
-      // Clear schedule fields to prevent any scheduling
-      formData.scheduleEnabled = false
-      formData.scheduleDate = ''
-      formData.scheduleTime = ''
-    } else {
-        // Editing draft or scheduled notification
-        const hasValidDate = !!(formData.scheduleDate && String(formData.scheduleDate).trim() !== '')
-        const hasValidTime = !!(formData.scheduleTime && String(formData.scheduleTime).trim() !== '')
-
-        if (formData.scheduleEnabled && hasValidDate && hasValidTime) {
-          // User enabled schedule - redirect to scheduled tab
-          sendType = SendType.SEND_SCHEDULE
-          isSent = false
-          redirectTab = 'scheduled'
-        } else {
-          // User disabled schedule or no schedule - redirect to published tab
-          sendType = SendType.SEND_NOW
-          isSent = true
-          redirectTab = 'published'
-        }
-      }
-    } else {
-      // Creating new notification
-      const hasValidDate = !!(formData.scheduleDate && String(formData.scheduleDate).trim() !== '')
-      const hasValidTime = !!(formData.scheduleTime && String(formData.scheduleTime).trim() !== '')
-
+    const validateSchedule = async (): Promise<boolean> => {
       if (formData.scheduleEnabled) {
+        console.log('🔍 [Schedule Validation] Form data:', {
+          scheduleEnabled: formData.scheduleEnabled,
+          scheduleDate: formData.scheduleDate,
+          scheduleTime: formData.scheduleTime,
+        })
+        const dateValue = formData.scheduleDate
+        const timeValue = formData.scheduleTime
+        const dateStr = dateValue != null && dateValue !== '' ? String(dateValue).trim() : ''
+        const timeStr = timeValue != null && timeValue !== '' ? String(timeValue).trim() : ''
+        const datePattern = /^\d{1,2}\/\d{1,2}\/\d{4}$/
+        const timePattern = /^\d{2}:\d{2}$/
+        const hasValidDate = dateStr !== '' && datePattern.test(dateStr)
+        const hasValidTime = timeStr !== '' && timePattern.test(timeStr)
         if (!hasValidDate || !hasValidTime) {
           ElNotification({
             title: 'Error',
@@ -840,6 +1003,63 @@ const handlePublishNowInternal = async () => {
             type: 'error',
             duration: 2000,
           })
+          return false
+        }
+        try {
+          const scheduleDateTime = DateUtils.parseScheduleDateTime(dateStr, timeStr)
+          const nowUTC = new Date()
+          const diffMs = scheduleDateTime.getTime() - nowUTC.getTime()
+          if (diffMs < 1 * 60 * 1000) {
+            ElNotification({
+              title: 'Error',
+              message: 'Scheduled time must be in the future. Please select a future time.',
+              type: 'error',
+              duration: 3000,
+            })
+            return false
+          }
+          return true
+        } catch (error) {
+          console.error('❌ [Schedule Validation] Error:', error)
+          ElNotification({
+            title: 'Error',
+            message: 'Invalid date or time format. Please check your selection.',
+            type: 'error',
+            duration: 2000,
+          })
+          return false
+        }
+      }
+      return true
+    }
+    if (isEditMode.value) {
+      if (isEditingPublished.value) {
+        isSent = true
+        redirectTab = 'published'
+        if (formData.scheduleEnabled) {
+          sendType = SendType.SEND_SCHEDULE
+        }
+      } else {
+        if (formData.scheduleEnabled) {
+          const isValid = await validateSchedule()
+          if (!isValid) {
+            loadingNotification.close()
+            isSavingOrPublishing.value = false
+            return
+          }
+          sendType = SendType.SEND_SCHEDULE
+          isSent = false
+          redirectTab = 'scheduled'
+        } else {
+          sendType = SendType.SEND_NOW
+          isSent = true
+          redirectTab = 'published'
+        }
+      }
+    } else {
+      if (formData.scheduleEnabled) {
+        const isValid = await validateSchedule()
+        if (!isValid) {
           loadingNotification.close()
           isSavingOrPublishing.value = false
           return
@@ -851,11 +1071,17 @@ const handlePublishNowInternal = async () => {
         redirectTab = 'published'
       }
     }
+    const shouldSendNow = !formData.scheduleEnabled && !isEditingPublished.value
+    if (shouldSendNow) {
+      isSent = false
+    }
+
     const imagesToUpload: { file: File; language: string }[] = []
     const translations = []
-
     for (const [langKey, langData] of Object.entries(languageFormData)) {
-      if (langData.title && langData.description) {
+      const hasContent = langData.title && langData.description
+      const isExisting = isEditMode.value && existingTranslationIds[langKey]
+      if (hasContent || isExisting) {
         if (langData.linkToSeeMore && !isValidUrl(langData.linkToSeeMore)) {
           ElNotification({
             title: 'Error',
@@ -870,8 +1096,6 @@ const handlePublishNowInternal = async () => {
         let imageId: string | undefined = undefined
         if (langData.imageFile) {
           try {
-            // Compress to 2MB per image (safer for batch uploads)
-            // 3 images × 2MB = 6MB total, well under 18MB limit
             const { file: compressed, dataUrl } = await compressImage(langData.imageFile, {
               maxBytes: 2 * 1024 * 1024, // 2MB per image (safer for batch uploads)
               maxWidth: 2000,
@@ -897,7 +1121,6 @@ const handlePublishNowInternal = async () => {
         } else if (isEditMode.value && existingImageIds[langKey] && langData.imageUrl !== null) {
           imageId = existingImageIds[langKey] || undefined
         }
-
         const translationData: any = {
           language: mapLanguageToEnum(langKey),
           title: langData.title,
@@ -905,7 +1128,6 @@ const handlePublishNowInternal = async () => {
           linkPreview: langData.linkToSeeMore || undefined,
           image: imageId || '',
         }
-        // Include translation ID when updating to preserve the same record
         if (isEditMode.value && existingTranslationIds[langKey]) {
           translationData.id = existingTranslationIds[langKey]
         }
@@ -924,10 +1146,8 @@ const handlePublishNowInternal = async () => {
           file: item.file,
           language: String(item.language),
         }))
-        // Calculate total size before upload
         const totalSize = items.reduce((sum, item) => sum + item.file.size, 0)
         const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2)
-        
         console.log(
           'Files to upload:',
           items.map((i) => ({
@@ -939,7 +1159,6 @@ const handlePublishNowInternal = async () => {
           })),
         )
         console.log(`Total upload size: ${totalSizeMB}MB (limit: 18MB)`)
-
         uploadedImages = await notificationApi.uploadImages(items)
         console.log('Batch uploaded images:', uploadedImages)
       } catch (error: any) {
@@ -950,7 +1169,6 @@ const handlePublishNowInternal = async () => {
             : error?.message ||
               error?.response?.data?.responseMessage ||
               'Failed to upload images. Please ensure total size is under 18MB and try again.'
-        
         ElNotification({
           title: 'Upload Error',
           message: errorMessage,
@@ -980,7 +1198,6 @@ const handlePublishNowInternal = async () => {
         translations[index].image = fid
       }
     }
-
     if (translations.length === 0) {
       let fallbackImageId: string | undefined
       if (currentImageFile.value) {
@@ -999,7 +1216,6 @@ const handlePublishNowInternal = async () => {
           return
         }
       }
-
       if (currentLinkToSeeMore.value && !isValidUrl(currentLinkToSeeMore.value)) {
         ElNotification({
           title: 'Error',
@@ -1018,13 +1234,11 @@ const handlePublishNowInternal = async () => {
         linkPreview: currentLinkToSeeMore.value || undefined,
         image: fallbackImageId,
       }
-      // Include translation ID when updating to preserve the same record
       if (isEditMode.value && existingTranslationIds[activeLanguage.value]) {
         fallbackTranslationData.id = existingTranslationIds[activeLanguage.value]
       }
       translations.push(fallbackTranslationData)
     }
-
     const templateData: CreateTemplateRequest = {
       platforms: [mapPlatformToEnum(formData.pushToPlatforms)],
       bakongPlatform: formData.platform,
@@ -1035,19 +1249,15 @@ const handlePublishNowInternal = async () => {
       categoryTypeId: formData.categoryTypeId ?? undefined,
       priority: 1,
     }
-
-    // Only set schedule if not editing a published notification
-    if (formData.scheduleEnabled && !(isEditMode.value && isEditingPublished.value)) {
+    if (formData.scheduleEnabled && !isEditingPublished.value) {
       const scheduleDateTime = DateUtils.parseScheduleDateTime(
         String(formData.scheduleDate),
         String(formData.scheduleTime),
       )
       templateData.sendSchedule = scheduleDateTime.toISOString()
-    } else if (isEditMode.value && isEditingPublished.value) {
-      // Explicitly clear schedule when editing published notification
-      templateData.sendSchedule = undefined
+    } else {
+      templateData.sendSchedule = null as any
     }
-
     let result
     if (isEditMode.value) {
       result = await notificationApi.updateTemplate(parseInt(notificationId.value), templateData)
@@ -1055,33 +1265,48 @@ const handlePublishNowInternal = async () => {
       result = await notificationApi.createTemplate(templateData)
     }
 
-    loadingNotification.close()
+    if (shouldSendNow) {
+      const templateIdToSend = isEditMode.value
+        ? parseInt(notificationId.value)
+        : result?.data?.templateId || result?.data?.id
 
-    // Special handling for updating published notifications
+      if (!templateIdToSend) {
+        throw new Error('Template ID is missing after save. Please try again.')
+      }
+
+      result = await notificationApi.sendNotification(
+        Number(templateIdToSend),
+        templateData.notificationType,
+        true,
+      )
+    }
+
+    if (result?.data?.whatnews) {
+      result.data.bakongPlatform =
+        result.data.bakongPlatform ?? result.data.whatnews.bakongPlatform
+      result.data.notificationType =
+        result.data.notificationType ?? result.data.whatnews.notificationType
+    }
+
+    loadingNotification.close()
     if (isEditMode.value && isEditingPublished.value) {
-      // When updating a published notification, show update success message
       ElNotification({
         title: 'Success',
-        message: `Notification for ${formatBakongApp(formData.platform)} has been updated successfully!`,
+        message: `Notification for <strong>${formatBakongApp(formData.platform)}</strong> has been updated successfully!`,
         type: 'success',
         duration: 3000,
+        dangerouslyUseHTMLString: true,
       })
-      // Stay in published tab (notification was published)
       redirectTab = 'published'
     } else if (isEditMode.value && redirectTab === 'scheduled') {
-      // Editing a scheduled notification - check if it was actually sent
       const successfulCountFromResult = result?.data?.successfulCount
       const wasActuallySent = successfulCountFromResult !== undefined && successfulCountFromResult !== null && successfulCountFromResult > 0
-      
       if (wasActuallySent) {
-        // Scheduled notification was sent immediately - redirect to published
       redirectTab = 'published'
       } else {
-        // Scheduled notification remains scheduled - stay in scheduled tab
         redirectTab = 'scheduled'
       }
     } else {
-      // Use unified message handler for draft/failure cases
       const platformName = formatBakongApp(formData.platform)
       const bakongPlatform = formData.platform || result?.data?.bakongPlatform
       const successfulCount = result?.data?.successfulCount ?? 0
@@ -1090,69 +1315,91 @@ const handlePublishNowInternal = async () => {
       const failedCountFromResult = result?.data?.failedCount
       const wasActuallySent = successfulCountFromResult !== undefined && successfulCountFromResult !== null && successfulCountFromResult > 0
       const isPartialSuccess = successfulCount > 0 && failedCount > 0
-
-      // Handle scheduled notifications FIRST (before checking messageConfig)
       if (redirectTab === 'scheduled') {
         if (wasActuallySent) {
-          // Notification was scheduled but sent immediately (scheduled time was in past or very soon)
           const userText = successfulCountFromResult === 1 ? 'user' : 'users'
-          let message = `Notification sent to ${successfulCountFromResult} ${userText} on time`
-          
+          const platformNameForScheduled = formatBakongApp(formData.platform)
+          let message = `Notification for <strong>${platformNameForScheduled}</strong> sent to ${successfulCountFromResult} ${userText} on time`
           if (failedCountFromResult > 0) {
             message += `. Failed to send to ${failedCountFromResult} user(s)`
           }
-
           ElNotification({
             title: 'Success',
             message: message,
             type: 'success',
             duration: 3000,
+            dangerouslyUseHTMLString: true,
           })
-          // Redirect to published since it was actually sent
           redirectTab = 'published'
         } else {
-          // Scheduled notification created successfully (not sent yet)
+          const platformNameForScheduled = formatBakongApp(formData.platform)
           ElNotification({
             title: 'Success',
             message: isEditMode.value
-              ? 'Notification updated and scheduled successfully!'
-              : 'Notification created and scheduled successfully!',
+              ? `Notification for <strong>${platformNameForScheduled}</strong> updated and scheduled successfully!`
+              : `Notification for <strong>${platformNameForScheduled}</strong> created and scheduled successfully!`,
             type: 'success',
             duration: 2000,
+            dangerouslyUseHTMLString: true,
           })
-          // Keep in scheduled tab
         }
       } else {
-        // Handle non-scheduled notifications (published, draft, etc.)
-      const messageConfig = getNotificationMessage(result?.data, platformName, bakongPlatform)
-      
-        // Show notification for non-success cases (errors, warnings, info) or partial success
+        const devicePlatform = formatPlatform(String(formData.pushToPlatforms))
+      const messageConfig = getNotificationMessage(result?.data, platformName, bakongPlatform, devicePlatform)
+        const failedDueToInvalidTokens = result?.data?.failedDueToInvalidTokens === true
+        const allFailed = successfulCount === 0 && failedCount > 0
         if (messageConfig.type !== 'success' || isPartialSuccess) {
-        ElNotification({
-          title: messageConfig.title,
-          message: messageConfig.message,
-          type: messageConfig.type,
-          duration: messageConfig.duration,
-          dangerouslyUseHTMLString: messageConfig.dangerouslyUseHTMLString,
-        })
-        
-        // Redirect to draft tab for failures
-          if (
-            messageConfig.type === 'error' ||
-            messageConfig.type === 'warning' ||
-            messageConfig.type === 'info'
-          ) {
-          redirectTab = 'draft'
-          } else if (isPartialSuccess) {
-            // For partial success, redirect to published tab
+          if (isPartialSuccess) {
+            const failedUsers = result?.data?.failedUsers || []
+            ElNotification({
+              title: messageConfig.title,
+              message: messageConfig.message,
+              type: messageConfig.type,
+              duration: messageConfig.duration,
+              dangerouslyUseHTMLString: messageConfig.dangerouslyUseHTMLString,
+            })
+            if (failedUsers.length > 0) {
+              const failedUsersList = failedUsers.length <= 5 
+                ? failedUsers.join(', ') 
+                : `${failedUsers.slice(0, 5).join(', ')} and ${failedUsers.length - 5} more`
+              const failureReason = result?.data?.failedDueToInvalidTokens 
+                ? 'invalid or expired FCM tokens. These users need to update their tokens by opening the mobile app.'
+                : 'unknown reasons'
+              const detailedMessageConfig = getNotificationMessage(
+                result?.data,
+                undefined,
+                bakongPlatform,
+                devicePlatform
+              )
+              ElNotification({
+                title: detailedMessageConfig.title,
+                message: detailedMessageConfig.message,
+                type: detailedMessageConfig.type,
+                duration: detailedMessageConfig.duration,
+                dangerouslyUseHTMLString: detailedMessageConfig.dangerouslyUseHTMLString,
+              })
+            }
             redirectTab = 'published'
+          } else {
+            ElNotification({
+              title: messageConfig.title,
+              message: messageConfig.message,
+              type: messageConfig.type,
+              duration: messageConfig.duration,
+              dangerouslyUseHTMLString: messageConfig.dangerouslyUseHTMLString,
+            })
+            if (
+              messageConfig.type === 'error' ||
+              messageConfig.type === 'warning' ||
+              messageConfig.type === 'info'
+            ) {
+              redirectTab = 'draft'
+            }
           }
       } else {
-          // Handle full success cases for published notifications
       const failedUsers = result?.data?.failedUsers || []
           const isFlashNotification =
             formData.notificationType === NotificationType.FLASH_NOTIFICATION
-
       let message = isFlashNotification
         ? isEditMode.value
           ? 'Flash notification updated and published successfully, and when user open bakongPlatform it will saw it!'
@@ -1160,38 +1407,31 @@ const handlePublishNowInternal = async () => {
         : isEditMode.value
           ? 'Notification updated and published successfully!'
           : 'Notification created and published successfully!'
-
-      // Add user count if available (only for non-flash notifications)
       if (
         !isFlashNotification &&
             successfulCountFromResult !== undefined &&
             successfulCountFromResult !== null &&
             successfulCountFromResult > 0
       ) {
-            const userText = successfulCountFromResult === 1 ? 'user' : 'users'
-        message = isEditMode.value
-              ? `Notification updated and published to ${successfulCountFromResult} ${userText} successfully!`
-              : `Notification created and published to ${successfulCountFromResult} ${userText} successfully!`
+        const messageConfig = getNotificationMessage(
+          result?.data,
+          undefined,
+          bakongPlatform,
+          devicePlatform
+        )
+        message = messageConfig.message
       }
-
-      // For flash notifications, replace bakongPlatform with bold platform name
       if (isFlashNotification) {
             const platformNameForFlash = formatBakongApp(formData.platform)
             message = message.replace('bakongPlatform', `<strong>${platformNameForFlash}</strong>`)
       }
-
       ElNotification({
         title: 'Success',
         message: message,
         type: 'success',
         duration: 2000,
-        dangerouslyUseHTMLString: isFlashNotification,
+        dangerouslyUseHTMLString: true,
       })
-
-      // Log failed users to console if any
-          if (failedCountFromResult > 0 && failedUsers.length > 0) {
-            console.warn(`⚠️ Failed to send notification to ${failedCountFromResult} user(s):`, failedUsers)
-          }
       }
       }
     }
@@ -1201,36 +1441,21 @@ const handlePublishNowInternal = async () => {
     } catch (error) {
       console.warn('Failed to clear cache:', error)
     }
-
-    // Close any open dialogs before navigation
     showLeaveDialog.value = false
     showConfirmationDialog.value = false
     pendingNavigation = null
-
-    // Determine final redirect tab
-    // For edit mode: respect fromTab if it matches the action result, otherwise use redirectTab
-    // For create mode: always use redirectTab (published/scheduled based on action)
     let finalRedirectTab = redirectTab
     if (isEditMode.value) {
-      // When editing, redirectTab is already set correctly based on the action:
-      // - Published notification → 'published'
-      // - Scheduled notification → 'scheduled' (or 'published' if sent)
-      // - Draft notification → 'published' (when publishing)
-      // So we use redirectTab directly, which already handles the logic correctly
       finalRedirectTab = redirectTab
     } else {
-      // For create mode, use redirectTab directly
       finalRedirectTab = redirectTab
     }
-
     if (isEditMode.value) {
       setTimeout(() => {
         window.location.href = `/?tab=${finalRedirectTab}`
-        // Reset flag after navigation starts (full page reload)
         isSavingOrPublishing.value = false
       }, 500)
     } else {
-      // Keep flag true until navigation completes
       router
         .push(`/?tab=${finalRedirectTab}`)
         .then(() => {
@@ -1249,17 +1474,18 @@ const handlePublishNowInternal = async () => {
       responseData: error.response?.data,
       status: error.response?.status,
     })
-
     loadingNotification.close()
-
-    // Extract error message with better fallbacks
     let errorMessage =
       error.response?.data?.responseMessage ||
       error.response?.data?.message ||
       error.message ||
       'An unexpected error occurred while creating the notification'
-
-    // If we still don't have a message, provide a status-based message
+    if (error.response?.data && typeof error.response.data === 'object') {
+      const data = error.response.data
+      if (data.responseMessage) {
+        errorMessage = data.responseMessage
+      }
+    }
     if (!errorMessage || errorMessage === 'undefined' || errorMessage === 'null') {
       const status = error.response?.status
       if (status === 500) {
@@ -1277,7 +1503,6 @@ const handlePublishNowInternal = async () => {
         errorMessage = `Request failed with status ${status || 'unknown'}. Please try again.`
       }
     }
-
     ElNotification({
       title: 'Error',
       message: errorMessage,
@@ -1287,17 +1512,45 @@ const handlePublishNowInternal = async () => {
     })
   }
 }
-
 const handleFinishLater = () => {
   showConfirmationDialog.value = true
 }
-
-const handleSaveDraft = async () => {
+const handleSaveDraft = async (forceDraft: boolean = false) => {
+  if (isSavingOrPublishing.value) return
   isSavingOrPublishing.value = true
-
+  const currentLang = activeLanguage.value
+  if (languageFormData[currentLang]) {
+    languageFormData[currentLang].title = currentTitle.value
+    languageFormData[currentLang].description = currentDescription.value
+    languageFormData[currentLang].linkToSeeMore = currentLinkToSeeMore.value
+  }
   titleError.value = ''
   descriptionError.value = ''
-
+  let hasValidationError = false
+  const validationErrors: string[] = []
+  for (const [langKey, langData] of Object.entries(languageFormData)) {
+    const lang = langKey as Language
+    const title = (lang === activeLanguage.value ? currentTitle.value : langData.title)?.trim() || ''
+    if (title && title.length > DB_TITLE_MAX_LENGTH) {
+      hasValidationError = true
+      validationErrors.push(`${langKey.toUpperCase()}: Title is too long (max ${DB_TITLE_MAX_LENGTH}), current length: ${title.length}.`)
+    }
+  }
+  if (hasValidationError) {
+      const activeTitle = currentTitle.value?.trim() || ''
+      if (activeTitle && activeTitle.length > DB_TITLE_MAX_LENGTH) {
+        titleError.value = `Title is too long (max ${DB_TITLE_MAX_LENGTH}), current length: ${activeTitle.length}.`
+    }
+    ElNotification({
+      title: 'Validation Error',
+      message: validationErrors.join('<br/>'),
+      type: 'error',
+      duration: 5000,
+      dangerouslyUseHTMLString: true,
+    })
+    isSavingOrPublishing.value = false
+    return
+  }
   const token = localStorage.getItem('auth_token')
   if (!token || token.trim() === '') {
     ElNotification({
@@ -1310,7 +1563,6 @@ const handleSaveDraft = async () => {
     router.push('/login')
     return
   }
-
   const loadingNotification = ElNotification({
     title: isEditMode.value ? 'Updating draft...' : 'Saving draft...',
     message: isEditMode.value
@@ -1319,73 +1571,60 @@ const handleSaveDraft = async () => {
     type: 'warning',
     duration: 0,
   })
-
   try {
     const imagesToUpload: { file: File; language: string }[] = []
-    const translations = []
-
+    const translations: any[] = []
     for (const [langKey, langData] of Object.entries(languageFormData)) {
-      const title =
-        langData.title?.trim() ||
-        (langKey === activeLanguage.value ? currentTitle.value?.trim() : null) ||
-        ''
+      const lang = langKey as Language
+      const title = (lang === activeLanguage.value ? currentTitle.value : langData.title)?.trim() || ''
       const content =
-        langData.description?.trim() ||
-        (langKey === activeLanguage.value ? currentDescription.value?.trim() : null) ||
+        (lang === activeLanguage.value ? currentDescription.value : langData.description)?.trim() ||
         ''
-
-      let imageId: string | undefined = undefined
-      if (langData.imageFile) {
+      const linkPreview =
+        (lang === activeLanguage.value
+          ? currentLinkToSeeMore.value
+          : langData.linkToSeeMore
+        )?.trim() || ''
+      const imageFile = lang === activeLanguage.value ? currentImageFile.value : langData.imageFile
+      if (imageFile) {
         try {
-          const { file: compressed, dataUrl } = await compressImage(langData.imageFile, {
+          const { file: compressed, dataUrl } = await compressImage(imageFile, {
             maxBytes: 10 * 1024 * 1024,
             maxWidth: 2000,
-            targetAspectRatio: 2 / 1, // 2:1 aspect ratio as shown in UI
-            correctAspectRatio: true, // Automatically correct aspect ratio
+            targetAspectRatio: 2 / 1,
+            correctAspectRatio: true,
           })
           imagesToUpload.push({ file: compressed, language: langKey })
           if (languageFormData[langKey]) {
             languageFormData[langKey].imageUrl = dataUrl
+            if (lang === activeLanguage.value) {
+              currentImageUrl.value = dataUrl
+            }
           }
         } catch (e) {
           console.error('Compression failed for', langKey, e)
-          ElNotification({
-            title: 'Error',
-            message: `Failed to prepare image for ${langKey}`,
-            type: 'error',
-            duration: 2000,
-          })
-          loadingNotification.close()
-          isSavingOrPublishing.value = false
-          return
+          throw new Error(`Failed to prepare image for ${langKey.toUpperCase()}`)
         }
-      } else if (isEditMode.value && existingImageIds[langKey] && langData.imageUrl !== null) {
-        imageId = existingImageIds[langKey] || undefined
       }
-
-      // For drafts: include translation if it has title OR content OR image
-      // This allows saving drafts with just an image, or just title/content, or any combination
-      const hasTitle = title && title.trim() !== ''
-      const hasContent = content && content.trim() !== ''
-      const hasImage = !!imageId || !!langData.imageFile
-
-      if (!hasTitle && !hasContent && !hasImage) {
-        continue
-      }
-
       const translationData: any = {
         language: mapLanguageToEnum(langKey),
-        title: title || '',
-        content: content || '',
-        linkPreview: langData.linkToSeeMore || undefined,
-        image: imageId || '',
+        title: title,
+        content: content,
+        linkPreview: linkPreview || undefined,
+        image: existingImageIds[langKey] || '',
       }
-      // Include translation ID when updating to preserve the same record
-      if (isEditMode.value && existingTranslationIds[langKey]) {
+      if (existingTranslationIds[langKey]) {
         translationData.id = existingTranslationIds[langKey]
       }
       translations.push(translationData)
     }
+    const translationsToSave = translations.filter((t) => {
+      const hasTitle = t.title && String(t.title).trim() !== ''
+      const hasContent = t.content && String(t.content).trim() !== ''
+      const hasImage = (t.image && String(t.image).trim() !== '') || (t.imageId && String(t.imageId).trim() !== '')
+      const isExisting = !!t.id
+      return hasTitle || hasContent || hasImage || isExisting
+    })
     let uploadedImages: {
       language?: string
       fileId: string
@@ -1394,320 +1633,219 @@ const handleSaveDraft = async () => {
     }[] = []
     if (imagesToUpload.length > 0) {
       try {
-        const items = imagesToUpload.map((item) => ({
+        const uploadItems = imagesToUpload.map((item) => ({
           file: item.file,
           language: String(item.language),
         }))
-        // Calculate total size before upload
-        const totalSize = items.reduce((sum, item) => sum + item.file.size, 0)
-        const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2)
-        
-        console.log(
-          'Files to upload:',
-          items.map((i) => ({
-            name: i.file.name,
-            size: i.file.size,
-            sizeMB: (i.file.size / 1024 / 1024).toFixed(2) + 'MB',
-            type: i.file.type,
-            language: i.language,
-          })),
-        )
-        console.log(`Total upload size: ${totalSizeMB}MB (limit: 18MB)`)
-
-        uploadedImages = await notificationApi.uploadImages(items)
-        console.log('Batch uploaded images:', uploadedImages)
-      } catch (error) {
-        console.error('Error uploading images:', error)
-        ElNotification({
-          title: 'Error',
-          message: 'Failed to upload images. Please try again.',
-          type: 'error',
-          duration: 2000,
-        })
-        loadingNotification.close()
-        isSavingOrPublishing.value = false
-        return
-      }
-    }
-    const langToFileId = new Map<string, string>()
+        uploadedImages = await notificationApi.uploadImages(uploadItems)
     uploadedImages.forEach((u) => {
       if (u.language && u.fileId) {
-        langToFileId.set(String(u.language), u.fileId)
         const langKey = String(u.language)
         existingImageIds[langKey] = u.fileId
+            const transIndex = translationsToSave.findIndex(t => t.language === mapLanguageToEnum(langKey))
+            if (transIndex !== -1) {
+              translationsToSave[transIndex].image = u.fileId
+            }
         if (languageFormData[langKey]) {
           languageFormData[langKey].imageFile = null
           languageFormData[langKey].imageUrl = `/api/v1/image/${u.fileId}`
-        }
-      }
-    })
-    for (const [index, trans] of translations.entries()) {
-      const fid = langToFileId.get(String(trans.language))
-      if (fid) {
-        translations[index].image = fid
-      }
-    }
-
-    if (translations.length === 0) {
-      let fallbackImageId: string | undefined
-      if (currentImageFile.value) {
-        try {
-          fallbackImageId = await notificationApi.uploadImage(currentImageFile.value)
+              if (langKey === activeLanguage.value) {
+                currentImageFile.value = null
+                currentImageUrl.value = `/api/v1/image/${u.fileId}`
+              }
+            }
+          }
+        })
         } catch (error) {
-          console.error('Error uploading fallback image:', error)
-          ElNotification({
-            title: 'Error',
-            message: 'Failed to upload image. Please try again.',
-            type: 'error',
-            duration: 2000,
-          })
-          loadingNotification.close()
-          return
-        }
+        console.error('Error uploading images during draft save:', error)
+        throw new Error('Failed to upload images. Please try again.')
       }
-
-      const draftTitle = currentTitle.value?.trim() || ''
-      const draftDescription = currentDescription.value?.trim() || ''
-
-      const draftTranslationData: any = {
-        language: mapLanguageToEnum(activeLanguage.value),
-        title: draftTitle || '',
-        content: draftDescription || '',
-        linkPreview: currentLinkToSeeMore.value || undefined,
-        image: fallbackImageId || '',
-      }
-      // Include translation ID when updating to preserve the same record
-      if (isEditMode.value && existingTranslationIds[activeLanguage.value]) {
-        draftTranslationData.id = existingTranslationIds[activeLanguage.value]
-      }
-      translations.push(draftTranslationData)
     }
+    const useSchedule = formData.scheduleEnabled && formData.scheduleDate && formData.scheduleTime
+    const finalSendType = (forceDraft || !useSchedule) ? SendType.SEND_NOW : SendType.SEND_SCHEDULE
     const templateData: CreateTemplateRequest = {
       platforms: [mapPlatformToEnum(formData.pushToPlatforms)],
       bakongPlatform: formData.platform,
-      sendType: SendType.SEND_NOW,
+      sendType: finalSendType,
       isSent: false,
-      translations: translations,
+      translations: translationsToSave,
       notificationType: mapTypeToNotificationType(formData.notificationType),
       categoryTypeId: formData.categoryTypeId ?? undefined,
       priority: 1,
     }
-    if (formData.scheduleEnabled && formData.scheduleDate && formData.scheduleTime) {
+    if (useSchedule) {
       const scheduleDateTime = DateUtils.parseScheduleDateTime(
         String(formData.scheduleDate),
         String(formData.scheduleTime),
       )
       ;(templateData as any).sendSchedule = scheduleDateTime.toISOString()
+    } else {
+      ;(templateData as any).sendSchedule = null
     }
-
     let result
     if (isEditMode.value) {
       result = await notificationApi.updateTemplate(parseInt(notificationId.value), templateData)
     } else {
       result = await notificationApi.createTemplate(templateData)
     }
-
     loadingNotification.close()
-
     ElNotification({
       title: 'Success',
-      message: isEditMode.value
-        ? 'Notification updated as draft successfully!'
-        : 'Notification saved as draft successfully!',
+      message: `Notification saved as draft successfully!`,
       type: 'success',
       duration: 2000,
     })
-    const draftRedirectTab = 'draft'
     try {
       localStorage.removeItem('notifications_cache')
       localStorage.removeItem('notifications_cache_timestamp')
-    } catch (error) {
-      console.warn('Failed to clear cache:', error)
+    } catch (e) {
+      console.warn('Failed to clear cache:', e)
     }
-
-    // Close any open dialogs before navigation
-    showLeaveDialog.value = false
-    showConfirmationDialog.value = false
-    pendingNavigation = null
-
-    // Keep isSavingOrPublishing true until navigation completes
-    // This prevents the navigation guard from blocking the navigation
+    const redirectTab = (forceDraft || !useSchedule) ? 'draft' : 'scheduled'
     if (isEditMode.value) {
       setTimeout(() => {
-        window.location.href = `/?tab=${draftRedirectTab}`
-        // Reset flag after navigation starts (full page reload)
+        window.location.href = `/?tab=${redirectTab}`
         isSavingOrPublishing.value = false
       }, 500)
     } else {
-      // For router.push, reset flag after navigation
-      router
-        .push(`/?tab=${draftRedirectTab}`)
-        .then(() => {
-          isSavingOrPublishing.value = false
-        })
-        .catch(() => {
+      router.push(`/?tab=${redirectTab}`).then(() => {
           isSavingOrPublishing.value = false
         })
     }
   } catch (error: any) {
     isSavingOrPublishing.value = false
-    console.error('Error saving draft:', error)
-    console.error('Error details:', {
-      message: error.message,
-      response: error.response,
-      responseData: error.response?.data,
-      status: error.response?.status,
-    })
-
     loadingNotification.close()
-
-    // Extract error message with better fallbacks
-    let errorMessage =
-      error.response?.data?.responseMessage ||
-      error.response?.data?.message ||
-      error.message ||
+    console.error('Error saving draft:', error)
+    let errorMessage = 
+      error.response?.data?.responseMessage || 
+      error.response?.data?.message || 
+      error.message || 
       'An unexpected error occurred while saving the draft'
-
-    // If we still don't have a message, provide a status-based message
-    if (!errorMessage || errorMessage === 'undefined' || errorMessage === 'null') {
-      const status = error.response?.status
-      if (status === 500) {
-        errorMessage =
-          'Internal server error. Please try again or contact support if the problem persists.'
-      } else if (status === 400) {
-        errorMessage = 'Invalid request. Please check your input and try again.'
-      } else if (status === 401) {
-        errorMessage = 'Authentication failed. Please log in again.'
-      } else if (status === 403) {
-        errorMessage = 'You do not have permission to perform this action.'
-      } else if (status === 404) {
-        errorMessage = 'The requested resource was not found.'
-      } else {
-        errorMessage = `Request failed with status ${status || 'unknown'}. Please try again.`
+    if (error.response?.data && typeof error.response.data === 'object') {
+      const data = error.response.data
+      if (data.responseMessage) {
+        errorMessage = data.responseMessage
       }
     }
-
     ElNotification({
       title: 'Error',
       message: errorMessage,
       type: 'error',
-      duration: 5000, // Increased from 2000ms to 5000ms for better visibility
-      showClose: true, // Allow user to manually close
+      duration: 5000,
     })
   }
 }
-
 const handleDiscard = () => {
-  // Set flag to bypass navigation guard
   isDiscarding.value = true
-  // Clear any pending navigation
   pendingNavigation = null
-  // Navigate to home
-  router.push('/').finally(() => {
-    // Reset flag after navigation completes
+  const defaultTab = isEditingPublished.value ? 'published' : (wasScheduled.value ? 'scheduled' : 'draft')
+  const redirectTab = fromTab.value || (isEditMode.value ? defaultTab : 'published')
+  router.push(`/?tab=${redirectTab}`).finally(() => {
     setTimeout(() => {
       isDiscarding.value = false
     }, 100)
   })
 }
-
 const handleConfirmationDialogConfirm = () => {
   showConfirmationDialog.value = false
-  handleSaveDraft()
+  handleSaveDraft(true)
 }
-
 const handleConfirmationDialogCancel = () => {
-  // Close all dialogs before discarding
   showConfirmationDialog.value = false
   showLeaveDialog.value = false
   showUpdateConfirmationDialog.value = false
   pendingNavigation = null
   handleDiscard()
 }
-
-// Check if form has unsaved changes
 const hasUnsavedChanges = computed(() => {
-  // Check if any language has title or description filled
+  const globalFieldsModified = 
+    formData.platform !== originalFormData.platform ||
+    formData.categoryTypeId !== originalFormData.categoryTypeId ||
+    formData.pushToPlatforms !== originalFormData.pushToPlatforms
+  if (globalFieldsModified) return true
   const hasContent = Object.values(languageFormData).some(
     (langData) => langData.title?.trim() || langData.description?.trim(),
   )
-
-  // Check if any image has been uploaded
   const hasImage = Object.values(languageFormData).some(
     (langData) => langData.imageFile || langData.imageUrl,
   )
-
-  // Check if any existing image IDs are set (for edit mode)
   const hasExistingImage = Object.values(existingImageIds).some((id) => id !== null)
-
+  if (isEditMode.value) {
+    for (const langKey of Object.keys(languageFormData)) {
+      const originalData = originalLanguageFormData[langKey]
+      const currentData = languageFormData[langKey]
+      if (!originalData) continue
+      const titleChanged = (currentData?.title?.trim() || '') !== (originalData?.title?.trim() || '')
+      const descriptionChanged = (currentData?.description?.trim() || '') !== (originalData?.description?.trim() || '')
+      const linkChanged = (currentData?.linkToSeeMore?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
+      const imageChanged = currentData?.imageFile !== null || 
+                           (existingImageIds[langKey] !== originalImageIds[langKey])
+      if (titleChanged || descriptionChanged || linkChanged || imageChanged) return true
+    }
+  }
   return hasContent || hasImage || hasExistingImage
 })
-
-// Navigation guard - intercept navigation attempts
 onBeforeRouteLeave((to, from, next) => {
-  // Don't block navigation if currently saving/publishing
   if (isSavingOrPublishing.value) {
     next()
     return
   }
-
-  // Don't block navigation if user explicitly wants to discard
   if (isDiscarding.value) {
     next()
     return
   }
-
-  // Don't block navigation if no unsaved changes
   if (!hasUnsavedChanges.value) {
     next()
     return
   }
-
-  // Show leave dialog and block navigation
   showLeaveDialog.value = true
   pendingNavigation = () => next()
-
-  // Prevent navigation for now
   next(false)
 })
-
 const handleLeaveDialogConfirm = async () => {
-  // Close dialog immediately to prevent it from showing again
   showLeaveDialog.value = false
   pendingNavigation = null
-  
-  // Save as draft and then navigate
-  try {
-    await handleSaveDraft()
-    // Navigation will happen in handleSaveDraft
-    // Reset flag will happen in handleSaveDraft after navigation
-  } catch (error) {
-    // If save fails, show error but don't reopen dialog
-    console.error('Failed to save draft:', error)
-    // Reset flag on error
-    isSavingOrPublishing.value = false
+  if (isEditingPublished.value || fromTab.value === 'scheduled' || wasScheduled.value) {
+    const missingLangs: string[] = []
+    const langs = [
+      { key: 'KM', label: 'Khmer' },
+      { key: 'EN', label: 'English' },
+      { key: 'JP', label: 'Japanese' }
+    ]
+    langs.forEach(lang => {
+      const data = languageFormData[lang.key]
+      const hasTitle = data?.title?.trim() !== ''
+      const hasDescription = data?.description?.trim() !== ''
+      if (!hasTitle || !hasDescription) {
+        missingLangs.push(lang.label)
+      }
+    })
+    if (!isEditingPublished.value && missingLangs.length > 0 && missingLangs.length < 3) {
+      const missingText = missingLangs.join(' and ')
+      const availableLangs = langs.filter(l => !missingLangs.includes(l.label)).map(l => l.label)
+      const availableText = availableLangs.join(' or ')
+      missingLanguagesMessage.value = `<strong>${missingText}</strong> content is missing. Users will see the <strong>${availableText}</strong> version instead. Continue?`
+      showMissingLanguageDialog.value = true
+      return
+    }
+    await handlePublishNowInternal()
+  } else {
+    await handleSaveDraft(true)
   }
 }
-
 const handleLeaveDialogCancel = () => {
   showLeaveDialog.value = false
   pendingNavigation = null
-  // Stay on page - navigation was already blocked by next(false)
 }
-
 const handleUpdateConfirmationConfirm = async () => {
-  // Close dialog and proceed with update
   showUpdateConfirmationDialog.value = false
   await handlePublishNowInternal()
 }
-
 const handleUpdateConfirmationCancel = () => {
-  // Close dialog and navigate to home without updating
   showUpdateConfirmationDialog.value = false
   isSavingOrPublishing.value = false
-  
-  // Navigate to home screen based on tab
-  const redirectTab = fromTab.value || 'published'
+  const defaultTab = isEditingPublished.value ? 'published' : (wasScheduled.value ? 'scheduled' : 'draft')
+  const redirectTab = fromTab.value || defaultTab
   if (isEditMode.value) {
     setTimeout(() => {
       window.location.href = `/?tab=${redirectTab}`
@@ -1716,7 +1854,48 @@ const handleUpdateConfirmationCancel = () => {
     router.push(`/?tab=${redirectTab}`)
   }
 }
-
+const handleMissingLanguageConfirm = async () => {
+  showMissingLanguageDialog.value = false
+  if (isEditMode.value && isEditingPublished.value) {
+    let hasAnyChanges = false
+    const globalFieldsChanged = 
+      formData.platform !== originalFormData.platform ||
+      formData.categoryTypeId !== originalFormData.categoryTypeId ||
+      formData.pushToPlatforms !== originalFormData.pushToPlatforms
+    if (globalFieldsChanged) {
+      hasAnyChanges = true
+    } else {
+      for (const langKey of Object.keys(languageFormData)) {
+        const originalData = originalLanguageFormData[langKey]
+        const currentData = languageFormData[langKey]
+        if (!originalData) continue
+        const titleChanged = (currentData?.title?.trim() || '') !== (originalData?.title?.trim() || '')
+        const descriptionChanged = (currentData?.description?.trim() || '') !== (originalData?.description?.trim() || '')
+        const linkChanged = (currentData?.linkToSeeMore?.trim() || '') !== (originalData?.linkToSeeMore?.trim() || '')
+        const imageChanged = currentData?.imageFile !== null || 
+                             (existingImageIds[langKey] !== originalImageIds[langKey])
+        if (titleChanged || descriptionChanged || linkChanged || imageChanged) {
+          hasAnyChanges = true
+          break
+        }
+      }
+    }
+    if (hasAnyChanges) {
+      showUpdateConfirmationDialog.value = true
+    } else {
+      const redirectTab = fromTab.value || 'published'
+      setTimeout(() => {
+        window.location.href = `/?tab=${redirectTab}`
+      }, 100)
+    }
+    return
+  }
+  await handlePublishNowInternal()
+}
+const handleMissingLanguageCancel = () => {
+  showMissingLanguageDialog.value = false
+  isSavingOrPublishing.value = false
+}
 const formatBakongApp = (app: BakongApp | undefined): string => {
   if (!app) return 'Bakong'
   switch (app) {
@@ -1731,7 +1910,6 @@ const formatBakongApp = (app: BakongApp | undefined): string => {
   }
 }
 </script>
-
 <style>
 html,
 body {
@@ -1739,12 +1917,10 @@ body {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
   display: none;
 }
-
 .el-date-editor .el-input__suffix,
 .el-time-picker .el-input__suffix,
 .el-date-editor .el-input__prefix,
@@ -1754,7 +1930,6 @@ body::-webkit-scrollbar {
   opacity: 0 !important;
   height: 0 !important;
 }
-
 .el-date-editor .el-input__suffix-inner,
 .el-time-picker .el-input__suffix-inner,
 .el-date-editor .el-input__prefix-inner,
@@ -1764,7 +1939,6 @@ body::-webkit-scrollbar {
   opacity: 0 !important;
   height: 0 !important;
 }
-
 .el-date-editor .el-icon,
 .el-time-picker .el-icon,
 .el-date-editor svg,
@@ -1777,7 +1951,6 @@ body::-webkit-scrollbar {
   height: 0 !important;
 }
 </style>
-
 <style scoped>
 .create-notification-container {
   display: flex;
@@ -1788,11 +1961,9 @@ body::-webkit-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-
 .create-notification-container::-webkit-scrollbar {
   display: none;
 }
-
 .main-content {
   flex: 1;
   max-width: 603px;
@@ -1801,7 +1972,6 @@ body::-webkit-scrollbar {
   flex-direction: column;
   height: 100vh;
 }
-
 .form-content {
   display: flex;
   flex-direction: column;
@@ -1813,23 +1983,19 @@ body::-webkit-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-
 .form-content::-webkit-scrollbar {
   display: none;
 }
-
 .image-preview {
   position: relative;
   display: inline-block;
 }
-
 .image-preview img {
   max-width: 200px;
   max-height: 200px;
   border-radius: 8px;
   object-fit: cover;
 }
-
 .remove-image {
   position: absolute;
   top: -8px;
@@ -1846,7 +2012,6 @@ body::-webkit-scrollbar {
   align-items: center;
   justify-content: center;
 }
-
 .form-fields {
   display: flex;
   flex-direction: column;
@@ -1859,29 +2024,24 @@ body::-webkit-scrollbar {
   flex-grow: 0;
   gap: 20px;
 }
-
 .form-row {
   display: flex;
   flex-direction: row;
   gap: 16px;
 }
-
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-
 .form-label {
   font-size: 14px;
   font-weight: 600;
   color: #374151;
 }
-
 .required {
   color: #ef4444;
 }
-
 .form-input,
 .form-input-title,
 .form-input-number,
@@ -1892,13 +2052,11 @@ body::-webkit-scrollbar {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 14px;
-
   background: white;
   transition: border-color 0.2s ease;
   width: 293.5px;
   height: 56px;
 }
-
 .form-input:focus,
 .form-input-title:focus,
 .form-input-number:focus,
@@ -1909,14 +2067,12 @@ body::-webkit-scrollbar {
   border-color: #001346;
   box-shadow: 0 0 0 3px rgba(0, 19, 70, 0.1);
 }
-
 .form-textarea {
   resize: vertical;
   min-height: 100px;
   width: 603px;
   height: 161px;
 }
-
 .form-input-title {
   width: 603px;
   height: 56px;
@@ -1927,16 +2083,13 @@ body::-webkit-scrollbar {
   line-height: 150%;
   color: #001346;
 }
-
 .form-input-link {
   width: 603px;
   height: 56px;
 }
-
 .custom-dropdown {
   width: 100%;
 }
-
 .dropdown-trigger {
   display: flex;
   align-items: center;
@@ -1953,35 +2106,28 @@ body::-webkit-scrollbar {
   cursor: pointer;
   box-sizing: border-box;
 }
-
 .dropdown-trigger:hover {
   border-color: #001346;
 }
-
 .dropdown-trigger:focus {
   outline: none;
   border-color: #001346;
   box-shadow: 0 0 0 3px rgba(0, 19, 70, 0.1);
 }
-
 .dropdown-icon {
   font-size: 12px;
   color: #6b7280;
   transition: transform 0.2s ease;
 }
-
 .custom-dropdown:hover .dropdown-icon {
   transform: rotate(180deg);
 }
-
 .full-width-dropdown {
   width: 100%;
 }
-
 .full-width-trigger {
   width: 603px !important;
 }
-
 .schedule-options {
   display: flex;
   flex-direction: column;
@@ -1996,7 +2142,6 @@ body::-webkit-scrollbar {
   align-self: stretch;
   flex-grow: 0;
 }
-
 .schedule-options-header {
   display: flex;
   flex-direction: row;
@@ -2005,7 +2150,6 @@ body::-webkit-scrollbar {
   gap: 16px;
   width: 100%;
 }
-
 .splash-options {
   display: flex;
   flex-direction: column;
@@ -2020,7 +2164,6 @@ body::-webkit-scrollbar {
   align-self: stretch;
   flex-grow: 0;
 }
-
 .schedule-option-left {
   display: flex;
   flex-direction: column;
@@ -2029,7 +2172,6 @@ body::-webkit-scrollbar {
   flex: 1;
   min-width: 0;
 }
-
 .schedule-option-right {
   display: flex;
   align-items: center;
@@ -2037,19 +2179,16 @@ body::-webkit-scrollbar {
   gap: 12px;
   flex-shrink: 0;
 }
-
 .option-label {
   font-size: 14px;
   color: #001346;
   white-space: nowrap;
 }
-
 .option-title {
   font-size: 16px;
   font-weight: 600;
   color: #001346;
 }
-
 .option-description {
   font-size: 14px;
   font-weight: 400;
@@ -2057,20 +2196,17 @@ body::-webkit-scrollbar {
   line-height: 1.4;
   max-width: 100%;
 }
-
 .toggle-switch {
   position: relative;
   display: inline-block;
   width: 44px;
   height: 24px;
 }
-
 .toggle-switch input {
   opacity: 0;
   width: 0;
   height: 0;
 }
-
 .toggle-slider {
   position: absolute;
   cursor: pointer;
@@ -2082,7 +2218,6 @@ body::-webkit-scrollbar {
   transition: 0.3s;
   border-radius: 24px;
 }
-
 .toggle-slider:before {
   position: absolute;
   content: '';
@@ -2094,28 +2229,23 @@ body::-webkit-scrollbar {
   transition: 0.3s;
   border-radius: 50%;
 }
-
 input:checked + .toggle-slider {
   background-color: #0f4aea;
 }
-
 input:checked + .toggle-slider:before {
   transform: translateX(20px);
 }
-
 .schedule-options-container {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-
 .schedule-datetime-row {
   display: flex;
   flex-direction: row;
   gap: 16px;
   width: 100%;
 }
-
 .schedule-form-group {
   display: flex;
   flex-direction: column;
@@ -2126,11 +2256,9 @@ input:checked + .toggle-slider:before {
   order: 0;
   flex-grow: 1;
 }
-
 .schedule-form-group:last-child {
   order: 1;
 }
-
 .schedule-form-label {
   font-family: 'IBM Plex Sans';
   font-style: normal;
@@ -2138,7 +2266,6 @@ input:checked + .toggle-slider:before {
   font-weight: 400;
   line-height: 150%;
 }
-
 .field-hint {
   font-family: 'IBM Plex Sans';
   font-style: normal;
@@ -2149,18 +2276,15 @@ input:checked + .toggle-slider:before {
   margin-top: 4px;
   margin-bottom: 0;
 }
-
 .flash-input-group {
   width: 281.5px !important;
   min-width: 281.5px !important;
   max-width: 281.5px !important;
 }
-
 .flash-number-input {
   width: 281.5px !important;
   height: 56px !important;
 }
-
 .flash-number-input :deep(.el-input__wrapper) {
   width: 281.5px !important;
   height: 56px !important;
@@ -2175,16 +2299,13 @@ input:checked + .toggle-slider:before {
   box-shadow: none !important;
   transition: border-color 0.2s ease !important;
 }
-
 .flash-number-input :deep(.el-input__wrapper:hover) {
   border-color: rgba(0, 19, 70, 0.2) !important;
 }
-
 .flash-number-input :deep(.el-input__wrapper.is-focus) {
   border-color: #001346 !important;
   box-shadow: 0 0 0 3px rgba(0, 19, 70, 0.1) !important;
 }
-
 .flash-number-input :deep(.el-input__inner) {
   height: 100% !important;
   line-height: 24px !important;
@@ -2194,28 +2315,23 @@ input:checked + .toggle-slider:before {
   padding: 0 !important;
   text-align: left !important;
 }
-
 .flash-number-input :deep(.el-input__inner::placeholder) {
   color: #9ca3af !important;
 }
-
 .flash-number-input.is-disabled :deep(.el-input__wrapper) {
   background-color: #f3f4f6 !important;
   border-color: rgba(0, 19, 70, 0.1) !important;
   cursor: not-allowed !important;
 }
-
 .flash-number-input.is-disabled :deep(.el-input__inner) {
   color: #9ca3af !important;
   cursor: not-allowed !important;
 }
-
 .flash-input-wrapper {
   position: relative;
   width: 281.5px;
   height: 56px;
 }
-
 .flash-dropdown-icon {
   position: absolute;
   right: 8px;
@@ -2231,17 +2347,14 @@ input:checked + .toggle-slider:before {
   z-index: 10;
   font-size: 16px;
 }
-
 .flash-number-input.is-disabled + .flash-dropdown-icon,
 .flash-input-wrapper .flash-number-input.is-disabled ~ .flash-dropdown-icon {
   color: #9ca3af;
 }
-
 .flash-number-input :deep(.el-input-number__increase),
 .flash-number-input :deep(.el-input-number__decrease) {
   display: none !important;
 }
-
 .schedule-date-picker,
 .schedule-time-picker {
   width: 277.5px !important;
@@ -2250,7 +2363,6 @@ input:checked + .toggle-slider:before {
   max-width: 277.5px !important;
   border-radius: 16px;
 }
-
 .schedule-date-picker .el-input,
 .schedule-time-picker .el-input {
   width: 277.5px !important;
@@ -2259,7 +2371,6 @@ input:checked + .toggle-slider:before {
   max-width: 277.5px !important;
   border-radius: 16px;
 }
-
 .schedule-date-picker .el-input__wrapper,
 .schedule-time-picker .el-input__wrapper {
   width: 277.5px !important;
@@ -2277,25 +2388,21 @@ input:checked + .toggle-slider:before {
   transition: border-color 0.2s ease;
   box-shadow: none;
 }
-
 .schedule-date-picker .el-input__wrapper:hover,
 .schedule-time-picker .el-input__wrapper:hover {
   border-color: #001346;
 }
-
 .schedule-date-picker .el-input__wrapper.is-focus,
 .schedule-time-picker .el-input__wrapper.is-focus {
   border-color: #001346;
   box-shadow: 0 0 0 3px rgba(0, 19, 70, 0.1);
 }
-
 .schedule-date-picker .el-input__inner,
 .schedule-time-picker .el-input__inner {
   height: 32px !important;
   line-height: 32px;
   color: #374151;
 }
-
 .schedule-date-picker .el-input__suffix,
 .schedule-time-picker .el-input__suffix {
   display: flex !important;
@@ -2306,7 +2413,6 @@ input:checked + .toggle-slider:before {
   width: 40px !important;
   height: 40px !important;
 }
-
 .schedule-date-picker .el-input__prefix,
 .schedule-time-picker .el-input__prefix {
   display: none !important;
@@ -2315,7 +2421,6 @@ input:checked + .toggle-slider:before {
   width: 0 !important;
   height: 0 !important;
 }
-
 .schedule-date-picker .el-input__suffix-inner,
 .schedule-time-picker .el-input__suffix-inner {
   display: flex !important;
@@ -2326,14 +2431,12 @@ input:checked + .toggle-slider:before {
   width: 40px !important;
   height: 40px !important;
 }
-
 .schedule-date-picker .el-input__prefix-inner,
 .schedule-time-picker .el-input__prefix-inner {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
 }
-
 .schedule-date-picker .el-input__suffix .el-icon,
 .schedule-time-picker .el-input__suffix .el-icon,
 .schedule-date-picker .el-input__suffix .el-input__icon,
@@ -2352,7 +2455,6 @@ input:checked + .toggle-slider:before {
   font-size: 16px !important;
   color: #6b7280 !important;
 }
-
 .schedule-date-picker .el-icon:not(.el-input__suffix .el-icon),
 .schedule-time-picker .el-icon:not(.el-input__suffix .el-icon),
 .schedule-date-picker .el-input__icon:not(.el-input__suffix .el-input__icon),
@@ -2370,17 +2472,14 @@ input:checked + .toggle-slider:before {
   height: 0 !important;
   font-size: 0 !important;
 }
-
 .schedule-date-picker .el-date-editor__trigger,
 .schedule-time-picker .el-time-picker__trigger {
   display: none !important;
 }
-
 .schedule-date-picker .el-date-editor__trigger-icon,
 .schedule-time-picker .el-time-picker__trigger-icon {
   display: none !important;
 }
-
 .schedule-date-picker .el-input__wrapper .el-input__suffix,
 .schedule-time-picker .el-input__wrapper .el-input__suffix {
   display: flex !important;
@@ -2391,7 +2490,6 @@ input:checked + .toggle-slider:before {
   width: 40px !important;
   height: 40px !important;
 }
-
 .schedule-date-picker .el-input__wrapper .el-input__prefix,
 .schedule-time-picker .el-input__wrapper .el-input__prefix {
   display: none !important;
@@ -2399,42 +2497,61 @@ input:checked + .toggle-slider:before {
   opacity: 0 !important;
   height: 0 !important;
 }
-
 .schedule-date-picker.el-date-editor,
 .schedule-time-picker.el-time-picker {
   width: 277.5px !important;
   height: 56px !important;
   border-radius: 16px;
 }
-
 .schedule-date-picker.el-date-editor .el-input,
 .schedule-time-picker.el-time-picker .el-input {
   width: 277.5px !important;
   height: 56px !important;
   border-radius: 16px;
 }
-
 .schedule-date-picker.el-date-editor .el-input__wrapper,
 .schedule-time-picker.el-time-picker .el-input__wrapper {
   width: 277.5px !important;
   height: 56px !important;
   border-radius: 16px;
 }
-
 .action-buttons {
   display: flex;
   flex-direction: row;
   gap: 16px;
   order: 4;
 }
-
 .dialog-content {
   gap: 5px !important;
 }
-
 @media (max-width: 1024px) {
   .create-notification-container {
     flex-direction: column;
   }
+}
+.dropdown-trigger.disabled {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+  color: rgb(64, 59, 59);
+  cursor: not-allowed;
+  opacity: 0.6;
+  pointer-events: none;
+}
+.toggle-switch.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.toggle-switch.disabled input {
+  cursor: not-allowed;
+}
+.schedule-options-container:has(.toggle-switch.disabled) {
+  pointer-events: none;
+}
+.schedule-date-picker :deep(.el-input__wrapper.is-disabled),
+.schedule-time-picker :deep(.el-input__wrapper.is-disabled) {
+  background-color: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
 }
 </style>
