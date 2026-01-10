@@ -4,7 +4,7 @@ import { BaseResponseDto } from '../base-response.dto'
 import { getAuth } from 'firebase-admin/auth'
 import { BakongUser } from 'src/entities/bakong-user.entity'
 
-export class ValidationHelper {
+export class ValidationHelperV2 {
   static validateLanguage = ValidationUtils.validateLanguage
   static validatePlatform = ValidationUtils.validatePlatform
   static validateNotificationType = ValidationUtils.validateNotificationType
@@ -465,7 +465,7 @@ export class ValidationHelper {
     const { notificationType } = dto
 
     if (notificationType) {
-      const validation = ValidationHelper.validateNotificationType(notificationType)
+      const validation = ValidationHelperV2.validateNotificationType(notificationType)
       if (!validation.isValid) {
         throw new Error(`Notification type validation failed: ${validation.errorMessage}`)
       }
@@ -476,9 +476,9 @@ export class ValidationHelper {
   }
 
   static createErrorResponse(error: any, context?: string): any {
-    const message = ValidationHelper.getReadableErrorMessage(error)
-    const errorCode = ValidationHelper.getErrorCode(error)
-    const httpStatus = ValidationHelper.getHttpStatusFromErrorCode(errorCode)
+    const message = ValidationHelperV2.getReadableErrorMessage(error)
+    const errorCode = ValidationHelperV2.getErrorCode(error)
+    const httpStatus = ValidationHelperV2.getHttpStatusFromErrorCode(errorCode)
 
     return {
       responseCode: 1,

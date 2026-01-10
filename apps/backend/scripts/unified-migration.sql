@@ -378,3 +378,137 @@ WHERE schemaname = 'public';
 \echo '   3. Restart your application'
 \echo ''
 
+
+-- ============================================================================
+-- Step 4B: Create V2 Tables (Side-by-side with V1)
+-- ============================================================================
+\echo '🆕 Step 4B: Creating V2 tables (template_v2, template_translation_v2, notification)...'
+
+-- Ensure category_type exists (your DB already has it, but safe to create if missing)
+CREATE TABLE IF NOT EXISTS category_type (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    namekh VARCHAR(255),
+    namejp VARCHAR(255),
+    icon BYTEA NOT NULL,
+    "mimeType" VARCHAR(255),
+    "originalFileName" VARCHAR(255),
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NULL,
+    "deletedAt" TIMESTAMPTZ NULL
+);
+
+-- Add translation columns to category_type table (safe / idempotent)
+ALTER TABLE public.category_type
+  ADD COLUMN IF NOT EXISTS namejp varchar(255);
+
+ALTER TABLE public.category_type
+  ADD COLUMN IF NOT EXISTS namekh varchar(255);
+
+ALTER TABLE template_v2
+ADD COLUMN IF NOT EXISTS "categoryType" VARCHAR(50);
+
+-- Update translations for existing categories (safe to re-run)
+UPDATE public.category_type
+SET
+  namekh = CASE name
+    WHEN 'Product & Feature' THEN 'ផលិតផល និងលក្ខណៈពិសេស'
+    WHEN 'Event'             THEN 'ព្រឹត្តិការណ៍'
+    WHEN 'News'              THEN 'ព័ត៌មាន'
+    WHEN 'Other'             THEN 'ផ្សេងៗ'
+    ELSE namekh
+  END,
+  namejp = CASE name
+    WHEN 'Product & Feature' THEN '製品・機能'
+    WHEN 'Event'             THEN 'イベント'
+    WHEN 'News'              THEN 'ニュース'
+    WHEN 'Other'             THEN 'その他'
+    ELSE namejp
+  END
+WHERE name IN ('Product & Feature', 'Event', 'News', 'Other');
+
+-- template_v2 (uses arrays + enum types you already define)
+CREATE TABLE IF NOT EXISTS template_v2 (
+    id SERIAL PRIMARY KEY,
+
+    platforms TEXT[] NOT NULL DEFAULT '{}',
+    "bakongPlatform" bakong_platform_enum NULL,
+
+    "sendType" send_type_enum NOT NULL DEFAULT 'SEND_SCHEDULE',
+    "notificationType" VARCHAR(50) NOT NULL DEFAULT 'FLASH_NOTIFICATION',
+
+    "categoryType" VARCHAR(50),
+
+    priority INTEGER NOT NULL DEFAULT 0,
+    "sendInterval" JSON NULL,
+
+    "isSent" BOOLEAN NOT NULL DEFAULT FALSE,
+    "sendSchedule" TIMESTAMPTZ NULL,
+
+    "createdBy" VARCHAR(255) NULL,
+    "updatedBy" VARCHAR(255) NULL,
+    "publishedBy" VARCHAR(255) NULL,
+
+    "showPerDay" INTEGER NULL DEFAULT 1,
+    "maxDayShowing" INTEGER NULL DEFAULT 1,
+
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NULL,
+    "deletedAt" TIMESTAMPTZ NULL
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_template_v2_isSent" ON template_v2("isSent");
+CREATE INDEX IF NOT EXISTS "IDX_template_v2_sendSchedule" ON template_v2("sendSchedule");
+CREATE INDEX IF NOT EXISTS "IDX_template_v2_bakongPlatform" ON template_v2("bakongPlatform");
+
+-- template_translation_v2 (recommended so V1 and V2 can both work)
+CREATE TABLE IF NOT EXISTS template_translation_v2 (
+    id SERIAL PRIMARY KEY,
+
+    "templateId" INTEGER NOT NULL,
+    language language_enum NOT NULL DEFAULT 'EN',
+
+    title VARCHAR(1024) NOT NULL DEFAULT '',
+    content TEXT NOT NULL DEFAULT '',
+
+    "imageId" VARCHAR(255) NULL,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NULL,
+    "linkPreview" TEXT NULL
+);
+
+-- FK: template_translation_v2 -> template_v2
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE constraint_name = 'FK_template_translation_v2_template'
+          AND table_name = 'template_translation_v2'
+    ) THEN
+        ALTER TABLE template_translation_v2
+        ADD CONSTRAINT "FK_template_translation_v2_template"
+        FOREIGN KEY ("templateId") REFERENCES template_v2(id) ON DELETE CASCADE;
+        RAISE NOTICE '✅ Added FK_template_translation_v2_template';
+    END IF;
+END$$;
+
+-- FK: template_translation_v2 -> image (same as v1)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE constraint_name = 'FK_template_translation_v2_image'
+          AND table_name = 'template_translation_v2'
+    ) THEN
+        ALTER TABLE template_translation_v2
+        ADD CONSTRAINT "FK_template_translation_v2_image"
+        FOREIGN KEY ("imageId") REFERENCES image("fileId") ON DELETE SET NULL;
+        RAISE NOTICE '✅ Added FK_template_translation_v2_image';
+    END IF;
+END$$;
+
+CREATE INDEX IF NOT EXISTS "IDX_template_translation_v2_templateId" ON template_translation_v2("templateId");
+CREATE INDEX IF NOT EXISTS "IDX_template_translation_v2_language" ON template_translation_v2(language);
+
+\echo '   ✅ V2 tables ready'
+\echo ''

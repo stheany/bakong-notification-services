@@ -1,4 +1,5 @@
-\echo '��� Running Comprehensive Database Verification (V1 + V2)'
+cat > apps/backend/verify-all.sql <<'EOF'
+\echo '🔍 Running Comprehensive Database Verification (V1 + V2)'
 \echo ''
 
 -- Check that required tables exist
@@ -10,7 +11,7 @@ SELECT
   to_regclass('public.template_translation_v2') AS v2_template_translation;
 
 \echo ''
-\echo '��� category_type translation columns check'
+\echo '🔍 category_type translation columns check'
 SELECT
   COUNT(*) AS total_rows,
   COUNT(namekh) AS namekh_filled,
@@ -19,3 +20,4 @@ FROM public.category_type;
 
 \echo ''
 \echo '✅ Verification finished'
+EOF

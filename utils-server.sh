@@ -87,7 +87,7 @@ _run_migration_internal() {
     echo ""
     
     # Check if migration file exists
-    MIGRATION_FILE="apps/backend/unified-migration.sql"
+    MIGRATION_FILE="apps/backend/scripts/unified-migration.sql"
     if [ ! -f "$MIGRATION_FILE" ]; then
         echo "❌ Migration file not found: $MIGRATION_FILE"
         return 1

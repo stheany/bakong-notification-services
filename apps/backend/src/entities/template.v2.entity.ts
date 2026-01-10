@@ -3,30 +3,42 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm'
-import { SendType, NotificationType, BakongApp, CategoryType } from '@bakong/shared'
-import { TemplateTranslation } from './template-translation.entity'
+import { SendType, NotificationType, BakongApp } from '@bakong/shared'
+import { CategoryTypeV2 } from './category-type-v2.entity'
+import { TemplateTranslationV2 } from './template-translation.v2.entity'
+import { NotificationV2 } from './notification.v2.entity'
 
 export type SendIntervalData = { cron: string; startAt: Date; endAt: Date }
-@Entity()
-export class Template {
+
+// ✅ IMPORTANT: use V1 table name
+@Entity({ name: 'template' })
+export class TemplateV2 {
   @PrimaryGeneratedColumn()
   id: number
 
-  @OneToMany(() => TemplateTranslation, (translation) => translation.template, {
-    eager: true,
-    cascade: ['insert'],
+  // ✅ relation only (NOT a column)
+  @OneToMany(() => TemplateTranslationV2, (t) => t.template, {
+    eager: false, // ✅ do NOT auto load (you can load in query)
   })
-  translations: TemplateTranslation[]
+  translations?: TemplateTranslationV2[]
+
+  // Optional: if you want back-reference
+  @OneToMany(() => NotificationV2, (n) => n.template)
+  notifications?: NotificationV2[]
 
   @Column('text', { array: true, nullable: false })
   platforms?: string[]
 
-  @Column({ nullable: true, type: 'enum', enum: BakongApp })
-  bakongPlatform?: BakongApp
+  @Column({
+    type: 'enum', enum: BakongApp, nullable: false, default: BakongApp.BAKONG,
+  })
+  bakongPlatform: BakongApp
 
   @Column({ nullable: false, type: 'enum', enum: SendType, default: SendType.SEND_SCHEDULE })
   sendType?: SendType
@@ -39,8 +51,12 @@ export class Template {
   })
   notificationType?: NotificationType
 
-  @Column({ nullable: false, type: 'enum', enum: CategoryType, default: CategoryType.NEWS })
-  categoryType?: CategoryType
+  @Column({ name: 'categoryTypeId', nullable: true, type: 'integer' })
+  categoryTypeId?: number
+
+  @ManyToOne(() => CategoryTypeV2, { nullable: true })
+  @JoinColumn({ name: 'categoryTypeId' })
+  categoryTypeEntity?: CategoryTypeV2
 
   @Column({ nullable: false, type: 'integer', default: 0 })
   priority?: number
@@ -63,6 +79,12 @@ export class Template {
   @Column({ nullable: true })
   publishedBy?: string
 
+  @Column({ type: 'integer', nullable: true, default: 1 })
+  showPerDay?: number
+
+  @Column({ type: 'integer', nullable: true, default: 1 })
+  maxDayShowing?: number
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date
 
@@ -71,6 +93,4 @@ export class Template {
 
   @DeleteDateColumn({ type: 'timestamptz', nullable: true })
   deletedAt?: Date
-  categoryTypeId: any;
-  categoryTypeEntity: any;
 }

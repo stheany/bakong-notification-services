@@ -16,6 +16,7 @@ import { ConfigService } from '../common/services/config.service'
 import { FirebaseManager } from '../common/services/firebase-manager.service'
 import { AppController } from '../app.controller'
 import { AppService } from '../app.service'
+import { CategoryTypeModule } from './category-type-v2/category-type-v2.module'
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AppService } from '../app.service'
     UserModule,
     TemplateModule,
     ImageModule,
+    CategoryTypeModule,
   ],
   controllers: [AppController],
   providers: [
@@ -48,4 +50,4 @@ import { AppService } from '../app.service'
   ],
   exports: [ConfigService],
 })
-export class AppModule {}
+export class AppModule { }

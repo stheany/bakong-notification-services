@@ -8,9 +8,9 @@ services:
       POSTGRES_USER: bkns_dev
       POSTGRES_PASSWORD: dev
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
-    command: ["postgres", "-p", "5432"]
+    command: [ "postgres", "-p", "5432" ]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bkns_dev -d bakong_notification_services_dev -p 5432"]
+      test: [ "CMD-SHELL", "pg_isready -U bkns_dev -d bakong_notification_services_dev -p 5432" ]
       interval: 5s
       timeout: 3s
       retries: 3
@@ -19,7 +19,7 @@ services:
       - "5437:5432"
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
-      - ./apps/backend/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./apps/backend/scripts:/docker-entrypoint-initdb.d
     restart: unless-stopped
     networks:
       - bakong-network
@@ -39,8 +39,8 @@ services:
       - POSTGRES_USER=bkns_dev
       - POSTGRES_PASSWORD=dev
       - API_PORT=8080
-      - API_BASE_URL=http://localhost:4004 
-      - HOSTING_BASE_URL=http://localhost:4004 
+      - API_BASE_URL=http://localhost:4004
+      - HOSTING_BASE_URL=http://localhost:4004
       - NODE_ENV=development
       - CORS_ORIGIN=http://localhost:3001
       - GOOGLE_APPLICATION_CREDENTIALS=/opt/bk_notification_service/firebase-service-account.json
@@ -72,6 +72,7 @@ services:
 
 volumes:
   postgres_data_dev:
+
 
 networks:
   bakong-network:
