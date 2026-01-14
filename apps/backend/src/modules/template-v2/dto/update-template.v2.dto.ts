@@ -90,4 +90,9 @@ export class UpdateTemplateDtoV2 {
     return isNaN(num) ? undefined : Math.max(1, Math.min(30, num)) // Clamp between 1-30
   })
   maxDayShowing?: number
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  accountIds?: string[]
 }

@@ -16,7 +16,9 @@ import { ConfigService } from '../common/services/config.service'
 import { FirebaseManager } from '../common/services/firebase-manager.service'
 import { AppController } from '../app.controller'
 import { AppService } from '../app.service'
-import { CategoryTypeModule } from './category-type-v2/category-type-v2.module'
+import { CategoryTypeModuleV2 } from './category-type-v2/category-type-v2.module'
+import { NotificationModuleV2 } from './notification-v2/notification.v2.module'
+import { TemplateModuleV2 } from './template-v2/template.v2.module'
 
 @Module({
   imports: [
@@ -28,7 +30,9 @@ import { CategoryTypeModule } from './category-type-v2/category-type-v2.module'
     UserModule,
     TemplateModule,
     ImageModule,
-    CategoryTypeModule,
+    CategoryTypeModuleV2,
+    TemplateModuleV2,
+    NotificationModuleV2,
   ],
   controllers: [AppController],
   providers: [

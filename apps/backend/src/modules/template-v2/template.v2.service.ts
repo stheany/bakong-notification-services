@@ -17,9 +17,9 @@ import { MoreThanOrEqual, Repository, Not, In } from 'typeorm'
 import { NotificationService } from '../notification/notification.service'
 import { User } from 'src/entities/user.entity'
 import { UpdateTemplateDtoV2 } from './dto/update-template.v2.dto'
-import { CreateTemplateDto } from './dto/create-template.v2.dto'
+import { CreateTemplateDtoV2 } from './dto/create-template.v2.dto'
 import { ImageService } from '../image/image.service'
-import { PaginationUtils } from '@bakong/shared'
+import { CategoryType, PaginationUtils } from '@bakong/shared'
 import {
   ErrorCode,
   ResponseMessage,
@@ -56,7 +56,7 @@ export class TemplateServiceV2 implements OnModuleInit {
     await this.pickPendingSchedule()
   }
 
-  async create(dto: CreateTemplateDto, currentUser?: any, req?: any) {
+  async create(dto: CreateTemplateDtoV2, currentUser?: any, req?: any) {
     console.log('🔵 [TEMPLATE CREATE] Starting template creation:', {
       notificationType: dto.notificationType,
       sendType: dto.sendType,
@@ -189,6 +189,11 @@ export class TemplateServiceV2 implements OnModuleInit {
     // Normalize platforms: ["IOS", "ANDROID"] -> ["ALL"]
     const normalizedPlatforms = ValidationHelper.parsePlatforms(dto.platforms)
 
+    const accountIds = Array.isArray(dto.accountIds)
+      ? [...new Set(dto.accountIds.map(x => String(x ?? '').trim()).filter(Boolean))]
+      : []
+      console.log('🔵 [TEMPLATE CREATE] Test account IDs:', accountIds)
+
     let template = this.repo.create({
       platforms: normalizedPlatforms,
       bakongPlatform: dto.bakongPlatform,
@@ -211,6 +216,7 @@ export class TemplateServiceV2 implements OnModuleInit {
 
       createdBy: currentUser?.username,
       updatedBy: currentUser?.username,
+      accountIds: accountIds
     })
 
     template = await this.repo.save(template)
@@ -473,6 +479,7 @@ export class TemplateServiceV2 implements OnModuleInit {
         let noUsersForPlatform = false
         try {
           sendResult = await this.notificationService.sendWithTemplate(templateWithTranslations, req)
+
           console.log('🔵 [TEMPLATE CREATE] sendWithTemplate returned:', sendResult)
         } catch (error: any) {
           console.error('🔵 [TEMPLATE CREATE] ❌ ERROR in sendWithTemplate:', {
@@ -737,6 +744,13 @@ export class TemplateServiceV2 implements OnModuleInit {
 
       if (currentUser?.username) {
         updateFields.updatedBy = currentUser.username
+      }
+
+     // ✅ handle accountIds (persist!)
+      if (dto.accountIds !== undefined) {
+        updateFields.accountIds = (dto.accountIds ?? [])
+          .map((x) => String(x).trim())
+          .filter(Boolean)
       }
 
       if (Object.keys(updateFields).length > 0) {
@@ -1027,10 +1041,15 @@ export class TemplateServiceV2 implements OnModuleInit {
       }
       updateFields.updatedAt = new Date()
 
-      // Update the existing template
-      if (Object.keys(updateFields).length > 0) {
-        await this.repo.update(id, updateFields)
-      }
+        if (dto.accountIds !== undefined) {
+          updateFields.accountIds = Array.isArray(dto.accountIds)
+            ? [...new Set(dto.accountIds.map(x => String(x ?? '').trim()).filter(Boolean))]
+            : []
+        }
+        
+        if (Object.keys(updateFields).length > 0) {
+          await this.repo.update(id, updateFields)
+        }
 
       // Update translations - preserve existing IDs
       if (dto.translations && dto.translations.length > 0) {
@@ -1188,7 +1207,6 @@ export class TemplateServiceV2 implements OnModuleInit {
     const templates = this.repo
       .createQueryBuilder('template')
       .leftJoinAndSelect('template.translations', 'translation')
-      .leftJoinAndSelect('translation.image', 'image')
       .where('translation.language = :language', { language: defaultLanguage })
       .addOrderBy('template.sendSchedule', 'DESC')
       .addOrderBy('template.updatedAt', 'DESC')
@@ -1220,7 +1238,6 @@ export class TemplateServiceV2 implements OnModuleInit {
     const queryBuilder = this.repo
       .createQueryBuilder('template')
       .leftJoinAndSelect('template.translations', 'translation')
-      .leftJoinAndSelect('translation.image', 'image')
       .leftJoinAndSelect('template.categoryTypeEntity', 'categoryTypeEntity')
       .where('translation.language = :language', { language: defaultLanguage })
 
@@ -1266,8 +1283,7 @@ export class TemplateServiceV2 implements OnModuleInit {
       const queryBuilder = this.repo
         .createQueryBuilder('template')
         .leftJoinAndSelect('template.translations', 'translation')
-        .leftJoinAndSelect('translation.image', 'image')
-
+        .leftJoinAndSelect('template.categoryTypeEntity', 'categoryType')
       const [items, total] = await queryBuilder.getManyAndCount()
 
       items.sort((a, b) => {
@@ -1311,9 +1327,9 @@ export class TemplateServiceV2 implements OnModuleInit {
             template.translations = [sortedTranslations[0]]
           }
 
-          if (template.translations?.[0]?.imageId) {
-            delete (template.translations[0].imageId as any).file
-          }
+          // if (template.translations?.[0]?.imageId) {
+          //   delete (template.translations[0].imageId as any).file
+          // }
 
           return this.formatTemplateAsNotification(template, displayNameMap, req)
         })
@@ -1374,7 +1390,6 @@ export class TemplateServiceV2 implements OnModuleInit {
     const template = await this.repo
       .createQueryBuilder('template')
       .leftJoinAndSelect('template.translations', 'translations')
-      .leftJoinAndSelect('translations.image', 'image')
       .where('template.id = :id', { id })
       .getOne()
 
@@ -1468,7 +1483,10 @@ export class TemplateServiceV2 implements OnModuleInit {
               : null,
         }))
         : [],
-    }
+        accountIds: Array.isArray((template as any).accountIds)
+          ? (template as any).accountIds
+          : [],   
+      }
 
     // Add flag if saved as draft due to no users
     if ((template as any).savedAsDraftNoUsers) {
@@ -1481,6 +1499,7 @@ export class TemplateServiceV2 implements OnModuleInit {
       formattedTemplate.failedCount = (template as any).failedCount
       formattedTemplate.failedUsers = (template as any).failedUsers || []
       formattedTemplate.failedDueToInvalidTokens = (template as any).failedDueToInvalidTokens || false
+      formattedTemplate.accountIds = (template as any).accountIds || []
     }
 
     return formattedTemplate
@@ -1560,7 +1579,7 @@ export class TemplateServiceV2 implements OnModuleInit {
       date: date,
       status: status,
       type: template.notificationType,
-      categoryType: template.categoryTypeEntity?.name || null,
+      categoryType: template.categoryTypeEntity?.name || template.categoryTypeId || CategoryType.OTHER,
       categoryIcon: categoryIcon,
       createdAt: template.createdAt,
       templateId: template.id,

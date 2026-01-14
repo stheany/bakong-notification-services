@@ -29,7 +29,7 @@ export class SendIntervalDto {
   endAt: string
 }
 
-export class CreateTemplateDto {
+export class CreateTemplateDtoV2 {
   @IsString()
   @IsOptional()
   @IsUUID()
@@ -119,4 +119,9 @@ export class CreateTemplateDto {
     return isNaN(num) ? 1 : Math.max(1, Math.min(30, num)) // Clamp between 1-30
   })
   maxDayShowing?: number
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  accountIds?: string[]
 }

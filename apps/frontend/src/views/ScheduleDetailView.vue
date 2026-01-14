@@ -57,19 +57,19 @@
     </ElDialog>
   </div>
 </template>
-
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElDialog, ElButton } from 'element-plus'
 import { Warning, Picture } from '@element-plus/icons-vue'
-import { typeApi } from '../services/typeApi'
+import { templateApi } from '@/services/templateApi-v2'
+import { notificationApi } from '@/services/notificationApi-v2'
+import { getNotificationMessage, formatBakongApp } from '@/utils/helpers-v2'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-
+import { api } from '@/services/api'
 const route = useRoute()
 const router = useRouter()
 const { handleApiError, showSuccess, showInfo } = useErrorHandler()
-
 const scheduleData = ref<any>({
   id: null,
   title: '',
@@ -79,11 +79,9 @@ const scheduleData = ref<any>({
   createdAt: '',
   updatedAt: '',
 })
-
 const publishing = ref(false)
 const deleteDialogVisible = ref(false)
 const scheduleId = route.params.id as string
-
 const fetchScheduleDetail = async () => {
   try {
     if (!scheduleId) {
@@ -91,8 +89,7 @@ const fetchScheduleDetail = async () => {
       router.push('/schedule')
       return
     }
-
-    const template = await typeApi.getTemplateById(parseInt(scheduleId))
+    const template = await templateApi.getTemplateById(parseInt(scheduleId))
     if (template) {
       scheduleData.value = {
         id: template.id,
@@ -112,29 +109,55 @@ const fetchScheduleDetail = async () => {
     router.push('/schedule')
   }
 }
-
 const handlePublishNow = async () => {
   try {
     publishing.value = true
-
+    if (!scheduleData.value.id) {
+      showInfo('Schedule ID not found')
+      return
+    }
     showInfo('Publishing schedule...')
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    const templateResponse = await api.get(`/api/v1/template/${scheduleData.value.id}`)
+    const template = templateResponse.data?.data || templateResponse.data
+    const result = await notificationApi.sendNotification(
+      Number(scheduleData.value.id),
+      template?.notificationType as string || 'ANNOUNCEMENT',
+      true,
+    )
+    if (result?.responseCode !== 0 || result?.errorCode !== 0) {
+      const errorMessage =
+        result?.responseMessage || result?.message || 'Failed to publish schedule'
+      showInfo(errorMessage)
+      return
+    }
+    const resultData = result?.data || {}
+    const bakongPlatform =
+      resultData?.bakongPlatform || resultData?.whatnews?.bakongPlatform || template?.bakongPlatform
+    const platformName = bakongPlatform ? formatBakongApp(bakongPlatform ) : 'this platform'
+    const messageConfig = getNotificationMessage(resultData, platformName, bakongPlatform)
+    if (
+      messageConfig.type === 'error' ||
+      messageConfig.type === 'warning' ||
+      messageConfig.type === 'info'
+    ) {
+      const plainMessage = messageConfig.message.replace(/<strong>/g, '').replace(/<\/strong>/g, '')
+      showInfo(plainMessage)
+      return
+    }
     showSuccess('Schedule published successfully!')
+    await fetchScheduleDetail()
   } catch (error) {
     handleApiError(error, { operation: 'publishSchedule' })
   } finally {
     publishing.value = false
   }
 }
-
 const handleEdit = () => {
   router.push(`/schedule/edit/${scheduleId}`)
 }
-
 const handleDelete = () => {
   deleteDialogVisible.value = true
 }
-
 const confirmDelete = async () => {
   try {
     if (!scheduleData.value.id) {
@@ -142,7 +165,7 @@ const confirmDelete = async () => {
       return
     }
     showInfo('Deleting schedule...')
-    const success = await typeApi.deleteTemplate(parseInt(scheduleData.value.id))
+    const success = await templateApi.deleteTemplate(parseInt(scheduleData.value.id))
     if (success) {
       showSuccess('Schedule deleted successfully!')
       router.push('/schedule')
@@ -155,12 +178,10 @@ const confirmDelete = async () => {
     deleteDialogVisible.value = false
   }
 }
-
 onMounted(async () => {
   await fetchScheduleDetail()
 })
 </script>
-
 <style scoped>
 .schedule-detail-page {
   width: 100%;
@@ -169,45 +190,37 @@ onMounted(async () => {
   flex-direction: column;
   background-color: #fff;
 }
-
 .breadcrumb {
   margin-bottom: 20px;
   font-size: 14px;
   color: #666;
 }
-
 .breadcrumb-link {
   color: #409eff;
   cursor: pointer;
   text-decoration: none;
 }
-
 .breadcrumb-link:hover {
   text-decoration: underline;
 }
-
 .breadcrumb-separator {
   margin: 0 8px;
   color: #999;
 }
-
 .breadcrumb-current {
   color: #333;
   font-weight: 500;
 }
-
 .page-title {
   font-size: 28px;
   font-weight: bold;
   margin: 0 0 30px 0;
   color: #333;
 }
-
 .schedule-content {
   max-width: 800px;
   margin: 0 auto;
 }
-
 .content-label {
   font-size: 14px;
   color: #666;
@@ -215,7 +228,6 @@ onMounted(async () => {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-
 .content-box {
   background: #fff;
   border: 1px solid #e0e0e0;
@@ -224,19 +236,16 @@ onMounted(async () => {
   margin-bottom: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
-
 .content-image {
   margin-bottom: 20px;
   text-align: center;
 }
-
 .schedule-image {
   max-width: 100%;
   max-height: 300px;
   border-radius: 8px;
   object-fit: cover;
 }
-
 .placeholder-image {
   display: flex;
   flex-direction: column;
@@ -249,11 +258,9 @@ onMounted(async () => {
   color: #999;
   font-size: 14px;
 }
-
 .placeholder-image .el-icon {
   margin-bottom: 8px;
 }
-
 .content-title {
   font-size: 24px;
   font-weight: bold;
@@ -261,28 +268,23 @@ onMounted(async () => {
   color: #333;
   line-height: 1.3;
 }
-
 .content-description {
   font-size: 16px;
   line-height: 1.6;
   color: #666;
   margin: 0;
 }
-
 .action-buttons {
   display: flex;
   gap: 12px;
   justify-content: center;
 }
-
 .action-buttons .el-button {
   min-width: 120px;
 }
-
 .custom-delete-dialog .el-dialog__body {
   padding: 0;
 }
-
 .dialog-content {
   display: flex;
   align-items: center;

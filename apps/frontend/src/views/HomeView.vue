@@ -764,8 +764,8 @@ const handlePublishNotification = async (notification: Notification) => {
 
       const result = await notificationApi.sendNotification(
         Number(notificationId),
-        notificationLanguage,
-        notification.type,
+        notificationLanguage || 'KM',
+        true as unknown as string,
       )
 
       // Check if error response (no users found)

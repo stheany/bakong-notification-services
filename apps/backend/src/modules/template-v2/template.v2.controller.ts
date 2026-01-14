@@ -2,8 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, Req, Version } from '@nestjs
 import { UserRole } from '@bakong/shared'
 import { Roles } from 'src/common/middleware/roles.guard'
 import { BaseResponseDto } from 'src/common/base-response.dto'
-import { BaseFunctionHelper } from 'src/common/util/base-function.helper'
-import { CreateTemplateDto } from './dto/create-template.v2.dto'
+ import { CreateTemplateDtoV2 } from './dto/create-template.v2.dto'
 import { UpdateTemplateDtoV2 } from './dto/update-template.v2.dto'
 import { TemplateServiceV2 } from './template.v2.service'
 
@@ -14,7 +13,7 @@ export class TemplateV2Controller {
   @Roles(UserRole.ADMIN_USER)
   @Post('create')
   @Version('2')
-  async create(@Body() dto: CreateTemplateDto, @Req() req: any) {
+  async create(@Body() dto: CreateTemplateDtoV2, @Req() req: any) {
     console.log('🎯 [V2][CONTROLLER] /template/create endpoint called')
     try {
       const currentUser = req.user
@@ -38,6 +37,7 @@ export class TemplateV2Controller {
     console.log('🎯 [V2][CONTROLLER] /template/:id/update endpoint called for template:', id)
     const currentUser = req.user
     const template = await this.templateService.update(+id, updateUserDto, currentUser, req)
+    console.log('🧾 [V2][CONTROLLER] UPDATE DTO:', updateUserDto)
     return new BaseResponseDto({
       responseCode: 0,
       responseMessage: `Update ${template.notificationType} successfully`,

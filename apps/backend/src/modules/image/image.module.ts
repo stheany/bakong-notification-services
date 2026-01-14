@@ -7,9 +7,12 @@ import { BaseFunctionHelper } from 'src/common/util/base-function.helper'
 import { BakongUser } from 'src/entities/bakong-user.entity'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { Logger } from '@nestjs/common'
+import { HelperV2Module } from '@/common/util/helper-v2.module'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Image, BakongUser])],
+  imports: [TypeOrmModule.forFeature([Image, BakongUser]),
+  HelperV2Module,
+],
   providers: [
     ImageService,
     {

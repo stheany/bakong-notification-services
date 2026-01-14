@@ -35,7 +35,7 @@ const props = withDefaults(defineProps<Props>(), {
 const router = useRouter()
 const route = useRoute()
 
-const mainSidebarPages = ['/', '/notifications', '/templates', '/users', '/schedule']
+const mainSidebarPages = ['/', '/notifications', '/category-type', '/users', '/schedule']
 
 const shouldShowBreadcrumb = computed(() => {
   const currentPath = route.path
@@ -53,8 +53,8 @@ const autoBreadcrumbs = computed(() => {
     let clickable = true
 
     switch (pathSegments[i]) {
-      case 'templates':
-        label = 'Templates'
+      case 'category-type':
+        label = 'Category Type'
         break
       case 'notifications':
         label = 'Notifications'

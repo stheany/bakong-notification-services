@@ -1,4 +1,3 @@
-// apps/backend/src/modules/category-type-v2/category-type-v2.service.ts
 import {
   Injectable,
   Logger,
@@ -8,13 +7,13 @@ import {
 } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, QueryFailedError } from 'typeorm'
+import { CategoryTypeV2 } from '../../entities/category-type-v2.entity'
+import { CreateCategoryTypeDto } from './dto/create-category-type-v2.dto'
+import { UpdateCategoryTypeDto } from './dto/update-category-type-v2.dto'
 import { BaseResponseDto } from '../../common/base-response.dto'
 import { ErrorCode, ResponseMessage } from '@bakong/shared'
 import * as fs from 'fs'
 import * as path from 'path'
-import { CategoryTypeV2 } from '@/entities/category-type-v2.entity'
-import { CreateCategoryTypeDto } from './dto/create-category-type-v2.dto'
-import { UpdateCategoryTypeDto } from './dto/update-category-type-v2.dto'
 
 interface CacheEntry<T> {
   data: T
@@ -24,217 +23,40 @@ interface CacheEntry<T> {
 @Injectable()
 export class CategoryTypeServiceV2 implements OnModuleInit {
   private readonly logger = new Logger(CategoryTypeServiceV2.name)
-
+  // In-memory cache for category types
+  // Cache TTL: 5 minutes (300000 ms)
   private readonly CACHE_TTL = 5 * 60 * 1000
-  private categoryTypesCache: CacheEntry<any[]> | null = null
-  private categoryTypeCache: Map<number, CacheEntry<any>> = new Map()
+  private categoryTypesCache: CacheEntry<CategoryTypeV2[]> | null = null
+  private categoryTypeCache: Map<number, CacheEntry<CategoryTypeV2>> = new Map()
 
   constructor(
     @InjectRepository(CategoryTypeV2)
     private readonly repo: Repository<CategoryTypeV2>,
-  ) { }
+  ) {}
 
   async onModuleInit() {
     await this.ensureDefaultCategoryTypes()
   }
 
-  private isCacheValid<T>(entry: CacheEntry<T> | null): boolean {
-    if (!entry) return false
-    return Date.now() - entry.timestamp < this.CACHE_TTL
-  }
-
-  clearCache(): void {
-    this.categoryTypesCache = null
-    this.categoryTypeCache.clear()
-    this.logger.debug('Category types cache cleared')
-  }
-
-  private iconToBase64(icon: Buffer, mimeType?: string): string {
-    const base64 = icon.toString('base64')
-    const mime = mimeType || 'image/png'
-    return `data:${mime};base64,${base64}`
-  }
-
-  private toResponseObject(categoryType: CategoryTypeV2): any {
-    return {
-      id: categoryType.id,
-      name: categoryType.name,
-      icon: categoryType.icon ? this.iconToBase64(categoryType.icon, categoryType.mimeType) : undefined,
-      mimeType: categoryType.mimeType,
-      originalFileName: categoryType.originalFileName,
-      createdAt: categoryType.createdAt,
-      updatedAt: categoryType.updatedAt,
-      deletedAt: categoryType.deletedAt,
-    }
-  }
-
   /**
-   * ✅ Used by GET /:id/icon (streaming)
-   */
-  async getIconById(id: number): Promise<{ icon: Buffer | null; mimeType?: string | null }> {
-    const row = await this.repo
-      .createQueryBuilder('ct')
-      .select(['ct.id', 'ct.mimeType'])
-      .addSelect('ct.icon') // ✅ ensure icon is selected even if select:false
-      .where('ct.id = :id', { id })
-      .andWhere('ct.deletedAt IS NULL')
-      .getOne()
-
-    return {
-      icon: row?.icon ?? null,
-      mimeType: row?.mimeType ?? null,
-    }
-  }
-
-  /**
-   * ✅ Used by GET /category-type (returns JSON with base64 icon)
-   * Important: use querybuilder to include icon
-   */
-  async findAll(): Promise<any[]> {
-    if (this.isCacheValid(this.categoryTypesCache)) {
-      this.logger.debug('Returning category types from cache')
-      return this.categoryTypesCache!.data
-    }
-
-    const entities = await this.repo
-      .createQueryBuilder('ct')
-      .addSelect('ct.icon')
-      .where('ct.deletedAt IS NULL')
-      .orderBy('ct.name', 'ASC')
-      .getMany()
-
-    const data = entities.map((ct) => this.toResponseObject(ct))
-
-    this.categoryTypesCache = { data, timestamp: Date.now() }
-    this.logger.debug(`Cached ${data.length} category types`)
-
-    return data
-  }
-
-  /**
-   * ✅ Used by GET /:id (returns JSON with base64 icon)
-   */
-  async findOneResponse(id: number): Promise<any> {
-    const cached = this.categoryTypeCache.get(id)
-    if (this.isCacheValid(cached ?? null)) {
-      this.logger.debug(`Returning category type ${id} from cache`)
-      return cached!.data
-    }
-
-    const entity = await this.repo
-      .createQueryBuilder('ct')
-      .addSelect('ct.icon')
-      .where('ct.id = :id', { id })
-      .andWhere('ct.deletedAt IS NULL')
-      .getOne()
-
-    if (!entity) {
-      throw new NotFoundException(
-        new BaseResponseDto({
-          responseCode: 1,
-          errorCode: ErrorCode.RECORD_NOT_FOUND,
-          responseMessage: ResponseMessage.RECORD_NOT_FOUND + id,
-        }),
-      )
-    }
-
-    const data = this.toResponseObject(entity)
-
-    this.categoryTypeCache.set(id, { data, timestamp: Date.now() })
-    return data
-  }
-
-  async create(dto: CreateCategoryTypeDto): Promise<CategoryTypeV2> {
-    const categoryType = this.repo.create(dto)
-    const saved = await this.repo.save(categoryType)
-    this.clearCache()
-    this.logger.log(`Category type created: ${saved.name} (ID: ${saved.id})`)
-    return saved
-  }
-
-  async update(id: number, dto: UpdateCategoryTypeDto): Promise<CategoryTypeV2> {
-    // ensure exists (and load icon)
-    const entity = await this.repo
-      .createQueryBuilder('ct')
-      .addSelect('ct.icon')
-      .where('ct.id = :id', { id })
-      .andWhere('ct.deletedAt IS NULL')
-      .getOne()
-
-    if (!entity) {
-      throw new NotFoundException(
-        new BaseResponseDto({
-          responseCode: 1,
-          errorCode: ErrorCode.RECORD_NOT_FOUND,
-          responseMessage: ResponseMessage.RECORD_NOT_FOUND + id,
-        }),
-      )
-    }
-
-    Object.assign(entity, dto)
-    const updated = await this.repo.save(entity)
-
-    this.clearCache()
-    this.logger.log(`Category type updated: ${updated.name} (ID: ${updated.id})`)
-    return updated
-  }
-
-  async remove(id: number): Promise<void> {
-    // verify exists
-    const exists = await this.repo.findOne({ where: { id } })
-    if (!exists) {
-      throw new NotFoundException(
-        new BaseResponseDto({
-          responseCode: 1,
-          errorCode: ErrorCode.RECORD_NOT_FOUND,
-          responseMessage: ResponseMessage.RECORD_NOT_FOUND + id,
-        }),
-      )
-    }
-
-    try {
-      const result = await this.repo.delete(id)
-      if (!result.affected) {
-        throw new NotFoundException(
-          new BaseResponseDto({
-            responseCode: 1,
-            errorCode: ErrorCode.RECORD_NOT_FOUND,
-            responseMessage: ResponseMessage.RECORD_NOT_FOUND + id,
-          }),
-        )
-      }
-      this.clearCache()
-      this.logger.log(`Category type ${id} deleted successfully`)
-    } catch (error) {
-      if (error instanceof QueryFailedError) {
-        const msg = error.message || String(error)
-        if (msg.includes('foreign key') || msg.includes('violates foreign key constraint')) {
-          throw new BadRequestException(
-            new BaseResponseDto({
-              responseCode: 1,
-              errorCode: ErrorCode.VALIDATION_FAILED,
-              responseMessage:
-                `Cannot delete category type. Please ensure FK is ON DELETE SET NULL. Error: ${msg}`,
-            }),
-          )
-        }
-      }
-      throw error
-    }
-  }
-
-  /**
-   * Your ensureDefaultCategoryTypes() can stay mostly same.
-   * (I didn’t change it here to keep your logic, but it’s not related to detachSocket.)
+   * Ensures that the default category types always exist:
+   * - NEWS
+   * - PRODUCT_AND_FEATURE
+   * - OTHER
+   * - EVENT
    */
   private async ensureDefaultCategoryTypes(): Promise<void> {
+    // Try multiple possible paths to handle different execution contexts
+    // Priority: Backend assets (most reliable in Docker) > Frontend assets (dev) > Compiled dist
     const possiblePaths = [
-      path.join(process.cwd(), 'assets/images'),
-      path.join(process.cwd(), 'apps/backend/assets/images'),
-      path.join(__dirname, '../../../assets/images'),
-      path.join(process.cwd(), 'apps/frontend/src/assets/image'),
-      path.join(process.cwd(), '../frontend/src/assets/image'),
-      path.join(__dirname, '../../../../frontend/src/assets/image'),
+      // Backend assets directory (most reliable for Docker/production)
+      path.join(process.cwd(), 'assets/images'), // From workspace root
+      path.join(process.cwd(), 'apps/backend/assets/images'), // From workspace root (monorepo)
+      path.join(__dirname, '../../../assets/images'), // From compiled dist
+      // Frontend assets directory (for local development)
+      path.join(process.cwd(), 'apps/frontend/src/assets/image'), // From workspace root
+      path.join(process.cwd(), '../frontend/src/assets/image'), // From apps/backend
+      path.join(__dirname, '../../../../frontend/src/assets/image'), // From compiled dist
     ]
 
     let assetsPath: string | null = null
@@ -246,50 +68,352 @@ export class CategoryTypeServiceV2 implements OnModuleInit {
       }
     }
 
-    if (!assetsPath) {
-      this.logger.warn(`⚠️ Category type images directory not found. Tried: ${possiblePaths.join(', ')}`)
+    // Log warning if no valid path found
+    if (!assetsPath || !fs.existsSync(assetsPath)) {
+      this.logger.warn(
+        `⚠️ Category type images directory not found. Tried paths: ${possiblePaths.join(', ')}`,
+      )
+      this.logger.warn(
+        `⚠️ Will use default icons for all category types. Current working directory: ${process.cwd()}`,
+      )
+      // Set a fallback path to prevent errors, but icons won't be found
       assetsPath = possiblePaths[0]
     }
 
-    const defaultPng = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-      'base64',
-    )
-
+    // Helper function to load icon file or return default
     const loadIconBuffer = (iconFileName: string): Buffer => {
-      const iconPath = path.join(assetsPath!, iconFileName)
+      const iconPath = path.join(assetsPath, iconFileName)
+      this.logger.debug(`Attempting to load icon from: ${iconPath}`)
       try {
-        if (fs.existsSync(iconPath)) return fs.readFileSync(iconPath)
-      } catch (e: any) {
-        this.logger.error(`❌ Failed to load icon ${iconFileName}: ${e?.message}`)
+        if (fs.existsSync(iconPath)) {
+          const iconBuffer = fs.readFileSync(iconPath)
+          this.logger.log(
+            `✅ Successfully loaded icon ${iconFileName} (${iconBuffer.length} bytes)`,
+          )
+          return iconBuffer
+        } else {
+          this.logger.warn(`⚠️ Icon file not found: ${iconPath}, using default icon`)
+          // Return default minimal PNG buffer
+          return Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+            'base64',
+          )
+        }
+      } catch (error) {
+        this.logger.error(`❌ Failed to load icon ${iconFileName}: ${error.message}`)
+        // Return default minimal PNG buffer on error
+        return Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+          'base64',
+        )
       }
-      return defaultPng
     }
 
-    const defaults = [
-      { name: 'News', mimeType: 'image/png', originalFileName: 'News.png', iconFileName: 'News.png' },
-      { name: 'Product & Feature', mimeType: 'image/png', originalFileName: 'ProductAndFeature.png', iconFileName: 'ProductAndFeature.png' },
-      { name: 'Other', mimeType: 'image/png', originalFileName: 'Other.png', iconFileName: 'Other.png' },
-      { name: 'Event', mimeType: 'image/png', originalFileName: 'Event.png', iconFileName: 'Event.png' },
+    const defaultCategoryTypes = [
+      {
+        name: 'News',
+        mimeType: 'image/png',
+        originalFileName: 'News.png',
+        iconFileName: 'News.png', // You can add this file later
+      },
+      {
+        name: 'Product & Feature',
+        mimeType: 'image/png',
+        originalFileName: 'ProductAndFeature.png',
+        iconFileName: 'ProductAndFeature.png', // Use actual PNG file
+      },
+      {
+        name: 'Other',
+        mimeType: 'image/png',
+        originalFileName: 'Other.png',
+        iconFileName: 'Other.png', // You can add this file later
+      },
+      {
+        name: 'Event',
+        mimeType: 'image/png',
+        originalFileName: 'Event.png',
+        iconFileName: 'Event.png', // You can add this file later
+      },
     ]
 
-    for (const ct of defaults) {
+    for (const categoryType of defaultCategoryTypes) {
       try {
-        const existing = await this.repo.findOne({ where: { name: ct.name } })
+        const existing = await this.repo.findOne({
+          where: { name: categoryType.name },
+        })
+
         if (!existing) {
-          await this.repo.save(
-            this.repo.create({
-              name: ct.name,
-              icon: loadIconBuffer(ct.iconFileName),
-              mimeType: ct.mimeType,
-              originalFileName: ct.originalFileName,
+          const iconBuffer = loadIconBuffer(categoryType.iconFileName)
+          const newCategoryType = this.repo.create({
+            name: categoryType.name,
+            icon: iconBuffer,
+            mimeType: categoryType.mimeType,
+            originalFileName: categoryType.originalFileName,
+          })
+          await this.repo.save(newCategoryType)
+          this.logger.log(`✅ Created default category type: ${categoryType.name}`)
+        } else {
+          this.logger.debug(
+            `Category type ${categoryType.name} already exists (ID: ${existing.id})`,
+          )
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to ensure category type ${categoryType.name}: ${error.message}`,
+          error.stack,
+        )
+        // Continue with other category types even if one fails
+      }
+    }
+  }
+
+  /**
+   * Clear all caches - called after delete operations
+   */
+  clearCache(): void {
+    this.categoryTypesCache = null
+    this.categoryTypeCache.clear()
+    this.logger.debug('Category types cache cleared')
+  }
+
+  /**
+   * Update cache after creating a new category type
+   */
+  private updateCacheAfterCreate(newCategoryType: CategoryTypeV2): void {
+    if (this.categoryTypesCache) {
+      // Add new category type to cached list and sort by name
+      const updatedList = [...this.categoryTypesCache.data, newCategoryType].sort((a, b) =>
+        a.name.localeCompare(b.name),
+      )
+      this.categoryTypesCache = {
+        data: updatedList,
+        timestamp: Date.now(),
+      }
+      this.logger.debug(`Cache updated with new category type: ${newCategoryType.name}`)
+    } else {
+      // If cache doesn't exist, clear it so next fetch will populate it
+      this.clearCache()
+    }
+  }
+
+  /**
+   * Update cache after updating a category type
+   */
+  private updateCacheAfterUpdate(updatedCategoryType: CategoryTypeV2): void {
+    if (this.categoryTypesCache) {
+      // Update the category type in cached list
+      const updatedList = this.categoryTypesCache.data.map((ct) =>
+        ct.id === updatedCategoryType.id ? updatedCategoryType : ct,
+      )
+      // Sort by name to maintain order
+      updatedList.sort((a, b) => a.name.localeCompare(b.name))
+      this.categoryTypesCache = {
+        data: updatedList,
+        timestamp: Date.now(),
+      }
+      this.logger.debug(`Cache updated with modified category type: ${updatedCategoryType.name}`)
+    } else {
+      // If cache doesn't exist, clear it so next fetch will populate it
+      this.clearCache()
+    }
+
+    // Also update individual cache
+    this.categoryTypeCache.set(updatedCategoryType.id, {
+      data: updatedCategoryType,
+      timestamp: Date.now(),
+    })
+  }
+
+  /**
+   * Update cache after deleting a category type
+   */
+  private updateCacheAfterDelete(deletedId: number): void {
+    if (this.categoryTypesCache) {
+      // Remove deleted category type from cached list
+      const updatedList = this.categoryTypesCache.data.filter((ct) => ct.id !== deletedId)
+      this.categoryTypesCache = {
+        data: updatedList,
+        timestamp: Date.now(),
+      }
+      this.logger.debug(`Cache updated after deleting category type ID: ${deletedId}`)
+    }
+
+    // Remove from individual cache
+    this.categoryTypeCache.delete(deletedId)
+  }
+
+  /**
+   * Check if cache entry is still valid
+   */
+  private isCacheValid<T>(entry: CacheEntry<T> | null): boolean {
+    if (!entry) return false
+    const now = Date.now()
+    return now - entry.timestamp < this.CACHE_TTL
+  }
+
+  /**
+   * Convert icon Buffer to base64 string
+   */
+  private iconToBase64(icon: Buffer, mimeType?: string): string {
+    if (!icon) return ''
+    const base64 = icon.toString('base64')
+    const mime = mimeType || 'image/png'
+    return `data:${mime};base64,${base64}`
+  }
+
+  /**
+   * Transform CategoryType entity to plain object with base64 icon
+   */
+  private toResponseObject(categoryType: CategoryTypeV2): any {
+    return {
+      id: categoryType.id,
+      name: categoryType.name,
+      icon: categoryType.icon
+        ? this.iconToBase64(categoryType.icon, categoryType.mimeType)
+        : undefined,
+      mimeType: categoryType.mimeType,
+      originalFileName: categoryType.originalFileName,
+      createdAt: categoryType.createdAt,
+      updatedAt: categoryType.updatedAt,
+      deletedAt: categoryType.deletedAt,
+    }
+  }
+
+  async findAll(): Promise<any[]> {
+    // Check cache first
+    if (this.isCacheValid(this.categoryTypesCache)) {
+      this.logger.debug('Returning category types from cache')
+      return this.categoryTypesCache!.data.map((ct) => this.toResponseObject(ct))
+    }
+
+    // Cache miss or expired - fetch from database
+    const categoryTypes = await this.repo.find({
+      order: { name: 'ASC' },
+    })
+
+    // Update cache
+    this.categoryTypesCache = {
+      data: categoryTypes,
+      timestamp: Date.now(),
+    }
+    this.logger.debug(`Cached ${categoryTypes.length} category types`)
+
+    // Return plain objects with base64 icons
+    return categoryTypes.map((ct) => this.toResponseObject(ct))
+  }
+
+  async findOne(id: number): Promise<CategoryTypeV2> {
+    // Check cache first
+    const cached = this.categoryTypeCache.get(id)
+    if (this.isCacheValid(cached)) {
+      this.logger.debug(`Returning category type ${id} from cache`)
+      return cached!.data
+    }
+
+    // Cache miss or expired - fetch from database
+    const categoryType = await this.repo.findOne({ where: { id } })
+    if (!categoryType) {
+      throw new NotFoundException(
+        new BaseResponseDto({
+          responseCode: 1,
+          errorCode: ErrorCode.RECORD_NOT_FOUND,
+          responseMessage: ResponseMessage.RECORD_NOT_FOUND + id,
+        }),
+      )
+    }
+
+    // Update cache
+    this.categoryTypeCache.set(id, {
+      data: categoryType,
+      timestamp: Date.now(),
+    })
+    this.logger.debug(`Cached category type ${id}`)
+
+    return categoryType
+  }
+
+  async create(dto: CreateCategoryTypeDto): Promise<CategoryTypeV2> {
+    const categoryType = this.repo.create(dto)
+    const saved = await this.repo.save(categoryType)
+
+    // Update cache with new category type instead of clearing
+    this.updateCacheAfterCreate(saved)
+    this.logger.log(`Category type created and cache updated: ${saved.name} (ID: ${saved.id})`)
+
+    return saved
+  }
+
+  async update(id: number, dto: UpdateCategoryTypeDto): Promise<CategoryTypeV2> {
+    const categoryType = await this.findOne(id)
+
+    // Preserve existing icon if not provided in update DTO
+    const existingIcon = categoryType.icon
+    const existingMimeType = categoryType.mimeType
+    const existingOriginalFileName = categoryType.originalFileName
+
+    // Apply updates
+    Object.assign(categoryType, dto)
+
+    // Restore icon-related fields if not provided in update
+    if (!dto.icon && existingIcon) {
+      categoryType.icon = existingIcon
+      categoryType.mimeType = existingMimeType || categoryType.mimeType
+      categoryType.originalFileName = existingOriginalFileName || categoryType.originalFileName
+    }
+
+    const updated = await this.repo.save(categoryType)
+
+    // Update cache with updated category type instead of clearing
+    this.updateCacheAfterUpdate(updated)
+    this.logger.log(`Category type updated and cache updated: ${updated.name} (ID: ${updated.id})`)
+
+    return updated
+  }
+
+  async remove(id: number): Promise<void> {
+    // Verify record exists (will throw NotFoundException if not found)
+    await this.findOne(id)
+
+    try {
+      // Hard delete - permanently removes the record from database
+      // If foreign key constraint has ON DELETE SET NULL, templates.categoryTypeId will be set to NULL automatically
+      const result = await this.repo.delete(id)
+      if (result.affected === 0) {
+        // This shouldn't happen if findOne succeeded, but handle edge case
+        throw new NotFoundException(
+          new BaseResponseDto({
+            responseCode: 1,
+            errorCode: ErrorCode.RECORD_NOT_FOUND,
+            responseMessage: ResponseMessage.RECORD_NOT_FOUND + id,
+          }),
+        )
+      }
+      // Update cache after deletion
+      this.updateCacheAfterDelete(id)
+      this.logger.log(
+        `Category type ${id} deleted successfully. Related templates' categoryTypeId set to NULL. Cache updated.`,
+      )
+    } catch (error) {
+      // Handle foreign key constraint violations
+      if (error instanceof QueryFailedError) {
+        const errorMessage = error.message || String(error)
+        // Check if it's a foreign key constraint violation
+        if (
+          errorMessage.includes('foreign key') ||
+          errorMessage.includes('violates foreign key constraint')
+        ) {
+          this.logger.error(`Cannot delete category type ${id}: ${errorMessage}`)
+          throw new BadRequestException(
+            new BaseResponseDto({
+              responseCode: 1,
+              errorCode: ErrorCode.VALIDATION_FAILED,
+              responseMessage: `Cannot delete category type. The database foreign key constraint may not be configured with ON DELETE SET NULL. Please check the database constraint: fk_template_category_type should have ON DELETE SET NULL. Error: ${errorMessage}`,
             }),
           )
-          this.logger.log(`✅ Created default category type: ${ct.name}`)
         }
-      } catch (e: any) {
-        this.logger.error(`Failed to ensure category type ${ct.name}: ${e?.message}`, e?.stack)
       }
+      // Re-throw other errors
+      throw error
     }
   }
 }

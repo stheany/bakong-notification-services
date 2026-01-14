@@ -6,9 +6,8 @@ import { Repository, Between, In } from 'typeorm'
 import { Messaging } from 'firebase-admin/messaging'
 import { Template } from 'src/entities/template.entity'
 import { ValidationHelper } from 'src/common/util/validation.helper'
-import { BaseFunctionHelper } from 'src/common/util/base-function.helper'
 import { FirebaseManager } from 'src/common/services/firebase-manager.service'
-import { PaginationUtils } from '@bakong/shared'
+import { PaginationUtils, Platform } from '@bakong/shared'
 import { BaseResponseDto } from '../../common/base-response.dto'
 import { TemplateService } from '../template/template.service'
 import { ImageService } from '../image/image.service'
@@ -568,7 +567,6 @@ export class NotificationServiceV2 {
       successfulCount: number
       failedCount: number
       failedUsers?: string[]
-      failedDueToInvalidTokens?: boolean
     }
 
     // Combine users filtered out BEFORE sending (empty/invalid format) with users that failed DURING sending
@@ -590,7 +588,6 @@ export class NotificationServiceV2 {
     const hasInvalidTokens =
       usersWithoutTokens.length > 0 ||
       invalidFormatUsers.length > 0 ||
-      (result.failedDueToInvalidTokens === true)
 
     console.log('✅ [sendWithTemplate] Notification send complete:', {
       successfulCount: result.successfulCount,
@@ -599,8 +596,6 @@ export class NotificationServiceV2 {
       failedDueToEmptyTokens: usersWithoutTokens.length,
       failedDueToInvalidFormat: invalidFormatUsers.length,
       failedDuringSend: result.failedCount,
-      failedDueToInvalidTokensFromResult: result.failedDueToInvalidTokens,
-      hasInvalidTokens: hasInvalidTokens,
       totalUsers: matchingUsers.length,
       formatValidUsersAttempted: formatValidUsers.length,
       note: 'Attempted to send to ALL format-valid tokens (no pre-validation filtering)',
@@ -609,8 +604,7 @@ export class NotificationServiceV2 {
     return {
       successfulCount: result.successfulCount,
       failedCount: totalFailedCount,
-      failedUsers: allFailedUsers,
-      failedDueToInvalidTokens: hasInvalidTokens,
+      failedUsers: allFailedUsers
     }
   }
 
@@ -691,47 +685,48 @@ export class NotificationServiceV2 {
         (template as any)?.bakongPlatform ||
         BakongApp.BAKONG
 
-      // 8) load users
-      let users = await this.bkUserRepo.find()
+      // // 8) load users
+      // let users = await this.bkUserRepo.find()
+      
 
-      // filter by platform
-      users = users.filter((u) => u.bakongPlatform === effectiveBakongPlatform)
-      if (!users.length) {
-        return BaseResponseDto.error({
-          errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
-          message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
-          data: { bakongPlatform: effectiveBakongPlatform },
-        })
-      }
+      // // filter by platform
+      // users = users.filter((u) => u.bakongPlatform === effectiveBakongPlatform)
+      // if (!users.length) {
+      //   return BaseResponseDto.error({
+      //     errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
+      //     message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
+      //     data: { bakongPlatform: effectiveBakongPlatform },
+      //   })
+      // }
 
-      // 9) NEW accountId filter (generic invalid error)
-      if (hasAccountFilter) {
-        const allow = new Set(accountIdList!)
-        const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+      // // 9) NEW accountId filter (generic invalid error)
+      // if (hasAccountFilter) {
+      //   const allow = new Set(accountIdList!)
+      //   const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
 
-        const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
-        const missingIds = accountIdList!.filter((id) => !matchedIds.has(id))
+      //   const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+      //   const missingIds = accountIdList!.filter((id) => !matchedIds.has(id))
 
-        const noTokenIds = matchedUsers
-          .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
-          .map((u) => String(u.accountId || '').trim())
+      //   const noTokenIds = matchedUsers
+      //     .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+      //     .map((u) => String(u.accountId || '').trim())
 
-        const usersInvaild = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+      //   const usersInvaild = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
 
-        if (usersInvaild.length > 0) {
-          return fail('Users are invaild data', ErrorCode.VALIDATION_FAILED, {
-            usersInvaild,
-          })
-        }
+      //   if (usersInvaild.length > 0) {
+      //     return fail('Users are invaild data', ErrorCode.VALIDATION_FAILED, {
+      //       usersInvaild,
+      //     })
+      //   }
 
-        users = matchedUsers
-      }
+      //   users = matchedUsers
+      // }
 
-      // skip missing token in normal mode, but safe anyway
-      users = users.filter((u) => u.fcmToken && String(u.fcmToken).trim() !== '')
-      if (!users.length) {
-        return fail('No users to send (no valid token)', ErrorCode.RECORD_NOT_FOUND)
-      }
+      // // skip missing token in normal mode, but safe anyway
+      // users = users.filter((u) => u.fcmToken && String(u.fcmToken).trim() !== '')
+      // if (!users.length) {
+      //   return fail('No users to send (no valid token)', ErrorCode.RECORD_NOT_FOUND)
+      // }
 
       // 10) imageUrl (FIX: fallback to template.imageId)
       const imageId =
@@ -742,68 +737,188 @@ export class NotificationServiceV2 {
       const imageUrl = imageId ? this.imageService.buildImageUrl(imageId, req) : ''
       const imageUrlString = typeof imageUrl === 'string' ? imageUrl : ''
 
-      // 11) send
-      const sendResult =
-        (await this.sendFCM(template, translation, users, req, 'individual')) || {
-          notificationId: 0,
-          successfulCount: 0,
-          failedCount: 0,
-          failedUsers: [],
-          failedDueToInvalidTokens: false,
-        }
+      // // 11) send
+      // const sendResult =
+      //   (await this.sendFCM(template, translation, users, req, 'individual')) || {
+      //     notificationId: 0,
+      //     successfulCount: 0,
+      //     failedCount: 0,
+      //     failedUsers: [],
+      //     failedDueToInvalidTokens: false,
+      //   }
 
-      const notificationId = Number((sendResult as any).notificationId || 0)
-      const successfulCount = Number((sendResult as any).successfulCount || 0)
+      // const notificationId = Number((sendResult as any).notificationId || 0)
+      // const successfulCount = Number((sendResult as any).successfulCount || 0)
 
-      // 12) publish
-      await this.templateService.markAsPublished(template.id, req?.user)
+      // // 12) publish
+      // await this.templateService.markAsPublished(template.id, req?.user)
 
-      // ✅ 13) Build response + FORCE fields for ALL types
-      const baseUrl = this.baseFunctionHelper ? this.baseFunctionHelper.getBaseUrl(req) : 'http://localhost:4005'
+            // 8) Load users (with Test Mode support)
+            const templateAccountIds = Array.isArray((template as any).accountIds)
+            ? (template as any).accountIds
+            : []
+    
+          const cleanedTemplateAccountIds = [...new Set(
+            templateAccountIds.map((x: any) => String(x || '').trim()).filter(Boolean),
+          )]
+    
+    
+          // If DTO provides accountId filter, it has priority (manual target send).
+          const targetIdsFromDto: string[] | null = hasAccountFilter ? accountIdList! : null
+    
+          // Determine final targeting mode:
+          // - If dto.accountId provided: STRICT mode (existing behavior)
+          // - Else if template has accountIds: TEST mode (PARTIAL allowed)
+          // - Else: ALL users mode
+          const isStrictDtoMode = !!targetIdsFromDto?.length
+    
+          // Query users by platform first
+          let users = await this.bkUserRepo
+            .createQueryBuilder('user')
+            .where('user.bakongPlatform = :bp', { bp: effectiveBakongPlatform })
+            .getMany()
+    
+          if (!users.length) {
+            return BaseResponseDto.error({
+              errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
+              message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
+              data: { bakongPlatform: effectiveBakongPlatform },
+            })
+          }
+    
+          // -------------------------
+          // 9) Target filtering logic
+          // -------------------------
+    
+          // Collect failed users list (for UI message)
+          let preFailedUsers: string[] = []
+    
+          if (isStrictDtoMode) {
+            // ✅ Keep your existing strict behavior: ANY invalid => fail
+            const allow = new Set(targetIdsFromDto!)
+            const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+    
+            const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+            const missingIds = targetIdsFromDto!.filter((id) => !matchedIds.has(id))
+    
+            const noTokenIds = matchedUsers
+              .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+              .map((u) => String(u.accountId || '').trim())
+    
+            const usersInvaild = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+    
+            if (usersInvaild.length > 0) {
+              return fail('Users are invaild data', ErrorCode.VALIDATION_FAILED, { usersInvaild })
+            }
+    
+            users = matchedUsers
+          } else if (cleanedTemplateAccountIds.length > 0) {
+            // ✅ TEST MODE: send only to template.accountIds (partial allowed)
+          
+            const allow = new Set(cleanedTemplateAccountIds)
+          
+            const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+            const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+          
+            const missingIds = cleanedTemplateAccountIds.filter((id: string) => !matchedIds.has(id))
+          
+            const noTokenIds = matchedUsers
+            .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+              .map((u) => String(u.accountId || '').trim())
+          
+            // ✅ record invalid but do NOT hard-fail
+            const preFailedUsers: string[] = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean) as string[]
+          
+            // ✅ only send to matched users WITH token
+            users = matchedUsers.filter((u) => u.fcmToken && String(u.fcmToken).trim() !== '')
+          
+            // ✅ if nobody valid => keep draft and do NOT publish
+            if (!users.length) {
+              return BaseResponseDto.success({
+                message: 'No valid users in test account list. Saved as draft.',
+                data: {
+                  notificationId: 0,
+                  successfulCount: 0,
+                  failedCount: preFailedUsers.length,
+                  failedUsers: preFailedUsers,
+                  savedAsDraftNoUsers: true,
+                },
+              })
+            }
+          }
+  
+          // 10) imageUrl (keep your existing code below)
+    
+          // 11) send
+          const sendResult =
+            (await this.sendFCM(template, translation, users, req, 'individual')) || {
+              notificationId: 0,
+              successfulCount: 0,
+              failedCount: 0,
+              failedUsers: [],
+              failedDueToInvalidTokens: false,
+            }
+    
+          const notificationId = Number((sendResult as any).notificationId || 0)
+          const successfulCount = Number((sendResult as any).successfulCount || 0)
+          const baseFailedUsers = Array.isArray((sendResult as any).failedUsers)
+            ? (sendResult as any).failedUsers
+            : []
+    
+          const mergedFailedUsers = Array.from(new Set([...preFailedUsers, ...baseFailedUsers])).filter(Boolean)
+          const mergedFailedCount =
+            Number((sendResult as any).failedCount || 0) + preFailedUsers.length
+    
+          // 12) publish ONLY if at least 1 user received
+          if (successfulCount > 0) {
+            await this.templateService.markAsPublished(template.id, req?.user)
+          } else {
+            // ✅ keep as draft
+            console.warn('⚠️ sendNow: successfulCount=0 => keep draft, do not mark as published')
+          }
+    
+          // ✅ IMPORTANT: from here, use mergedFailedUsers / mergedFailedCount for response
+                // ✅ 13) Build response + FORCE fields for ALL types
+            const baseUrl = this.baseFunctionHelper
+            ? this.baseFunctionHelper.getBaseUrl(req)
+            : 'http://localhost:4005'
 
-      const categoryIcon =
-        (template as any)?.categoryTypeId
-          ? `${baseUrl}/api/v1/category-type/${(template as any).categoryTypeId}/icon`
-          : undefined
+          const categoryIcon =
+            (template as any)?.categoryTypeId
+              ? `${baseUrl}/api/v1/category-type/${(template as any).categoryTypeId}/icon`
+              : undefined
 
-      const whatnews = InboxResponseDtoV2.buildSendApiNotificationData(
-        template,
-        translation,
-        language,
-        imageUrlString,
-        notificationId,
-        successfulCount,
-        baseUrl,
-        req,
-        categoryIcon,
-      )
+          // ✅ USE mergedFailedUsers (includes invalid test ids)
+          const whatnews = InboxResponseDtoV2.buildSendApiNotificationData(
+            template,
+            translation,
+            language,
+            imageUrlString,
+            notificationId,
+            successfulCount,
+            baseUrl,
+            req,
+            categoryIcon,
+            mergedFailedUsers,
+          )
 
-        // ✅ Always same response shape
-        ; (whatnews as any).bakongPlatform = effectiveBakongPlatform
-        ; (whatnews as any).categoryType =
-          (whatnews as any).categoryType ||
-          InboxResponseDtoV2.getCategoryDisplayName((template as any)?.categoryTypeEntity, language) ||
-          'Other'
+          // ✅ Always same response shape
+          ;(whatnews as any).bakongPlatform = effectiveBakongPlatform
+          ;(whatnews as any).categoryType =
+            (whatnews as any).categoryType ||
+            InboxResponseDtoV2.getCategoryDisplayName((template as any)?.categoryTypeEntity, language) ||
+            'Other'
 
-
-      console.log('DEBUG template image:', {
-        templateId: template.id,
-        templateImageId: (template as any).imageId,
-        categoryTypeId: (template as any).categoryTypeId,
-        translations: (template.translations || []).map(t => ({
-          lang: t.language,
-          imageId: (t as any).imageId,
-        })),
-        selectedTranslation: {
-          lang: translation.language,
-          imageId: (translation as any).imageId,
-        },
-      })
-
-      return BaseResponseDto.success({
-        message: `Send ${template.notificationType} to users successfully`,
-        data: { whatnews },
-      })
+          const notificationName = BaseFunctionHelperV2.formatNotificationType(String(template.notificationType))
+          return BaseResponseDto.success({
+            message: `Send ${notificationName} to users successfully`,
+            data: {
+              whatnews,
+              successfulCount,
+              failedCount: mergedFailedCount,
+              failedUsers: mergedFailedUsers,
+            },
+          })
     } catch (error: any) {
       return BaseResponseDto.error({
         errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
@@ -910,7 +1025,7 @@ export class NotificationServiceV2 {
           const token = user.fcmToken?.trim()
 
           // DEDUPLICATION: Check if this token has already received a notification in this batch
-          if (mode === 'shared' && token && sentTokens.has(token)) {
+          if (token && sentTokens.has(token)) {
             console.log(`⏭️ [sendFCM] Skipping user ${user.accountId}: duplicate token (already targeted)`)
             sharedFailedCount++
             sharedFailedUsers.push({
@@ -1031,12 +1146,13 @@ export class NotificationServiceV2 {
           // Extract Firebase error code from wrapped error or original error
           // Check multiple possible locations for the error code
           const errorCode =
-            error?.firebaseErrorCode || // Explicit Firebase code property we set
-            error?.code || // Direct code property
-            error?.originalError?.code || // From original Firebase error
-            error?.originalError?.errorInfo?.code || // From Firebase errorInfo structure
-            (error?.message?.match(/\(code: ([^)]+)\)/)?.[1]) || // Extract from message like "(code: messaging/invalid-argument)"
+          error?.firebaseErrorCode ||
+          error?.code ||
+          error?.originalError?.code ||
+          error?.originalError?.errorInfo?.code ||
+          error?.message?.match(/\(code: ([^)]+)\)/)?.[1] ||
             'UNKNOWN_ERROR'
+
           const errorMessage = error?.message || 'Unknown error'
 
           console.error('❌ [sendFCM] Failed to send to user:', {
@@ -1264,131 +1380,500 @@ export class NotificationServiceV2 {
   // ======================================================
   // ✅ FULL FUNCTION (drop-in replacement)
   // ======================================================
-  private async sendFCMPayloadToPlatform(
-    user: BakongUser,
-    template: TemplateV2,
-    translation: TemplateTranslationV2,
-    title: string,
-    body: string,
-    notificationIdStr: string,
-    imageUrlString: string,
-    mode: 'individual' | 'shared',
-    req?: any,
-  ): Promise<string | null> {
-    const isV2 = this.detectIsV2(req)
+  // private async sendFCMPayloadToPlatform(
+  //   user: BakongUser,
+  //   template: TemplateV2,
+  //   translation: TemplateTranslationV2,
+  //   title: string,
+  //   body: string,
+  //   notificationIdStr: string,
+  //   imageUrlString: string,
+  //   mode: 'individual' | 'shared',
+  //   req?: any,
+  // ): Promise<string | null> {
+  //   const isV2 = this.detectIsV2(req)
 
-    // Parse template platforms using shared helper function
-    const templatePlatformsArray = ValidationHelper.parsePlatforms(template.platforms)
+  //   // Parse template platforms using shared helper function
+  //   const templatePlatformsArray = ValidationHelper.parsePlatforms(template.platforms)
 
-    const normalizedTemplatePlatforms = templatePlatformsArray
-      .map((p) => ValidationHelper.normalizeEnum(p))
-      .filter((p) => p === 'ALL' || p === 'IOS' || p === 'ANDROID')
+  //   const normalizedTemplatePlatforms = templatePlatformsArray
+  //     .map((p) => ValidationHelper.normalizeEnum(p))
+  //     .filter((p) => p === 'ALL' || p === 'IOS' || p === 'ANDROID')
 
-    const targetsAllPlatforms = normalizedTemplatePlatforms.includes('ALL')
-    const normalizedUserPlatform = user.platform ? ValidationHelper.normalizeEnum(user.platform) : null
+  //   const targetsAllPlatforms = normalizedTemplatePlatforms.includes('ALL')
+  //   const normalizedUserPlatform = user.platform ? ValidationHelper.normalizeEnum(user.platform) : null
 
-    // CRITICAL: Double-check platform match before sending
-    if (!targetsAllPlatforms && normalizedUserPlatform) {
-      const platformMatches = normalizedTemplatePlatforms.some((p) => normalizedUserPlatform === p)
-      if (!platformMatches) {
-        console.warn(
-          `⚠️ [sendFCMPayloadToPlatform] SKIPPING user ${user.accountId}: platform "${user.platform
-          }" (normalized: "${normalizedUserPlatform}") does NOT match template platforms [${normalizedTemplatePlatforms.join(
-            ', ',
-          )}]`,
-        )
-        return null
+  //   // CRITICAL: Double-check platform match before sending
+  //   if (!targetsAllPlatforms && normalizedUserPlatform) {
+  //     const platformMatches = normalizedTemplatePlatforms.some((p) => normalizedUserPlatform === p)
+  //     if (!platformMatches) {
+  //       console.warn(
+  //         `⚠️ [sendFCMPayloadToPlatform] SKIPPING user ${user.accountId}: platform "${user.platform
+  //         }" (normalized: "${normalizedUserPlatform}") does NOT match template platforms [${normalizedTemplatePlatforms.join(
+  //           ', ',
+  //         )}]`,
+  //       )
+  //       return null
+  //     }
+  //   }
+
+  //   const platform = ValidationHelper.isPlatform(user.platform)
+
+  //   console.log('📱 [sendFCMPayloadToPlatform] Platform detection:', {
+  //     userPlatform: user.platform,
+  //     normalizedUserPlatform,
+  //     templatePlatforms: normalizedTemplatePlatforms,
+  //     targetsAllPlatforms,
+  //     isIOS: platform.ios,
+  //     isAndroid: platform.android,
+  //     mode,
+  //     isV2,
+  //   })
+
+  //   const response: string | null = null
+
+  //   // ======================================================
+  //   // ✅ iOS
+  //   // ======================================================
+  //   if (platform.ios) {
+  //     console.log('📱 [sendFCMPayloadToPlatform] Preparing iOS notification...')
+
+  //     // iOS APNs size limits (safe truncation for alert)
+  //     const iosTitleMaxLength = 40
+  //     const iosBodyMaxLength = 100
+
+  //     const iosTitle =
+  //       title && title.length > iosTitleMaxLength
+  //         ? title.substring(0, iosTitleMaxLength - 3) + '...'
+  //         : title || ''
+
+  //     const iosBody =
+  //       body && body.length > iosBodyMaxLength
+  //         ? body.substring(0, iosBodyMaxLength - 3) + '...'
+  //         : body || ''
+
+  //     // Build base notification data
+  //     const whatNews = InboxResponseDtoV2.buildBaseNotificationData(
+  //       template,
+  //       translation,
+  //       translation.language,
+  //       imageUrlString,
+  //       parseInt(notificationIdStr, 10),
+  //       undefined,
+  //       this.baseFunctionHelper?.getBaseUrl(req) || 'http://localhost:4005',
+  //       req,
+  //     )
+
+  //     // ✅ ONLY APPLY IN V2: attach categoryType + categoryIcon into payload data
+  //     if (isV2 && whatNews && typeof whatNews === 'object') {
+  //       const categoryTypeName = template?.categoryTypeEntity?.name || ''
+  //       const categoryType = categoryTypeName
+  //         ? this.translateCategoryType(categoryTypeName, String(translation.language))
+  //         : ''
+
+  //       const categoryIcon = this.buildCategoryIconUrl(req, template?.categoryTypeId)
+
+  //         ; (whatNews as any).categoryType = categoryType
+  //         ; (whatNews as any).categoryIcon = categoryIcon
+  //     }
+
+  //     // ---- Keep your iOS payload-size truncation logic (unchanged, but works with added fields)
+  //     if (whatNews && typeof whatNews === 'object') {
+  //       const MAX_CONTENT_LENGTH_FOR_IOS = 500
+  //       const MAX_TITLE_LENGTH_FOR_IOS = 100
+
+  //       const originalContent = String((whatNews as any).content || '')
+  //       const originalTitle = String((whatNews as any).title || '')
+
+  //       if (originalContent.length > MAX_CONTENT_LENGTH_FOR_IOS) {
+  //         ; (whatNews as any).content =
+  //           originalContent.substring(0, MAX_CONTENT_LENGTH_FOR_IOS - 3) + '...'
+  //       }
+  //       if (originalTitle.length > MAX_TITLE_LENGTH_FOR_IOS) {
+  //         ; (whatNews as any).title = originalTitle.substring(0, MAX_TITLE_LENGTH_FOR_IOS - 3) + '...'
+  //       }
+  //     }
+
+  //     let iosPayloadResponse =
+  //       mode === 'individual'
+  //         ? InboxResponseDtoV2.buildIOSAlertPayload(
+  //           user.fcmToken,
+  //           iosTitle,
+  //           iosBody,
+  //           notificationIdStr,
+  //           whatNews as unknown as Record<string, string | number>,
+  //         )
+  //         : InboxResponseDtoV2.buildIOSPayload(
+  //           user.fcmToken,
+  //           template.notificationType,
+  //           iosTitle,
+  //           iosBody,
+  //           notificationIdStr,
+  //           whatNews as unknown as Record<string, string | number>,
+  //         )
+
+  //     try {
+  //       const fcm = this.getFCM(user.bakongPlatform)
+  //       if (!fcm) {
+  //         throw new Error(
+  //           `Firebase Cloud Messaging is not initialized for bakongPlatform: ${user.bakongPlatform || 'DEFAULT'}`,
+  //         )
+  //       }
+
+  //       // Check payload size (4KB)
+  //       let payloadJsonString = JSON.stringify(iosPayloadResponse)
+  //       let payloadSizeBytes = Buffer.byteLength(payloadJsonString, 'utf8')
+  //       let truncationAttempts = 0
+  //       const MAX_TRUNCATION_ATTEMPTS = 10
+
+  //       while (payloadSizeBytes >= 4096 && truncationAttempts < MAX_TRUNCATION_ATTEMPTS) {
+  //         truncationAttempts++
+  //         if (whatNews && typeof whatNews === 'object' && (whatNews as any).content) {
+  //           const originalContent = String((whatNews as any).content || '')
+  //           const newLen = Math.floor(originalContent.length * 0.8)
+  //           if (newLen <= 50) break
+  //             ; (whatNews as any).content = originalContent.substring(0, newLen - 3) + '...'
+
+  //           iosPayloadResponse =
+  //             mode === 'individual'
+  //               ? InboxResponseDtoV2.buildIOSAlertPayload(
+  //                 user.fcmToken,
+  //                 iosTitle,
+  //                 iosBody,
+  //                 notificationIdStr,
+  //                 whatNews as unknown as Record<string, string | number>,
+  //               )
+  //               : InboxResponseDtoV2.buildIOSPayload(
+  //                 user.fcmToken,
+  //                 template.notificationType,
+  //                 iosTitle,
+  //                 iosBody,
+  //                 notificationIdStr,
+  //                 whatNews as unknown as Record<string, string | number>,
+  //               )
+
+  //           payloadJsonString = JSON.stringify(iosPayloadResponse)
+  //           payloadSizeBytes = Buffer.byteLength(payloadJsonString, 'utf8')
+  //         } else {
+  //           break
+  //         }
+  //       }
+
+  //       if (payloadSizeBytes >= 4096) {
+  //         throw new Error(`iOS payload exceeds 4KB limit (${payloadSizeBytes} bytes)`)
+  //       }
+
+  //       const sendResponse = await fcm.send(iosPayloadResponse)
+  //       return sendResponse
+  //     } catch (error: any) {
+  //       const errorMessage = error?.message || 'Unknown error'
+  //       const errorCode = error?.code || error?.errorInfo?.code || 'N/A'
+  //       const wrappedError: any = new Error(`iOS FCM send failed: ${errorMessage} (code: ${errorCode})`)
+  //       wrappedError.code = errorCode !== 'N/A' ? errorCode : undefined
+  //       wrappedError.originalError = error
+  //       wrappedError.firebaseErrorCode = errorCode !== 'N/A' ? errorCode : undefined
+  //       throw wrappedError
+  //     }
+  //   }
+
+  //   // ======================================================
+  //   // ✅ Android
+  //   // ======================================================
+  //   if (platform.android) {
+  //     console.log('📱 [sendFCMPayloadToPlatform] Preparing Android notification...')
+
+  //     const baseUrl = this.baseFunctionHelper
+  //       ? this.baseFunctionHelper.getBaseUrl(req)
+  //       : 'http://localhost:4005'
+
+  //     const includeCategoryIcon =
+  //       isV2 ||
+  //       ['true', '1', 'yes'].includes(String((req as any)?.query?.includeCategoryIcon || '').toLowerCase())
+
+  //     const normalizedLanguage = String(translation.language || 'KM').toUpperCase()
+  //     const responseLanguage = normalizedLanguage || String(user.language || 'KM').toUpperCase()
+
+  //     // Truncate for Android payload safety
+  //     const MAX_CONTENT_LENGTH_FOR_ANDROID_INITIAL = 800
+  //     const MAX_TITLE_LENGTH_FOR_ANDROID = 200
+
+  //     let androidContent = String(translation.content || '')
+  //     let androidTitle = String(title || '')
+
+  //     if (androidContent.length > MAX_CONTENT_LENGTH_FOR_ANDROID_INITIAL) {
+  //       androidContent = androidContent.substring(0, MAX_CONTENT_LENGTH_FOR_ANDROID_INITIAL - 3) + '...'
+  //     }
+  //     if (androidTitle.length > MAX_TITLE_LENGTH_FOR_ANDROID) {
+  //       androidTitle = androidTitle.substring(0, MAX_TITLE_LENGTH_FOR_ANDROID - 3) + '...'
+  //     }
+
+  //     // ✅ categoryType (localized display) + categoryIcon (V2 only)
+  //     const categoryTypeName = template?.categoryTypeEntity?.name || ''
+  //     const categoryTypeDisplay =
+  //       isV2 && categoryTypeName
+  //         ? this.translateCategoryType(categoryTypeName, responseLanguage)
+  //         : String(
+  //           InboxResponseDtoV2.getCategoryDisplayName(
+  //             template.categoryTypeEntity,
+  //             responseLanguage as Language,
+  //           ) || '',
+  //         )
+
+  //     const categoryIcon = includeCategoryIcon
+  //       ? this.buildCategoryIconUrl(req, template?.categoryTypeId)
+  //       : undefined
+
+  //     const extraData: Record<string, string> = {
+  //       templateId: String(template.id),
+  //       notificationType: String(template.notificationType),
+  //       language: String(responseLanguage),
+  //       accountId: String(user.accountId),
+  //       platform: String(user.platform || 'android'),
+  //       imageUrl: imageUrlString || '',
+  //       content: androidContent,
+  //       linkPreview: translation.linkPreview || '',
+  //       createdDate: template.createdAt
+  //         ? DateFormatter.formatDateByLanguage(
+  //           template.createdAt instanceof Date ? template.createdAt : new Date(template.createdAt),
+  //           translation.language,
+  //         )
+  //         : DateFormatter.formatDateByLanguage(new Date(), translation.language),
+  //       notification_title: androidTitle,
+  //       notification_body: body,
+  //     }
+
+  //     // ✅ ONLY APPLY IN V2: include these keys
+  //     if (isV2) {
+  //       extraData.categoryType = String(categoryTypeDisplay || '')
+  //       if (categoryIcon) extraData.categoryIcon = String(categoryIcon)
+  //     }
+
+  //     let androidPayload = InboxResponseDtoV2.buildAndroidPayload(
+  //       user.fcmToken,
+  //       androidTitle,
+  //       body,
+  //       notificationIdStr,
+  //       extraData,
+  //     )
+
+  //     // Size guard (4KB)
+  //     let androidPayloadJsonString = JSON.stringify(androidPayload)
+  //     let androidPayloadSizeBytes = Buffer.byteLength(androidPayloadJsonString, 'utf8')
+  //     let androidTruncationAttempts = 0
+  //     const MAX_ANDROID_TRUNCATION_ATTEMPTS = 10
+  //     const MAX_ANDROID_PAYLOAD_BYTES = 4096
+
+  //     while (
+  //       androidPayloadSizeBytes >= MAX_ANDROID_PAYLOAD_BYTES &&
+  //       androidTruncationAttempts < MAX_ANDROID_TRUNCATION_ATTEMPTS
+  //     ) {
+  //       androidTruncationAttempts++
+
+  //       const original = String(extraData.content || '')
+  //       const newLen = Math.floor(original.length * 0.8)
+  //       if (newLen <= 50) break
+
+  //       extraData.content = original.substring(0, newLen - 3) + '...'
+
+  //       androidPayload = InboxResponseDtoV2.buildAndroidPayload(
+  //         user.fcmToken,
+  //         androidTitle,
+  //         body,
+  //         notificationIdStr,
+  //         extraData,
+  //       )
+
+  //       androidPayloadJsonString = JSON.stringify(androidPayload)
+  //       androidPayloadSizeBytes = Buffer.byteLength(androidPayloadJsonString, 'utf8')
+  //     }
+
+  //     if (androidPayloadSizeBytes >= MAX_ANDROID_PAYLOAD_BYTES) {
+  //       throw new Error(`Android payload exceeds 4KB limit (${androidPayloadSizeBytes} bytes)`)
+  //     }
+
+  //     try {
+  //       const fcm = this.getFCM(user.bakongPlatform)
+  //       if (!fcm) {
+  //         throw new Error(
+  //           `Firebase Cloud Messaging is not initialized for bakongPlatform: ${user.bakongPlatform || 'DEFAULT'}`,
+  //         )
+  //       }
+
+  //       const sendResponse = await fcm.send(androidPayload)
+  //       return sendResponse
+  //     } catch (error: any) {
+  //       const errorMessage = error?.message || 'Unknown error'
+  //       const errorCode = error?.code || error?.errorInfo?.code || 'N/A'
+  //       const wrappedError: any = new Error(
+  //         `Android FCM send failed: ${errorMessage} (code: ${errorCode})`,
+  //       )
+  //       wrappedError.code = errorCode !== 'N/A' ? errorCode : undefined
+  //       wrappedError.originalError = error
+  //       wrappedError.firebaseErrorCode = errorCode !== 'N/A' ? errorCode : undefined
+  //       throw wrappedError
+  //     }
+  //   }
+
+  //   // If platform is neither iOS nor Android
+  //   if (!platform.ios && !platform.android) {
+  //     console.warn('⚠️ [sendFCMPayloadToPlatform] Platform not recognized:', {
+  //       userPlatform: user.platform,
+  //       accountId: user.accountId,
+  //       isIOS: platform.ios,
+  //       isAndroid: platform.android,
+  //     })
+  //     return null
+  //   }
+
+  //   return response
+  // }
+
+
+
+  // ======================================================
+// ✅ FULL FUNCTION (drop-in replacement) - FIXED safely
+// ======================================================
+private async sendFCMPayloadToPlatform(
+  user: BakongUser,
+  template: TemplateV2,
+  translation: TemplateTranslationV2,
+  title: string,
+  body: string,
+  notificationIdStr: string,
+  imageUrlString: string,
+  mode: 'individual' | 'shared',
+  req?: any,
+): Promise<string | null> {
+  const isV2 = this.detectIsV2(req)
+
+  // ✅ FIX 1: Do not send if token missing
+  const token = (user?.fcmToken || '').trim()
+  if (!token) {
+    console.warn(`⚠️ [sendFCMPayloadToPlatform] SKIPPING user ${user.accountId}: fcmToken is empty/null`)
+    return null
+  }
+
+  // Parse template platforms using shared helper function
+  const templatePlatformsArray = ValidationHelper.parsePlatforms(template.platforms)
+
+  const normalizedTemplatePlatforms = templatePlatformsArray
+    .map((p) => ValidationHelper.normalizeEnum(p))
+    .filter((p) => p === 'ALL' || p === 'IOS' || p === 'ANDROID')
+
+  const targetsAllPlatforms = normalizedTemplatePlatforms.includes('ALL')
+
+  // ✅ FIX 2: Normalize user platform safely
+  const rawUserPlatform = (user?.platform || '').trim()
+  const normalizedUserPlatform = rawUserPlatform ? ValidationHelper.normalizeEnum(rawUserPlatform) : null
+
+  // ✅ CRITICAL: Double-check platform match before sending
+  if (!targetsAllPlatforms) {
+    // if template targets specific platform but user platform not known -> skip
+    if (!normalizedUserPlatform) {
+      console.warn(
+        `⚠️ [sendFCMPayloadToPlatform] SKIPPING user ${user.accountId}: user.platform is empty, template requires [${normalizedTemplatePlatforms.join(
+          ', ',
+        )}]`,
+      )
+      return null
+    }
+
+    const platformMatches = normalizedTemplatePlatforms.some((p) => normalizedUserPlatform === p)
+    if (!platformMatches) {
+      console.warn(
+        `⚠️ [sendFCMPayloadToPlatform] SKIPPING user ${user.accountId}: platform "${user.platform}" (normalized: "${normalizedUserPlatform}") does NOT match template platforms [${normalizedTemplatePlatforms.join(
+          ', ',
+        )}]`,
+      )
+      return null
+    }
+  }
+
+  const platform = ValidationHelper.isPlatform(user.platform)
+
+  console.log('📱 [sendFCMPayloadToPlatform] Platform detection:', {
+    userPlatform: user.platform,
+    normalizedUserPlatform,
+    templatePlatforms: normalizedTemplatePlatforms,
+    targetsAllPlatforms,
+    isIOS: platform.ios,
+    isAndroid: platform.android,
+    mode,
+    isV2,
+  })
+
+  // ======================================================
+  // ✅ iOS
+  // ======================================================
+  if (platform.ios) {
+    console.log('📱 [sendFCMPayloadToPlatform] Preparing iOS notification...')
+
+    // iOS APNs size limits (safe truncation for alert)
+    const iosTitleMaxLength = 40
+    const iosBodyMaxLength = 100
+
+    const iosTitle =
+      title && title.length > iosTitleMaxLength
+        ? title.substring(0, iosTitleMaxLength - 3) + '...'
+        : title || ''
+
+    const iosBody =
+      body && body.length > iosBodyMaxLength
+        ? body.substring(0, iosBodyMaxLength - 3) + '...'
+        : body || ''
+
+    const whatNews = InboxResponseDtoV2.buildBaseNotificationData(
+      template,
+      translation,
+      translation.language,
+      imageUrlString,
+      parseInt(notificationIdStr, 10),
+      undefined,
+      this.baseFunctionHelper?.getBaseUrl(req) || 'http://localhost:4005',
+      req,
+    )
+
+    // ✅ ONLY APPLY IN V2: attach categoryType + categoryIcon into payload data
+    if (isV2 && whatNews && typeof whatNews === 'object') {
+      const categoryTypeName = template?.categoryTypeEntity?.name || ''
+      const categoryType = categoryTypeName
+        ? this.translateCategoryType(categoryTypeName, String(translation.language))
+        : ''
+
+      const categoryIcon = this.buildCategoryIconUrl(req, template?.categoryTypeId)
+
+      ;(whatNews as any).categoryType = categoryType
+      ;(whatNews as any).categoryIcon = categoryIcon
+    }
+
+    // Keep truncation logic
+    if (whatNews && typeof whatNews === 'object') {
+      const MAX_CONTENT_LENGTH_FOR_IOS = 500
+      const MAX_TITLE_LENGTH_FOR_IOS = 100
+
+      const originalContent = String((whatNews as any).content || '')
+      const originalTitle = String((whatNews as any).title || '')
+
+      if (originalContent.length > MAX_CONTENT_LENGTH_FOR_IOS) {
+        ;(whatNews as any).content =
+          originalContent.substring(0, MAX_CONTENT_LENGTH_FOR_IOS - 3) + '...'
+      }
+      if (originalTitle.length > MAX_TITLE_LENGTH_FOR_IOS) {
+        ;(whatNews as any).title = originalTitle.substring(0, MAX_TITLE_LENGTH_FOR_IOS - 3) + '...'
       }
     }
 
-    const platform = ValidationHelper.isPlatform(user.platform)
-
-    console.log('📱 [sendFCMPayloadToPlatform] Platform detection:', {
-      userPlatform: user.platform,
-      normalizedUserPlatform,
-      templatePlatforms: normalizedTemplatePlatforms,
-      targetsAllPlatforms,
-      isIOS: platform.ios,
-      isAndroid: platform.android,
-      mode,
-      isV2,
-    })
-
-    const response: string | null = null
-
-    // ======================================================
-    // ✅ iOS
-    // ======================================================
-    if (platform.ios) {
-      console.log('📱 [sendFCMPayloadToPlatform] Preparing iOS notification...')
-
-      // iOS APNs size limits (safe truncation for alert)
-      const iosTitleMaxLength = 40
-      const iosBodyMaxLength = 100
-
-      const iosTitle =
-        title && title.length > iosTitleMaxLength
-          ? title.substring(0, iosTitleMaxLength - 3) + '...'
-          : title || ''
-
-      const iosBody =
-        body && body.length > iosBodyMaxLength
-          ? body.substring(0, iosBodyMaxLength - 3) + '...'
-          : body || ''
-
-      // Build base notification data
-      const whatNews = InboxResponseDtoV2.buildBaseNotificationData(
-        template,
-        translation,
-        translation.language,
-        imageUrlString,
-        parseInt(notificationIdStr, 10),
-        undefined,
-        this.baseFunctionHelper?.getBaseUrl(req) || 'http://localhost:4005',
-        req,
-      )
-
-      // ✅ ONLY APPLY IN V2: attach categoryType + categoryIcon into payload data
-      if (isV2 && whatNews && typeof whatNews === 'object') {
-        const categoryTypeName = template?.categoryTypeEntity?.name || ''
-        const categoryType = categoryTypeName
-          ? this.translateCategoryType(categoryTypeName, String(translation.language))
-          : ''
-
-        const categoryIcon = this.buildCategoryIconUrl(req, template?.categoryTypeId)
-
-          ; (whatNews as any).categoryType = categoryType
-          ; (whatNews as any).categoryIcon = categoryIcon
-      }
-
-      // ---- Keep your iOS payload-size truncation logic (unchanged, but works with added fields)
-      if (whatNews && typeof whatNews === 'object') {
-        const MAX_CONTENT_LENGTH_FOR_IOS = 500
-        const MAX_TITLE_LENGTH_FOR_IOS = 100
-
-        const originalContent = String((whatNews as any).content || '')
-        const originalTitle = String((whatNews as any).title || '')
-
-        if (originalContent.length > MAX_CONTENT_LENGTH_FOR_IOS) {
-          ; (whatNews as any).content =
-            originalContent.substring(0, MAX_CONTENT_LENGTH_FOR_IOS - 3) + '...'
-        }
-        if (originalTitle.length > MAX_TITLE_LENGTH_FOR_IOS) {
-          ; (whatNews as any).title = originalTitle.substring(0, MAX_TITLE_LENGTH_FOR_IOS - 3) + '...'
-        }
-      }
-
-      let iosPayloadResponse =
-        mode === 'individual'
-          ? InboxResponseDtoV2.buildIOSAlertPayload(
-            user.fcmToken,
+    let iosPayloadResponse =
+      mode === 'individual'
+        ? InboxResponseDtoV2.buildIOSAlertPayload(
+            token, // ✅ FIX: use trimmed token
             iosTitle,
             iosBody,
             notificationIdStr,
             whatNews as unknown as Record<string, string | number>,
           )
-          : InboxResponseDtoV2.buildIOSPayload(
-            user.fcmToken,
+        : InboxResponseDtoV2.buildIOSPayload(
+            token, // ✅ FIX: use trimmed token
             template.notificationType,
             iosTitle,
             iosBody,
@@ -1396,39 +1881,39 @@ export class NotificationServiceV2 {
             whatNews as unknown as Record<string, string | number>,
           )
 
-      try {
-        const fcm = this.getFCM(user.bakongPlatform)
-        if (!fcm) {
-          throw new Error(
-            `Firebase Cloud Messaging is not initialized for bakongPlatform: ${user.bakongPlatform || 'DEFAULT'}`,
-          )
-        }
+    try {
+      const fcm = this.getFCM(user.bakongPlatform)
+      if (!fcm) {
+        throw new Error(
+          `Firebase Cloud Messaging is not initialized for bakongPlatform: ${user.bakongPlatform || 'DEFAULT'}`,
+        )
+      }
 
-        // Check payload size (4KB)
-        let payloadJsonString = JSON.stringify(iosPayloadResponse)
-        let payloadSizeBytes = Buffer.byteLength(payloadJsonString, 'utf8')
-        let truncationAttempts = 0
-        const MAX_TRUNCATION_ATTEMPTS = 10
+      // Check payload size (4KB)
+      let payloadJsonString = JSON.stringify(iosPayloadResponse)
+      let payloadSizeBytes = Buffer.byteLength(payloadJsonString, 'utf8')
+      let truncationAttempts = 0
+      const MAX_TRUNCATION_ATTEMPTS = 10
 
-        while (payloadSizeBytes >= 4096 && truncationAttempts < MAX_TRUNCATION_ATTEMPTS) {
-          truncationAttempts++
-          if (whatNews && typeof whatNews === 'object' && (whatNews as any).content) {
-            const originalContent = String((whatNews as any).content || '')
-            const newLen = Math.floor(originalContent.length * 0.8)
-            if (newLen <= 50) break
-              ; (whatNews as any).content = originalContent.substring(0, newLen - 3) + '...'
+      while (payloadSizeBytes >= 4096 && truncationAttempts < MAX_TRUNCATION_ATTEMPTS) {
+        truncationAttempts++
+        if (whatNews && typeof whatNews === 'object' && (whatNews as any).content) {
+          const originalContent = String((whatNews as any).content || '')
+          const newLen = Math.floor(originalContent.length * 0.8)
+          if (newLen <= 50) break
+          ;(whatNews as any).content = originalContent.substring(0, newLen - 3) + '...'
 
-            iosPayloadResponse =
-              mode === 'individual'
-                ? InboxResponseDtoV2.buildIOSAlertPayload(
-                  user.fcmToken,
+          iosPayloadResponse =
+            mode === 'individual'
+              ? InboxResponseDtoV2.buildIOSAlertPayload(
+                  token,
                   iosTitle,
                   iosBody,
                   notificationIdStr,
                   whatNews as unknown as Record<string, string | number>,
                 )
-                : InboxResponseDtoV2.buildIOSPayload(
-                  user.fcmToken,
+              : InboxResponseDtoV2.buildIOSPayload(
+                  token,
                   template.notificationType,
                   iosTitle,
                   iosBody,
@@ -1436,182 +1921,171 @@ export class NotificationServiceV2 {
                   whatNews as unknown as Record<string, string | number>,
                 )
 
-            payloadJsonString = JSON.stringify(iosPayloadResponse)
-            payloadSizeBytes = Buffer.byteLength(payloadJsonString, 'utf8')
-          } else {
-            break
-          }
+          payloadJsonString = JSON.stringify(iosPayloadResponse)
+          payloadSizeBytes = Buffer.byteLength(payloadJsonString, 'utf8')
+        } else {
+          break
         }
-
-        if (payloadSizeBytes >= 4096) {
-          throw new Error(`iOS payload exceeds 4KB limit (${payloadSizeBytes} bytes)`)
-        }
-
-        const sendResponse = await fcm.send(iosPayloadResponse)
-        return sendResponse
-      } catch (error: any) {
-        const errorMessage = error?.message || 'Unknown error'
-        const errorCode = error?.code || error?.errorInfo?.code || 'N/A'
-        const wrappedError: any = new Error(`iOS FCM send failed: ${errorMessage} (code: ${errorCode})`)
-        wrappedError.code = errorCode !== 'N/A' ? errorCode : undefined
-        wrappedError.originalError = error
-        wrappedError.firebaseErrorCode = errorCode !== 'N/A' ? errorCode : undefined
-        throw wrappedError
       }
+
+      if (payloadSizeBytes >= 4096) {
+        throw new Error(`iOS payload exceeds 4KB limit (${payloadSizeBytes} bytes)`)
+      }
+
+      const sendResponse = await fcm.send(iosPayloadResponse)
+      return sendResponse
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Unknown error'
+      const errorCode = error?.code || error?.errorInfo?.code || 'N/A'
+      const wrappedError: any = new Error(`iOS FCM send failed: ${errorMessage} (code: ${errorCode})`)
+      wrappedError.code = errorCode !== 'N/A' ? errorCode : undefined
+      wrappedError.originalError = error
+      wrappedError.firebaseErrorCode = errorCode !== 'N/A' ? errorCode : undefined
+      throw wrappedError
+    }
+  }
+
+  // ======================================================
+  // ✅ Android
+  // ======================================================
+  if (platform.android) {
+    console.log('📱 [sendFCMPayloadToPlatform] Preparing Android notification...')
+
+    const includeCategoryIcon =
+      isV2 ||
+      ['true', '1', 'yes'].includes(String((req as any)?.query?.includeCategoryIcon || '').toLowerCase())
+
+    const normalizedLanguage = String(translation.language || 'KM').toUpperCase()
+    const responseLanguage = normalizedLanguage || String(user.language || 'KM').toUpperCase()
+
+    // Truncate for Android payload safety
+    const MAX_CONTENT_LENGTH_FOR_ANDROID_INITIAL = 800
+    const MAX_TITLE_LENGTH_FOR_ANDROID = 200
+
+    let androidContent = String(translation.content || '')
+    let androidTitle = String(title || '')
+
+    if (androidContent.length > MAX_CONTENT_LENGTH_FOR_ANDROID_INITIAL) {
+      androidContent = androidContent.substring(0, MAX_CONTENT_LENGTH_FOR_ANDROID_INITIAL - 3) + '...'
+    }
+    if (androidTitle.length > MAX_TITLE_LENGTH_FOR_ANDROID) {
+      androidTitle = androidTitle.substring(0, MAX_TITLE_LENGTH_FOR_ANDROID - 3) + '...'
     }
 
-    // ======================================================
-    // ✅ Android
-    // ======================================================
-    if (platform.android) {
-      console.log('📱 [sendFCMPayloadToPlatform] Preparing Android notification...')
-
-      const baseUrl = this.baseFunctionHelper
-        ? this.baseFunctionHelper.getBaseUrl(req)
-        : 'http://localhost:4005'
-
-      const includeCategoryIcon =
-        isV2 ||
-        ['true', '1', 'yes'].includes(String((req as any)?.query?.includeCategoryIcon || '').toLowerCase())
-
-      const normalizedLanguage = String(translation.language || 'KM').toUpperCase()
-      const responseLanguage = normalizedLanguage || String(user.language || 'KM').toUpperCase()
-
-      // Truncate for Android payload safety
-      const MAX_CONTENT_LENGTH_FOR_ANDROID_INITIAL = 800
-      const MAX_TITLE_LENGTH_FOR_ANDROID = 200
-
-      let androidContent = String(translation.content || '')
-      let androidTitle = String(title || '')
-
-      if (androidContent.length > MAX_CONTENT_LENGTH_FOR_ANDROID_INITIAL) {
-        androidContent = androidContent.substring(0, MAX_CONTENT_LENGTH_FOR_ANDROID_INITIAL - 3) + '...'
-      }
-      if (androidTitle.length > MAX_TITLE_LENGTH_FOR_ANDROID) {
-        androidTitle = androidTitle.substring(0, MAX_TITLE_LENGTH_FOR_ANDROID - 3) + '...'
-      }
-
-      // ✅ categoryType (localized display) + categoryIcon (V2 only)
-      const categoryTypeName = template?.categoryTypeEntity?.name || ''
-      const categoryTypeDisplay =
-        isV2 && categoryTypeName
-          ? this.translateCategoryType(categoryTypeName, responseLanguage)
-          : String(
+    const categoryTypeName = template?.categoryTypeEntity?.name || ''
+    const categoryTypeDisplay =
+      isV2 && categoryTypeName
+        ? this.translateCategoryType(categoryTypeName, responseLanguage)
+        : String(
             InboxResponseDtoV2.getCategoryDisplayName(
               template.categoryTypeEntity,
               responseLanguage as Language,
             ) || '',
           )
 
-      const categoryIcon = includeCategoryIcon
-        ? this.buildCategoryIconUrl(req, template?.categoryTypeId)
-        : undefined
+    const categoryIcon = includeCategoryIcon
+      ? this.buildCategoryIconUrl(req, template?.categoryTypeId)
+      : undefined
 
-      const extraData: Record<string, string> = {
-        templateId: String(template.id),
-        notificationType: String(template.notificationType),
-        language: String(responseLanguage),
-        accountId: String(user.accountId),
-        platform: String(user.platform || 'android'),
-        imageUrl: imageUrlString || '',
-        content: androidContent,
-        linkPreview: translation.linkPreview || '',
-        createdDate: template.createdAt
-          ? DateFormatter.formatDateByLanguage(
+    const extraData: Record<string, string> = {
+      templateId: String(template.id),
+      notificationType: String(template.notificationType),
+      language: String(responseLanguage),
+      accountId: String(user.accountId),
+      platform: String(user.platform || 'android'),
+      imageUrl: imageUrlString || '',
+      content: androidContent,
+      linkPreview: translation.linkPreview || '',
+      createdDate: template.createdAt
+        ? DateFormatter.formatDateByLanguage(
             template.createdAt instanceof Date ? template.createdAt : new Date(template.createdAt),
             translation.language,
           )
-          : DateFormatter.formatDateByLanguage(new Date(), translation.language),
-        notification_title: androidTitle,
-        notification_body: body,
-      }
+        : DateFormatter.formatDateByLanguage(new Date(), translation.language),
+      notification_title: androidTitle,
+      notification_body: body,
+    }
 
-      // ✅ ONLY APPLY IN V2: include these keys
-      if (isV2) {
-        extraData.categoryType = String(categoryTypeDisplay || '')
-        if (categoryIcon) extraData.categoryIcon = String(categoryIcon)
-      }
+    if (isV2) {
+      extraData.categoryType = String(categoryTypeDisplay || '')
+      if (categoryIcon) extraData.categoryIcon = String(categoryIcon)
+    }
 
-      let androidPayload = InboxResponseDtoV2.buildAndroidPayload(
-        user.fcmToken,
+    let androidPayload = InboxResponseDtoV2.buildAndroidPayload(
+      token, // ✅ FIX: use trimmed token
+      androidTitle,
+      body,
+      notificationIdStr,
+      extraData,
+    )
+
+    // Size guard (4KB)
+    let androidPayloadJsonString = JSON.stringify(androidPayload)
+    let androidPayloadSizeBytes = Buffer.byteLength(androidPayloadJsonString, 'utf8')
+    let androidTruncationAttempts = 0
+    const MAX_ANDROID_TRUNCATION_ATTEMPTS = 10
+    const MAX_ANDROID_PAYLOAD_BYTES = 4096
+
+    while (
+      androidPayloadSizeBytes >= MAX_ANDROID_PAYLOAD_BYTES &&
+      androidTruncationAttempts < MAX_ANDROID_TRUNCATION_ATTEMPTS
+    ) {
+      androidTruncationAttempts++
+
+      const original = String(extraData.content || '')
+      const newLen = Math.floor(original.length * 0.8)
+      if (newLen <= 50) break
+
+      extraData.content = original.substring(0, newLen - 3) + '...'
+
+      androidPayload = InboxResponseDtoV2.buildAndroidPayload(
+        token,
         androidTitle,
         body,
         notificationIdStr,
         extraData,
       )
 
-      // Size guard (4KB)
-      let androidPayloadJsonString = JSON.stringify(androidPayload)
-      let androidPayloadSizeBytes = Buffer.byteLength(androidPayloadJsonString, 'utf8')
-      let androidTruncationAttempts = 0
-      const MAX_ANDROID_TRUNCATION_ATTEMPTS = 10
-      const MAX_ANDROID_PAYLOAD_BYTES = 4096
-
-      while (
-        androidPayloadSizeBytes >= MAX_ANDROID_PAYLOAD_BYTES &&
-        androidTruncationAttempts < MAX_ANDROID_TRUNCATION_ATTEMPTS
-      ) {
-        androidTruncationAttempts++
-
-        const original = String(extraData.content || '')
-        const newLen = Math.floor(original.length * 0.8)
-        if (newLen <= 50) break
-
-        extraData.content = original.substring(0, newLen - 3) + '...'
-
-        androidPayload = InboxResponseDtoV2.buildAndroidPayload(
-          user.fcmToken,
-          androidTitle,
-          body,
-          notificationIdStr,
-          extraData,
-        )
-
-        androidPayloadJsonString = JSON.stringify(androidPayload)
-        androidPayloadSizeBytes = Buffer.byteLength(androidPayloadJsonString, 'utf8')
-      }
-
-      if (androidPayloadSizeBytes >= MAX_ANDROID_PAYLOAD_BYTES) {
-        throw new Error(`Android payload exceeds 4KB limit (${androidPayloadSizeBytes} bytes)`)
-      }
-
-      try {
-        const fcm = this.getFCM(user.bakongPlatform)
-        if (!fcm) {
-          throw new Error(
-            `Firebase Cloud Messaging is not initialized for bakongPlatform: ${user.bakongPlatform || 'DEFAULT'}`,
-          )
-        }
-
-        const sendResponse = await fcm.send(androidPayload)
-        return sendResponse
-      } catch (error: any) {
-        const errorMessage = error?.message || 'Unknown error'
-        const errorCode = error?.code || error?.errorInfo?.code || 'N/A'
-        const wrappedError: any = new Error(
-          `Android FCM send failed: ${errorMessage} (code: ${errorCode})`,
-        )
-        wrappedError.code = errorCode !== 'N/A' ? errorCode : undefined
-        wrappedError.originalError = error
-        wrappedError.firebaseErrorCode = errorCode !== 'N/A' ? errorCode : undefined
-        throw wrappedError
-      }
+      androidPayloadJsonString = JSON.stringify(androidPayload)
+      androidPayloadSizeBytes = Buffer.byteLength(androidPayloadJsonString, 'utf8')
     }
 
-    // If platform is neither iOS nor Android
-    if (!platform.ios && !platform.android) {
-      console.warn('⚠️ [sendFCMPayloadToPlatform] Platform not recognized:', {
-        userPlatform: user.platform,
-        accountId: user.accountId,
-        isIOS: platform.ios,
-        isAndroid: platform.android,
-      })
-      return null
+    if (androidPayloadSizeBytes >= MAX_ANDROID_PAYLOAD_BYTES) {
+      throw new Error(`Android payload exceeds 4KB limit (${androidPayloadSizeBytes} bytes)`)
     }
 
-    return response
+    try {
+      const fcm = this.getFCM(user.bakongPlatform)
+      if (!fcm) {
+        throw new Error(
+          `Firebase Cloud Messaging is not initialized for bakongPlatform: ${user.bakongPlatform || 'DEFAULT'}`,
+        )
+      }
+
+      const sendResponse = await fcm.send(androidPayload)
+      return sendResponse
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Unknown error'
+      const errorCode = error?.code || error?.errorInfo?.code || 'N/A'
+      const wrappedError: any = new Error(
+        `Android FCM send failed: ${errorMessage} (code: ${errorCode})`,
+      )
+      wrappedError.code = errorCode !== 'N/A' ? errorCode : undefined
+      wrappedError.originalError = error
+      wrappedError.firebaseErrorCode = errorCode !== 'N/A' ? errorCode : undefined
+      throw wrappedError
+    }
   }
 
+  // If platform is neither iOS nor Android
+  console.warn('⚠️ [sendFCMPayloadToPlatform] Platform not recognized:', {
+    userPlatform: user.platform,
+    accountId: user.accountId,
+    isIOS: platform.ios,
+    isAndroid: platform.android,
+  })
+  return null
+}
 
   private async handleFlashNotification(
     template: TemplateV2,
@@ -2124,5 +2598,4 @@ export class NotificationServiceV2 {
       throw error
     }
   }
-
 }

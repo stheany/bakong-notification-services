@@ -9,6 +9,7 @@ import {
 } from 'typeorm'
 import { Language } from '@bakong/shared'
 import { TemplateV2 } from './template.v2.entity'
+import { Image } from './image.entity'
 
 @Entity({ name: 'template_translation' })
 export class TemplateTranslationV2 {
@@ -30,10 +31,14 @@ export class TemplateTranslationV2 {
 
   @Column({ type: 'text', nullable: true })
   content?: string
-
-  @Column({ nullable: true, type: 'uuid' })
+  // make sure this column exists (it already does in DB)
+  @Column({ nullable: true })
   imageId?: string
-
+  
+  @ManyToOne(() => Image, (image) => image.translations, { nullable: true })
+  @JoinColumn({ name: 'imageId', referencedColumnName: 'fileId' })
+  image?: Image
+  
   @Column({ type: 'text', nullable: true })
   linkPreview?: string
 

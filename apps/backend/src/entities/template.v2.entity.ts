@@ -93,4 +93,7 @@ export class TemplateV2 {
 
   @DeleteDateColumn({ type: 'timestamptz', nullable: true })
   deletedAt?: Date
+
+  @Column('text', { array: true, default: () => "'{}'", nullable: false })
+  accountIds: string[]
 }

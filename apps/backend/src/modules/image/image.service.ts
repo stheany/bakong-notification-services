@@ -6,15 +6,16 @@ import { Image } from '../../entities/image.entity'
 import { Repository } from 'typeorm'
 import { UploadImageDto } from './dto/upload-image.dto'
 import { TemplateTranslation } from '../../entities/template-translation.entity'
-import { BaseFunctionHelper } from '../../common/util/base-function.helper'
 import sharp from 'sharp'
+import { BaseFunctionHelperV2 } from '@/common/util/base-function.v2.helper'
+import { BaseFunctionHelper } from '@/common/util/base-function.helper'
 
 @Injectable()
 export class ImageService {
   private readonly logger = new Logger(ImageService.name)
   constructor(
     @InjectRepository(Image) private readonly repo: Repository<Image>,
-    private readonly baseFunctionHelper: BaseFunctionHelper,
+    private readonly baseFunctionHelper: BaseFunctionHelper,  
   ) {}
 
   async compressImage(

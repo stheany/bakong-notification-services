@@ -1,6 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore, UserRole } from '@/stores/auth'
 
+const isApiV2Enabled = () => {
+  const apiVersion = localStorage.getItem('api_version')
+  const useApiV2 = localStorage.getItem('USE_API_V2')
+  return apiVersion === 'v2' || useApiV2 === 'true' || useApiV2 === '1'
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.VITE_BASE_URL || '/'),
   routes: [
@@ -28,6 +34,9 @@ const router = createRouter({
       component: () => import('../layouts/AppLayout.vue'),
       meta: { requiresAuth: true },
       children: [
+        // -------------------
+        // V1 ROUTES
+        // -------------------
         {
           path: '',
           name: 'home',
@@ -44,8 +53,8 @@ const router = createRouter({
           component: () => import('../views/ScheduleDetailView.vue'),
         },
         {
-          path: 'templates',
-          name: 'templates',
+          path: 'category-type',
+          name: 'category-type',
           component: () => import('../views/TypeView.vue'),
         },
         {
@@ -58,6 +67,10 @@ const router = createRouter({
           name: 'edit-notification',
           component: () => import('../views/CreateNotificationView.vue'),
         },
+
+        // -------------------
+        // COMMON ROUTES
+        // -------------------
         {
           path: 'users',
           name: 'users',
@@ -84,6 +97,80 @@ const router = createRouter({
           name: 'profile-notification-setup',
           component: () => import('../views/ProfileNotificationSetup.vue'),
         },
+
+        // -------------------
+        // V2 ROUTES
+        // NOTE: child routes must NOT start with "/"
+        // -------------------
+        {
+          path: 'v2',
+          name: 'home-v2',
+          component: () => import('../views/HomeView-v2.vue'),
+        },
+        {
+          path: 'v2/category-type',
+          name: 'category-type-v2',
+          component: () => import('../views/TypeView-v2.vue'),
+        },
+        {
+          path: 'v2/notifications/create',
+          name: 'create-notification-v2',
+          component: () => import('../views/CreateNotificationView-v2.vue'),
+        },
+        {
+          path: 'v2/notifications/edit/:id',
+          name: 'edit-notification-v2',
+          component: () => import('../views/CreateNotificationView-v2.vue'),
+        },
+
+        // -------------------
+        // USER MANAGEMENT ROUTES
+        // -------------------
+        {
+          path: 'users/create',
+          name: 'create-user',
+          component: () => import('../views/CreateUserView.vue'),
+          meta: {
+            requiredRole: UserRole.ADMIN_USER,
+            breadcrumb: {
+              label: 'Create User',
+              parent: { name: 'user-management', label: 'Users' },
+            },
+          },
+        },
+        {
+          path: 'users/view/:id',
+          name: 'view-user',
+          component: () => import('../views/CreateUserView.vue'),
+          meta: {
+            requiredRole: UserRole.ADMIN_USER,
+            breadcrumb: {
+              label: 'View User',
+              parent: { name: 'user-management', label: 'Users' },
+            },
+          },
+        },
+        {
+          path: 'users/edit/:id',
+          name: 'edit-user',
+          component: () => import('../views/CreateUserView.vue'),
+          meta: {
+            requiredRole: UserRole.ADMIN_USER,
+            breadcrumb: {
+              label: 'Edit User',
+              parent: { name: 'user-management', label: 'Users' },
+            },
+          },
+        },
+        {
+          path: 'user-management',
+          name: 'user-management',
+          component: () => import('../views/UserManagementView.vue'),
+          meta: {
+            requiredRole: UserRole.ADMIN_USER,
+            breadcrumb: { label: 'User Management' },
+          },
+        },
       ],
     },
   ],
@@ -92,6 +179,9 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
 
+  // -------------------
+  // AUTH GUARD (your original logic)
+  // -------------------
   if (to.meta.requiresAuth) {
     const storedToken = localStorage.getItem('auth_token')
     if (!storedToken) {
@@ -104,6 +194,7 @@ router.beforeEach(async (to, from, next) => {
       } catch (error) {
         console.error('Auth initialization failed:', error)
         next('/login')
+        return
       }
     }
   }
@@ -143,6 +234,36 @@ router.beforeEach(async (to, from, next) => {
     next()
     return
   }
+
+  // -------------------
+  // API VERSION ROUTING (NEW)
+  // -------------------
+  const v2Enabled = isApiV2Enabled()
+
+  const V1_TO_V2: Record<string, string> = {
+    home: 'home-v2',
+    'category-type': 'category-type-v2',
+    'create-notification': 'create-notification-v2',
+    'edit-notification': 'edit-notification-v2',
+  }
+
+  const V2_TO_V1: Record<string, string> = {
+    'home-v2': 'home',
+    'category-type-v2': 'category-type',
+    'create-notification-v2': 'create-notification',
+    'edit-notification-v2': 'edit-notification',
+  }
+
+  if (v2Enabled && to.name && V1_TO_V2[String(to.name)]) {
+    const targetName = V1_TO_V2[String(to.name)]
+    return next({ name: targetName, params: to.params, query: to.query })
+  }
+
+  if (!v2Enabled && to.name && V2_TO_V1[String(to.name)]) {
+    const targetName = V2_TO_V1[String(to.name)]
+    return next({ name: targetName, params: to.params, query: to.query })
+  }
+
   next()
 })
 

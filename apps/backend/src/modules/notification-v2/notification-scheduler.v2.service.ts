@@ -2,17 +2,17 @@ import { Injectable, Logger } from '@nestjs/common'
 import { Cron, CronExpression } from '@nestjs/schedule'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { Template } from 'src/entities/template.entity'
 import { NotificationServiceV2 } from './notification.v2.service'
 import { SendType } from '@bakong/shared'
+import { TemplateV2 } from '@/entities/template.v2.entity'
 
 @Injectable()
-export class NotificationSchedulerService {
-  private readonly logger = new Logger(NotificationSchedulerService.name)
+export class NotificationSchedulerServiceV2 {
+  private readonly logger = new Logger(NotificationSchedulerServiceV2.name)
 
   constructor(
-    @InjectRepository(Template)
-    private readonly templateRepo: Repository<Template>,
+    @InjectRepository(TemplateV2)
+    private readonly templateRepo: Repository<TemplateV2>,
     private readonly notificationService: NotificationServiceV2,
   ) {
     const frontendControlled = process.env.FRONTEND_CONTROLLED_SENDING === 'true'
@@ -111,7 +111,7 @@ export class NotificationSchedulerService {
     }
   }
 
-  private async processIntervalTemplate(template: Template, now: Date) {
+  private async processIntervalTemplate(template: TemplateV2, now: Date) {
     try {
       if (!template.sendInterval || typeof template.sendInterval !== 'object') {
         this.logger.warn(`⚠️ Template ${template.id} has no sendInterval configuration`)
@@ -149,7 +149,7 @@ export class NotificationSchedulerService {
     }
   }
 
-  private shouldSendNow(template: Template, now: Date): boolean {
+  private shouldSendNow(template: TemplateV2, now: Date): boolean {
     const cron = template.sendInterval?.cron
     if (!cron) return false
 
@@ -168,7 +168,7 @@ export class NotificationSchedulerService {
     return false
   }
 
-  private async processScheduledTemplate(template: Template, now: Date) {
+  private async processScheduledTemplate(template: TemplateV2, now: Date) {
     try {
       if (!template.sendSchedule) {
         this.logger.warn(`⚠️ Template ${template.id} has no sendSchedule`)
@@ -229,7 +229,7 @@ export class NotificationSchedulerService {
 
       const updateResult = await this.templateRepo
         .createQueryBuilder()
-        .update(Template)
+        .update(TemplateV2)
         .set({ isSent: true })
         .where('id = :id', { id: template.id })
         .andWhere('isSent = :isSent', { isSent: false })
@@ -294,7 +294,7 @@ export class NotificationSchedulerService {
     }
   }
 
-  private async updateLastSentAt(template: Template, now: Date) {
+  private async updateLastSentAt(template: TemplateV2, now: Date) {
     await this.templateRepo.update(template.id, {
       updatedAt: now,
     })

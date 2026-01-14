@@ -49,6 +49,7 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path.replace(/^\/images/, '/api/v1/image'),
       },
+      
     },
   },
   build: {

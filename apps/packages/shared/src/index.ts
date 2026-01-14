@@ -29,4 +29,13 @@ export {
   getErrorMessage,
   ERROR_MESSAGES,
 } from './utils/common.utils'
+export {
+  ValidationUtilsV2,
+  ValidationResultV2,
+  passwordFormatV2,
+  emailFormatV2,
+  usernameFormatV2,
+  getErrorMessageV2,
+  ERROR_MESSAGESV2,
+} from './utils/common.utils.v2'
 export { PaginationUtils, PaginationParams, PaginationMeta } from './utils/pagination.utils'

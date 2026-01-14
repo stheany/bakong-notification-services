@@ -1,6 +1,6 @@
 ﻿<template>
   <div class="app-layout">
-    <div class="header">
+    <div class="header" :class="{ expanded: isSidebarCollapsed }">
       <div class="header-content">
         <div class="page-title">
           <h1>{{ pageTitle }}</h1>
@@ -10,6 +10,7 @@
             <span class="breadcrumb-current">{{ breadcrumbCurrent }}</span>
           </div>
         </div>
+
         <div class="header-actions">
           <el-button
             type="primary"
@@ -23,6 +24,7 @@
               </el-icon>
             </div>
           </el-button>
+
           <div class="user-avatar">
             <img
               :src="avatarImage"
@@ -41,36 +43,25 @@
           <img :src="nbcLogo" alt="NBC Logo" class="logo-image" />
         </div>
       </div>
+
       <nav class="sidebar-nav">
         <div class="nav-section">
           <div class="nav-section-title">Notification</div>
-          <div
-            class="nav-item"
-            :class="{ active: $route.name === 'home' }"
-            @click="$router.push('/')"
-          >
+          <div class="nav-item" :class="{ active: isHomeActive }" @click="handleHomeClick">
             <img :src="homeIcon" alt="Home" class="nav-icon" />
             <span>Home</span>
           </div>
         </div>
 
         <div class="nav-section">
-          <div
-            class="nav-item"
-            :class="{ active: $route.name === 'schedule' }"
-            @click="$router.push('/schedule')"
-          >
+          <div class="nav-item" :class="{ active: isScheduleActive }" @click="handleScheduleClick">
             <img :src="calendarIcon" alt="Schedule" class="nav-icon" />
             <span>Schedule</span>
           </div>
         </div>
 
         <div class="nav-section">
-          <div
-            class="nav-item"
-            :class="{ active: $route.name === 'templates' }"
-            @click="$router.push('/templates')"
-          >
+          <div class="nav-item" :class="{ active: isTypeActive }" @click="handleTypeClick">
             <img :src="typeIcon" alt="Type" class="nav-icon" />
             <span>Type</span>
           </div>
@@ -78,6 +69,7 @@
 
         <div class="nav-section">
           <div class="nav-section-title">Tools</div>
+
           <div
             class="nav-item"
             :class="{ active: $route.name === 'insight' }"
@@ -86,26 +78,43 @@
             <img :src="chartIcon" alt="Insight" class="nav-icon" />
             <span>Insight</span>
           </div>
+
           <div
             class="nav-item"
             :class="{ active: $route.name === 'settings' }"
-            @click="$router.push('/settings')"
+            @click="handleGoToSettings"
           >
             <img :src="settingsIcon" alt="Setting" class="nav-icon" />
             <span>Setting</span>
           </div>
+
+          <!-- ✅ API Version Switch -->
+          <div class="nav-item">
+          <div class="api-toggle">
+            <span class="api-toggle-label">API</span>
+            <el-switch
+              v-model="apiSwitch"
+              inline-prompt
+              active-text="v2"
+              inactive-text="v1"
+            />
+            <span class="api-toggle-version">{{ apiVersion }}</span>
+          </div>
+          </div>
         </div>
       </nav>
-      <div class="sidebar-footer">
+
+      <div class="sidebar-footer" @click="toggleSidebar">
         <div class="collapse-btn">
           <el-icon class="collapse-icon">
-            <ArrowLeft />
+            <ArrowRight v-if="isSidebarCollapsed" />
+            <ArrowLeft v-else />
           </el-icon>
         </div>
       </div>
     </div>
 
-    <div class="main-content">
+    <div class="main-content" :class="{ expanded: isSidebarCollapsed }">
       <router-view />
     </div>
 
@@ -127,7 +136,7 @@
       <template #footer>
         <div class="dialog-footer" style="padding: 0">
           <ElButton @click="logoutDialogVisible = false">Cancel</ElButton>
-          <ElButton type="primary" @click="confirmLogout"> Logout </ElButton>
+          <ElButton type="primary" @click="confirmLogout">Logout</ElButton>
         </div>
       </template>
     </ElDialog>
@@ -135,97 +144,108 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { useRouter, useRoute } from 'vue-router'
-import { ElNotification, ElDialog } from 'element-plus'
-import { Plus, ArrowLeft, Warning, CirclePlus } from '@element-plus/icons-vue'
+  import { ref, computed } from 'vue'
+  import { useRouter, useRoute } from 'vue-router'
+  import { ElNotification, ElDialog } from 'element-plus'
+  import { ArrowLeft, ArrowRight, Warning, CirclePlus } from '@element-plus/icons-vue'
+  import { useAuthStore } from '@/stores/auth'
+  
+  // Images
+  import nbcLogo from '@/assets/image/NBC-logo.png'
+  import homeIcon from '@/assets/image/home.jpg'
+  import calendarIcon from '@/assets/image/calendar--heat-map.jpg'
+  import typeIcon from '@/assets/image/type-pattern.jpg'
+  import chartIcon from '@/assets/image/chart--bar-target.jpg'
+  import settingsIcon from '@/assets/image/settings_16.jpg'
+  import avatarImage from '@/assets/image/avatar.png'
+  
+  // ✅ API helpers (single source)
+  import { getApiVersion, setApiVersion, type ApiVersion } from '@/services/apiPrefix'
+  
+  const authStore = useAuthStore()
+  const router = useRouter()
+  const route = useRoute()
+  const logoutDialogVisible = ref(false)
+  const isSidebarCollapsed = ref(false)
 
-// Import images properly for production builds
-import nbcLogo from '@/assets/image/NBC-logo.png'
-import homeIcon from '@/assets/image/home.jpg'
-import calendarIcon from '@/assets/image/calendar--heat-map.jpg'
-import typeIcon from '@/assets/image/type-pattern.jpg'
-import chartIcon from '@/assets/image/chart--bar-target.jpg'
-import settingsIcon from '@/assets/image/settings_16.jpg'
-import avatarImage from '@/assets/image/avatar.png'
-
-const authStore = useAuthStore()
-const router = useRouter()
-const route = useRoute()
-
-const { user } = authStore
-const logoutDialogVisible = ref(false)
-
-const userAvatar = ref(
-  'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=40&h=40&fit=crop&crop=face',
-)
-
-const pageTitle = computed(() => {
-  switch (route.name) {
-    case 'home':
-      return 'Notification'
-    case 'notifications':
-      return 'Notifications'
-    case 'schedule':
-      return 'Schedule'
-    case 'templates':
-      return 'Templates'
-    case 'users':
-      return 'Users'
-    default:
-      return 'Home'
+  const toggleSidebar = () => {
+    isSidebarCollapsed.value = !isSidebarCollapsed.value
   }
-})
-
-const breadcrumbCurrent = computed(() => {
-  switch (route.name) {
-    case 'home':
-      return 'Home'
-    case 'notifications':
-      return 'Notifications'
-    case 'create-notification':
-      return 'Create notification'
-    case 'edit-notification':
-      return 'Edit notification'
-    case 'schedule':
-      return 'Schedule'
-    case 'templates':
-      return 'Templates'
-    case 'users':
-      return 'Users'
-    default:
-      return 'Home'
+  
+  // ✅ API version state
+  const apiVersion = computed(() => getApiVersion())
+  
+  const apiSwitch = computed({
+    get: () => apiVersion.value === 'v2',
+    set: (val: boolean) => {
+      setApiVersion(val ? 'v2' : 'v1')
+      window.location.reload()
+    },
+  })
+  
+  // ✅ Menu active states
+  const isHomeActive = computed(() => route.name === 'home' || route.name === 'home-v2')
+  const isScheduleActive = computed(() => route.name === 'schedule')
+  const isTypeActive = computed(() => route.name === 'category-type' || route.name === 'category-type-v2')
+  
+  // ✅ nav click handlers
+  const handleHomeClick = () => router.push('/')
+  const handleScheduleClick = () => router.push('/schedule')
+  const handleTypeClick = () => router.push('/category-type')
+  
+  // ✅ Create Notification route depends on selected API version
+  const handleCreateNotification = () => {
+    const v: ApiVersion = getApiVersion()
+    router.push(v === 'v2' ? '/v2/notifications/create' : '/notifications/create')
   }
-})
+  
+  const handleGoToSettings = () => router.push('/settings')
+  
+  const handleInsightClick = () => {
+    ElNotification({ title: 'Info', type: 'info', message: 'This feature is coming soon!' })
+  }
+  
+  const confirmLogout = () => {
+    logoutDialogVisible.value = false
+    authStore.logout()
+    ElNotification({ title: 'Success', type: 'success', message: 'Logged out successfully' })
+    router.push('/login')
+  }
 
-const handleCreateNotification = () => {
-  router.push('/notifications/create')
-}
 
-const handleGoToSettings = () => {
-  router.push('/settings')
-}
-
-const handleInsightClick = () => {
-  ElNotification({
-    title: 'Info',
-    type: 'info',
-    message: 'This feature is coming soon!',
+    
+  // Header texts
+  const pageTitle = computed(() => {
+    switch (route.name) {
+      case 'home':
+      case 'home-v2':
+        return 'Notification'
+      case 'schedule':
+        return 'Schedule'
+      default:
+        return 'Home'
+    }
   })
-}
-
-const confirmLogout = () => {
-  logoutDialogVisible.value = false
-  authStore.logout()
-  ElNotification({
-    title: 'Success',
-    type: 'success',
-    message: 'Logged out successfully',
+  
+  const breadcrumbCurrent = computed(() => {
+    switch (route.name) {
+      case 'home':
+      case 'home-v2':
+        return 'Home'
+      case 'create-notification':
+      case 'create-notification-v2':
+        return 'Create notification'
+      case 'edit-notification':
+      case 'edit-notification-v2':
+        return 'Edit notification'
+      case 'schedule':
+        return 'Schedule'
+      default:
+        return 'Home'
+    }
   })
-  router.push('/login')
-}
-</script>
+  </script>
+  
 
 <style scoped>
 .app-layout {
@@ -339,23 +359,6 @@ const confirmLogout = () => {
 .plus-icon .el-icon {
   font-size: 24px;
   color: #001346;
-}
-
-.plus-circle {
-  width: 21px;
-  height: 21px;
-  border-radius: 50%;
-  background: #001346;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.plus-symbol {
-  color: white;
-  font-size: 14px;
-  font-weight: bold;
-  line-height: 1;
 }
 
 .user-avatar {
@@ -489,7 +492,18 @@ const confirmLogout = () => {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  cursor: pointer;
+  width: 100%;
+  min-height: 64px;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
+
+.sidebar.collapsed .sidebar-footer {
+  justify-content: center;
+  padding: 16px;
+}
+
 
 .collapse-btn {
   width: 32px;
@@ -520,6 +534,30 @@ const confirmLogout = () => {
   padding: 25px 25px 0px 32px;
   overflow: hidden;
   background: #fff;
+}
+
+/* ✅ Toggle style */
+.api-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: rgba(0, 19, 70, 0.03);
+  border: 1px solid rgba(0, 19, 70, 0.06);
+}
+
+.api-toggle-label {
+  font-weight: 600;
+  color: #001346;
+  font-size: 14px;
+}
+
+.api-toggle-version {
+  font-weight: 700;
+  color: #001346;
+  opacity: 0.7;
+  font-size: 13px;
 }
 
 .dialog-footer {

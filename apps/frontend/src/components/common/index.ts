@@ -13,6 +13,8 @@ export { default as ImageUpload } from './ImageUpload.vue'
 export { default as Tabs } from './Tabs.vue'
 export { default as Button } from './Button.vue'
 export { default as ConfirmationDialog } from './ConfirmationDialog.vue'
+export { default as TableBody } from './TableBody.vue'
+export { useTableSelection } from '../../composables/useTableSelection.ts'
 
 export type { FormFieldOption } from './FormField.vue'
 export type { SearchFilter } from './SearchBar.vue'

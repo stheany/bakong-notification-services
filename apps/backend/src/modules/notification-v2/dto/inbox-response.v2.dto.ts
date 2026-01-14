@@ -191,6 +191,7 @@ export class InboxResponseDtoV2 implements NotificationDataV2 {
     baseUrl?: string,
     req?: any,
     categoryIcon?: string,
+    failedUsers?: string[],
   ): NotificationDataV2 {
     const isV2 = InboxResponseDtoV2.isV2Request(req)
 
@@ -240,7 +241,8 @@ export class InboxResponseDtoV2 implements NotificationDataV2 {
     sendCount?: number,
     baseUrl?: string,
     req?: any,
-    categoryIcon?: string
+    categoryIcon?: string,
+    failedUsers?: string[],
   ): NotificationDataV2 {
     return this.buildBaseNotificationData(
       template,
@@ -252,6 +254,7 @@ export class InboxResponseDtoV2 implements NotificationDataV2 {
       baseUrl,
       req,
       categoryIcon,
+      failedUsers,
     )
   }
 

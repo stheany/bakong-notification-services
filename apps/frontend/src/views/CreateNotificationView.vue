@@ -1,8 +1,16 @@
 ﻿<template>
   <div class="create-notification-container">
     <div class="main-content">
-      <Tabs v-model="activeLanguage" :tabs="languageTabs" @tab-changed="handleLanguageChanged" />
-      <div class="form-content">
+      <div v-if="showApiToggle" class="flex items-center gap-2 shrink-0 whitespace-nowrap">
+        <div class="flex-1 min-w-0">
+          <Tabs
+            v-model="activeLanguage"
+            :tabs="languageTabs"
+            @tab-changed="handleLanguageChanged"
+          />
+        </div>
+      </div>
+    <div class="form-content">
         <div class="form-group">
           <ImageUpload
             :key="`image-upload-${activeLanguage}-${existingImageIds[activeLanguage] || 'new'}`"
@@ -254,6 +262,52 @@
               </div>
             </div>
           </div>
+          <div class="schedule-datetime-row" style="margin-top: 12px">
+            <div class="splash-options" style="width: 100%">
+              <div class="schedule-options-header" style="margin-bottom: 12px">
+                <div class="schedule-option-left">
+                  <span class="option-title">Test AccountId</span>
+                  <span class="option-description">
+                    Only those users with the accountId will receive the notification
+                  </span>
+                </div>
+
+                <div class="schedule-option-right">
+                  <label class="toggle-switch" :class="{ disabled: isEditMode }">
+                    <input v-model="enableAccountIds" type="checkbox" :disabled="isEditMode"
+                      @change="onToggleAccountIds(enableAccountIds)" />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div v-if="!enableAccountIds" class="option-description">
+                Turn on to add accountId(s).
+              </div>
+
+              <div v-else>
+                <div v-for="(accountId, idx) in formData.accountIds" :key="`account-${idx}`"
+                  style="display: flex; gap: 12px; align-items: center; margin-bottom: 10px">
+                  <div style="min-width: 90px; color: #6b7280">accountId</div>
+
+                  <el-input class="h-12" v-model="formData.accountIds[idx]" placeholder="Enter accountId" clearable
+                    style="flex: 1" />
+
+                  <el-button type="danger" plain @click="removeAccountId(idx)"
+                    :disabled="isEditMode || formData.accountIds.length === 1">
+                    Remove
+                  </el-button>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 8px">
+                  <el-button type="primary" plain @click="addAccountId" :disabled="isEditMode">
+                    + Add accountId(s)
+                  </el-button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="action-buttons">
             <Button
               text="Publish now"
@@ -275,7 +329,7 @@
         </div>
       </div>
     </div>
-    <div class="sticky top-24">
+    <div class="preview-container flex justify-center items-center">
       <MobilePreview
         :title="currentTitle"
         :description="currentDescription"
@@ -298,7 +352,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick, watch, watchEffect } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElNotification, ElInputNumber } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
@@ -334,9 +388,49 @@ import {
   mapLanguageToEnum,
   compressImage,
 } from '../utils/helpers'
+import { setApiVersion } from '@/services/apiPrefix'
+
 
 const router = useRouter()
 const route = useRoute()
+
+const API_VERSION_KEY = 'api_version'
+const getApiVersion = () => (localStorage.getItem(API_VERSION_KEY) as 'v1' | 'v2') || 'v1'
+const setLocalApiVersion = (v: 'v1' | 'v2') => localStorage.setItem(API_VERSION_KEY, v)
+
+const isCreatePage = computed(() => {
+  const p = (route.path || '').toLowerCase().replace(/\/+$/, '')
+  return p.endsWith('/notifications/create') || p.endsWith('/v2/notifications/create')
+})
+
+const showApiToggle = computed(() => {
+  return route.name === 'create-notification' || route.name === 'create-notification-v2'
+})
+
+const useV2 = ref(getApiVersion() === 'v2')
+
+onMounted(() => {
+  applyApiVersion(useV2.value ? 'v2' : 'v1')
+})
+
+watch(useV2, (val) => {
+  if (!isCreatePage.value) return
+
+  const v: 'v1' | 'v2' = val ? 'v2' : 'v1'
+  applyApiVersion(v)
+
+  const query = route.fullPath.includes('?')
+    ? route.fullPath.slice(route.fullPath.indexOf('?'))
+    : ''
+
+  if (v === 'v2') router.replace(`/v2/notifications/create${query}`)
+  else router.replace(`/notifications/create${query}`)
+})
+
+const applyApiVersion = (v: 'v1' | 'v2') => {
+  setApiVersion(v)
+  setLocalApiVersion(v)
+}
 
 const isEditMode = computed(() => route.name === 'edit-notification')
 const notificationId = computed(() => route.params.id as string)
@@ -423,6 +517,7 @@ const formData = reactive({
   scheduleDate: getTodayDateString(),
   scheduleTime: null as string | null,
   splashEnabled: false,
+  accountIds: [] as string[],
 })
 
 const currentTitle = computed({
@@ -476,6 +571,38 @@ const currentImageUrl = computed({
   },
 })
 
+
+// NEW: toggle state
+const enableAccountIds = ref(false)
+
+// init (if editing and has existing ids)
+watchEffect(() => {
+  if (Array.isArray(formData.accountIds) && formData.accountIds.length > 0) {
+    enableAccountIds.value = true
+  }
+})
+
+const addAccountId = () => {
+  formData.accountIds.push('')
+}
+
+const removeAccountId = (idx: number) => {
+  formData.accountIds.splice(idx, 1)
+  if (formData.accountIds.length === 0) enableAccountIds.value = false
+}
+
+// When toggle on/off
+const onToggleAccountIds = (val: boolean) => {
+  if (val) {
+    if (!formData.accountIds?.length) formData.accountIds = ['']
+  } else {
+    // choose behavior:
+    // A) clear when off:
+    formData.accountIds = []
+    // B) keep values but hide list: comment line above
+  }
+}
+
 const loadNotificationData = async () => {
   if (!isEditMode.value || !notificationId.value) return
 
@@ -489,6 +616,7 @@ const loadNotificationData = async () => {
       mapNotificationTypeToFormType(template.notificationType) || NotificationType.NOTIFICATION
     formData.categoryType = mapTypeToCategoryType(template.categoryType) || CategoryType.OTHER
     formData.platform = (template.bakongPlatform as BakongApp) || BakongApp.BAKONG
+    formData.accountIds = Array.isArray(template.accountIds) ? template.accountIds : []
 
     if (template.sendSchedule) {
       formData.scheduleEnabled = true
@@ -528,6 +656,7 @@ const loadNotificationData = async () => {
         languageFormData[lang].imageUrl = fileId ? `/api/v1/image/${fileId}` : null
         languageFormData[lang].imageFile = null
         existingImageIds[lang] = fileId || null
+        template.accountIds = t.accountIds || []
       }
     }
   } catch (error) {
@@ -1214,24 +1343,32 @@ body::-webkit-scrollbar {
 .create-notification-container {
   display: flex;
   height: 100vh;
-  gap: 214px;
-  padding: 0;
-  overflow: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  align-items: flex-start;
+  gap: 80px;          /* ✅ like v1 spacing between form & preview */
+  padding: 0 32px;    /* ✅ give some breathing space */
+  overflow: visible;
 }
 
-.create-notification-container::-webkit-scrollbar {
-  display: none;
-}
-
+/* left side form column */
 .main-content {
   flex: 1;
-  max-width: 603px;
-  padding: 0px;
-  left: 231px;
-  flex-direction: column;
+  max-width: 720px;  /* ✅ wider like v1 */
+  min-width: 0;
   height: 100vh;
+}
+
+/* right side preview column */
+.preview-container {
+  flex: 0 0 420px;   /* ✅ fixed preview width like v1 */
+  display: flex;
+  justify-content: center;
+}
+
+.preview-container {
+  min-height: calc(100vh - 120px); /* adjust if header is bigger/smaller */
+}
+.create-notification-container::-webkit-scrollbar {
+  display: none;
 }
 
 .form-content {
@@ -1421,12 +1558,22 @@ body::-webkit-scrollbar {
   flex-grow: 0;
 }
 
+
 .schedule-options-header {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  align-items: center;
-  gap: 218px;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+}
+
+.option-description {
+  font-size: 14px;
+  font-weight: 400;
+  color: #6b7280;
+  line-height: 1.4;
+  max-width: 100%;
 }
 
 .splash-options {
@@ -1446,15 +1593,20 @@ body::-webkit-scrollbar {
 
 .schedule-option-left {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
 }
 
 .schedule-option-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
+  flex-shrink: 0;
 }
-
 .option-label {
   font-size: 14px;
   color: #001346;

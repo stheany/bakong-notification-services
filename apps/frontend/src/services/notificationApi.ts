@@ -23,6 +23,7 @@ export interface CreateTemplateRequest {
   notificationType?: string
   categoryType?: string
   priority?: number
+  accountIds?: string[]
 }
 
 export interface Notification {
