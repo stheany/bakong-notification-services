@@ -1,156 +1,127 @@
-#!/bin/bash
-# ============================================================================
-# Local Testing Script (V1 + V2)
-# ============================================================================
-# Usage: bash test-local.sh
-# ============================================================================
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -e
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 
-echo "🧪 Local DB Setup (V1 + V2)"
-echo "==========================="
-echo ""
+DB_SERVICE="${DB_SERVICE:-db}"
+DB_CONTAINER="${DB_CONTAINER:-bakong-notification-services-db-dev}"
 
-# Check if Docker is running (wait up to 120s for Docker Engine to start)
-echo "🐳 Checking Docker Engine..."
-MAX_WAIT=120
-WAITED=0
+DB_NAME="${DB_NAME:-bakong_notification_services_dev}"
+DB_USER="${DB_USER:-bkns_dev}"
+DB_PASSWORD="${DB_PASSWORD:-dev}"
 
-until docker info > /dev/null 2>&1; do
-  if [ "$WAITED" -ge "$MAX_WAIT" ]; then
-    echo "❌ Docker is not running after ${MAX_WAIT}s."
-    echo "   Open Docker Desktop and wait until it says 'Running', then try again."
-    exit 1
-  fi
-  echo "⏳ Docker Engine is starting... (${WAITED}s)"
-  sleep 2
-  WAITED=$((WAITED + 2))
-done
+MIGRATION_FILE="${MIGRATION_FILE:-apps/backend/scripts/unified-migration.sql}"
+SEED_FILE="${SEED_FILE:-apps/backend/scripts/init-db.sql}"
+VERIFY_FILE="${VERIFY_FILE:-apps/backend/verify-all.sql}"
 
-echo "✅ Docker is running"
-echo ""
+BACKEND_SERVICE="${BACKEND_SERVICE:-backend}"
 
+BACKUP_DIR="${BACKUP_DIR:-backups/local}"
+MIN_BACKUP_BYTES="${MIN_BACKUP_BYTES:-200000}" # safety threshold
+TS="$(date +%Y%m%d_%H%M%S)"
+BACKUP_FULL="${BACKUP_DIR}/backup_full_${TS}.sql"
 
-echo "✅ Docker is running"
-echo ""
+mkdir -p "$BACKUP_DIR"
 
-echo "📋 Step 1: Checking required files..."
-echo "----------------------------------------"
+echo "======================================================"
+echo "🧪 TEST LOCAL (ONE COMMAND)"
+echo "======================================================"
 
-# ✅ FIXED PATH (your repo has it here)
-MIGRATION_FILE="apps/backend/scripts/unified-migration.sql"
+docker info >/dev/null 2>&1 || { echo "❌ Docker not running. Start Docker Desktop and retry."; exit 1; }
 
-# Optional files (only checked if you want)
-VERIFY_FILE="apps/backend/verify-all.sql"
-UTILS_FILE="utils-server.sh"
+echo "🐳 Starting DB..."
+docker compose -f "$COMPOSE_FILE" up -d "$DB_SERVICE"
+sleep 3
+
+if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+  echo "❌ DB container not found: $DB_CONTAINER"
+  exit 1
+fi
+
+echo "💾 Backup FULL (schema+data) -> $BACKUP_FULL"
+docker exec -e PGPASSWORD="$DB_PASSWORD" "$DB_CONTAINER" \
+  pg_dump -U "$DB_USER" -d "$DB_NAME" --no-owner --no-privileges > "$BACKUP_FULL"
+
+FULL_SIZE="$(wc -c < "$BACKUP_FULL" | tr -d ' ')"
+echo "📦 Backup size: FULL=${FULL_SIZE} bytes (threshold=${MIN_BACKUP_BYTES})"
+
+DO_RESET=1
+if [ "$MIN_BACKUP_BYTES" != "0" ] && [ "$FULL_SIZE" -lt "$MIN_BACKUP_BYTES" ]; then
+  DO_RESET=0
+fi
+
+if [ "$DO_RESET" -eq 1 ]; then
+  echo "♻️ Reset schema public..."
+  docker exec -i -e PGPASSWORD="$DB_PASSWORD" "$DB_CONTAINER" \
+    psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
+DROP SCHEMA IF EXISTS public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO public;
+SQL
+
+  echo "📥 Restore FULL backup: $BACKUP_FULL"
+  docker exec -i -e PGPASSWORD="$DB_PASSWORD" "$DB_CONTAINER" \
+    psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 < "$BACKUP_FULL"
+else
+  echo "⏭️ Backup too small, skip reset/restore (migrate only)"
+  echo "   To force reset anyway: MIN_BACKUP_BYTES=0 bash test-local.sh"
+fi
 
 if [ ! -f "$MIGRATION_FILE" ]; then
-    echo "❌ Migration file not found: $MIGRATION_FILE"
-    echo "💡 Try: find . -name unified-migration.sql"
-    exit 1
-else
-    echo "✅ Found: $MIGRATION_FILE"
+  echo "❌ Missing migration file: $MIGRATION_FILE"
+  exit 1
 fi
 
-# VERIFY_FILE is optional now (we can verify inline)
+echo "🔄 Run migration: $MIGRATION_FILE"
+docker exec -i -e PGPASSWORD="$DB_PASSWORD" "$DB_CONTAINER" \
+  psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 < "$MIGRATION_FILE"
+echo "✅ Migration done"
+
+if [ -f "$SEED_FILE" ]; then
+  echo "🌱 Seed: $SEED_FILE"
+  docker exec -i -e PGPASSWORD="$DB_PASSWORD" "$DB_CONTAINER" \
+    psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 < "$SEED_FILE"
+  echo "✅ Seed done"
+else
+  echo "⚠️ Seed file not found: $SEED_FILE (skip)"
+fi
+
 if [ -f "$VERIFY_FILE" ]; then
-    echo "✅ Found: $VERIFY_FILE"
+  echo "🔍 Verify: $VERIFY_FILE"
+  docker exec -i -e PGPASSWORD="$DB_PASSWORD" "$DB_CONTAINER" \
+    psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -P pager=off < "$VERIFY_FILE"
+  echo "✅ Verify done"
 else
-    echo "⚠️  verify-all.sql not found (will verify tables inline)"
+  echo "⚠️ Verify file not found: $VERIFY_FILE (skip)"
 fi
 
-if [ -f "$UTILS_FILE" ]; then
-    echo "✅ Found: $UTILS_FILE"
-else
-    echo "⚠️  utils-server.sh not found (skipping utils tests)"
+echo "🔁 Restart backend..."
+docker compose -f "$COMPOSE_FILE" up -d --build "$BACKEND_SERVICE"
+
+# ✅ Auto-detect which host port backend exposes for container port 8080
+PORT_LINE="$(docker compose -f "$COMPOSE_FILE" port "$BACKEND_SERVICE" 8080 2>/dev/null || true)"
+if [ -z "$PORT_LINE" ]; then
+  echo "❌ No port mapping found for backend:8080"
+  echo "   Check docker-compose.yml -> backend -> ports (should be 4004:8080)"
+  docker compose -f "$COMPOSE_FILE" ps
+  exit 1
 fi
 
-echo ""
-echo "📋 Step 2: Checking Docker containers..."
-echo "----------------------------------------"
+HOST_PORT="$(echo "$PORT_LINE" | awk -F: '{print $NF}' | tr -d '\r\n')"
+HEALTH_URL="http://localhost:${HOST_PORT}/api/v1/health"
 
-# Check if dev database container exists
-if docker ps -a --format '{{.Names}}' | grep -q "bakong-notification-services-db-dev"; then
-    echo "✅ Dev database container exists"
-    CONTAINER_NAME="bakong-notification-services-db-dev"
-    DB_NAME="bakong_notification_services_dev"
-    DB_USER="bkns_dev"
-    DB_PASSWORD="dev"
-else
-    echo "⚠️  Dev database container not found"
-    echo "   Starting dev database..."
-    docker-compose -f docker-compose.yml up -d db
-    sleep 10
-    CONTAINER_NAME="bakong-notification-services-db-dev"
-    DB_NAME="bakong_notification_services_dev"
-    DB_USER="bkns_dev"
-    DB_PASSWORD="dev"
-fi
+echo "🩺 Health check: $HEALTH_URL"
+for i in {1..60}; do
+  if curl -fsS "$HEALTH_URL" >/dev/null; then
+    echo "✅ Backend healthy"
+    echo ""
+    echo "✅ DONE"
+    echo "FULL backup: $BACKUP_FULL"
+    exit 0
+  fi
+  sleep 1
+done
 
-# Check if container is running
-if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo "✅ Database container is running"
-else
-    echo "⚠️  Starting database container..."
-    docker start "$CONTAINER_NAME" || docker-compose -f docker-compose.yml up -d db
-    sleep 10
-fi
-
-echo ""
-echo "📋 Step 3: Running Migration Script (V1 + V2)..."
-echo "----------------------------------------"
-
-echo "Running unified migration..."
-export PGPASSWORD="$DB_PASSWORD"
-docker exec -i "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 < "$MIGRATION_FILE"
-unset PGPASSWORD
-echo "✅ Migration PASSED"
-
-echo ""
-echo "📋 Step 4: Verifying V1 + V2 tables..."
-echo "----------------------------------------"
-
-export PGPASSWORD="$DB_PASSWORD"
-docker exec -i "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -P pager=off -c \
-"SELECT
-  to_regclass('public.template') AS v1_template,
-  to_regclass('public.notification') AS v1_notification,
-  to_regclass('public.template_translation') AS v1_template_translation,
-  to_regclass('public.template_v2') AS v2_template,
-  to_regclass('public.template_translation_v2') AS v2_template_translation;"
-unset PGPASSWORD
-
-echo "✅ Inline verification done"
-
-# Optional: run verify-all.sql if you have it
-if [ -f "$VERIFY_FILE" ]; then
-  echo ""
-  echo "📋 Step 5: Running verify-all.sql..."
-  echo "----------------------------------------"
-  export PGPASSWORD="$DB_PASSWORD"
-  docker exec -i "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 < "$VERIFY_FILE"
-  unset PGPASSWORD
-  echo "✅ verify-all.sql PASSED"
-fi
-
-# Optional: test utils-server.sh if present
-if [ -f "$UTILS_FILE" ]; then
-  echo ""
-  echo "📋 Step 6: Testing Utils Script Commands..."
-  echo "----------------------------------------"
-
-  echo "Testing: bash utils-server.sh db-migrate"
-  bash utils-server.sh db-migrate || true
-
-  echo ""
-  echo "Testing: bash utils-server.sh verify-all"
-  bash utils-server.sh verify-all || true
-
-  echo ""
-  echo "Testing: bash utils-server.sh db-backup dev"
-  bash utils-server.sh db-backup dev || true
-fi
-
-echo ""
-echo "✅ All done! V1 + V2 are ready in the SAME database."
-echo ""
+echo "❌ Backend health failed. Logs:"
+docker compose -f "$COMPOSE_FILE" logs --tail=200 "$BACKEND_SERVICE"
+exit 1

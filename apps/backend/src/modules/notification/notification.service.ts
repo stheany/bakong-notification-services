@@ -9,7 +9,7 @@ import { TemplateTranslation } from 'src/entities/template-translation.entity'
 import { ValidationHelper } from 'src/common/util/validation.helper'
 import { BaseFunctionHelper } from 'src/common/util/base-function.helper'
 import { FirebaseManager } from 'src/common/services/firebase-manager.service'
-import { PaginationUtils } from '@bakong/shared'
+import { CategoryType, PaginationUtils } from '@bakong/shared'
 import { BaseResponseDto } from '../../common/base-response.dto'
 import SentNotificationDto from './dto/send-notification.dto'
 import { NotificationInboxDto } from './dto/notification-inbox.dto'
@@ -181,392 +181,1164 @@ export class NotificationService {
     return result.successfulCount
   }
 
-  async sendNow(dto: SentNotificationDto, req?: any) {
+  // async sendNow(dto: SentNotificationDto, req?: any) {
+  //   try {
+  //     if (dto.notificationId) {
+  //       // Mobile app fetching specific notification (e.g., after clicking flash notification)
+  //       const notification = await this.notiRepo.findOne({
+  //         where: { id: dto.notificationId },
+  //         relations: ['template', 'template.translations'],
+  //       })
+  //       if (!notification) throw new Error('Notification not found')
+
+  //       if (notification.template && !notification.template.translations) {
+  //         notification.template.translations = []
+  //       }
+
+  //       // Get user's bakongPlatform from database
+  //       if (dto.accountId) {
+  //         const user = await this.baseFunctionHelper.findUserByAccountId(Array.isArray(dto.accountId) ? dto.accountId[0] : dto.accountId)
+  //         if (user && user.bakongPlatform && notification.template.bakongPlatform) {
+  //           if (user.bakongPlatform !== notification.template.bakongPlatform) {
+  //             // User's platform doesn't match template's platform
+  //             return BaseResponseDto.error({
+  //               errorCode: ErrorCode.TEMPLATE_NOT_FOUND,
+  //               message: 'Notification not found for this Bakong platform',
+  //               data: {
+  //                 notificationId: dto.notificationId,
+  //                 userPlatform: user.bakongPlatform,
+  //                 templatePlatform: notification.template.bakongPlatform,
+  //               },
+  //             })
+  //           }
+  //         }
+  //       }
+
+  //       const trans = this.templateService.findBestTranslation(notification.template, dto.language)
+  //       const imageUrl = trans?.imageId ? this.imageService.buildImageUrl(trans.imageId, req) : ''
+
+  //       const result = InboxResponseDto.buildSendApiNotificationData(
+  //         notification.template,
+  //         trans,
+  //         dto.language,
+  //         typeof imageUrl === 'string' ? imageUrl : '',
+  //         notification.id,
+  //         notification.sendCount,
+  //       )
+
+  //       return BaseResponseDto.success({
+  //         data: { whatnews: result },
+  //         message: `Send ${notification.template.notificationType} to users successfully.`,
+  //       })
+  //     }
+
+  //     // For flash notifications: Always sync user data and ensure bakongPlatform is set
+  //     // Priority: Use user's registered bakongPlatform > Infer from accountId/participantCode > Infer from template
+  //     let userBakongPlatform: string | undefined = undefined
+  //     if (dto.accountId && dto.notificationType === NotificationType.FLASH_NOTIFICATION) {
+  //       // Always sync user data again to ensure all fields are up to date
+  //       const user = await this.baseFunctionHelper.findUserByAccountId(Array.isArray(dto.accountId) ? dto.accountId[0] : dto.accountId)
+        
+  //       console.log(`📤 [sendNow] Syncing user data for ${dto.accountId}`, {
+  //         existingBakongPlatform: user?.bakongPlatform || 'NULL',
+  //         providedBakongPlatform: dto.bakongPlatform || 'NULL',
+  //         accountId: dto.accountId,
+  //         participantCode: dto.participantCode || 'N/A',
+  //       })
+        
+  //       // Mobile app ALWAYS provides bakongPlatform in the request
+  //       // This is the primary path - mobile provides all data including bakongPlatform
+  //       let bakongPlatformToSync = dto.bakongPlatform
+        
+  //       // Fallback logic (shouldn't normally happen since mobile always provides bakongPlatform):
+  //       // Only used for edge cases like:
+  //       // - Old mobile app versions that don't send bakongPlatform
+  //       // - API calls from other sources
+  //       // - Backward compatibility
+  //       if (!bakongPlatformToSync) {
+  //         // Try existing user value first
+  //         if (user?.bakongPlatform) {
+  //           bakongPlatformToSync = user.bakongPlatform
+  //           console.warn(
+  //             `⚠️ [sendNow] Mobile did not provide bakongPlatform (unexpected), using existing from user: ${bakongPlatformToSync}`,
+  //           )
+  //         } else {
+  //           // Last resort: try to infer from accountId/participantCode
+  //           const inferred = this.inferBakongPlatform(dto.participantCode, Array.isArray(dto.accountId) ? dto.accountId[0] : dto.accountId)
+  //           if (inferred) {
+  //             bakongPlatformToSync = inferred
+  //             console.warn(
+  //               `⚠️ [sendNow] Mobile did not provide bakongPlatform (unexpected), inferred from accountId: ${dto.accountId}, participantCode: ${dto.participantCode || 'N/A'} -> ${inferred}`,
+  //             )
+  //           } else {
+  //             console.error(
+  //               `❌ [sendNow] CRITICAL: bakongPlatform not provided by mobile and cannot be determined for ${dto.accountId}`,
+  //             )
+  //           }
+  //         }
+  //       }
+
+  //       // Always sync ALL user data from mobile app
+  //       // Mobile app always provides all data including: language, fcmToken, platform, participantCode, bakongPlatform
+  //       const syncData: any = {
+  //         accountId: dto.accountId,
+  //         language: dto.language,
+  //         fcmToken: dto.fcmToken || '', // Use empty string as placeholder if not provided
+  //         platform: dto.platform,
+  //         participantCode: dto.participantCode,
+  //         bakongPlatform: bakongPlatformToSync, // Mobile always provides this
+  //       }
+        
+  //       console.log(`📤 [sendNow] Syncing ALL user data from mobile (always includes bakongPlatform):`, {
+  //         accountId: syncData.accountId,
+  //         language: syncData.language || 'N/A',
+  //         platform: syncData.platform || 'N/A',
+  //         participantCode: syncData.participantCode || 'N/A',
+  //         bakongPlatform: syncData.bakongPlatform || 'NULL (unexpected - mobile should always provide)',
+  //       })
+        
+  //       // Always sync all user data - mobile provides all fields including bakongPlatform
+  //       await this.baseFunctionHelper.updateUserData(syncData)
+
+  //       // Re-fetch user to get the latest bakongPlatform
+  //       const updatedUser = await this.baseFunctionHelper.findUserByAccountId(Array.isArray(dto.accountId) ? dto.accountId[0] : dto.accountId)
+  //       if (updatedUser && updatedUser.bakongPlatform) {
+  //         userBakongPlatform = updatedUser.bakongPlatform
+  //         console.log(
+  //           `✅ [sendNow] User ${dto.accountId} bakongPlatform after sync: ${userBakongPlatform}`,
+  //         )
+  //       } else {
+  //         console.log(
+  //           `⚠️ [sendNow] User ${dto.accountId} still has no bakongPlatform after sync attempt`,
+  //         )
+  //       }
+  //     }
+
+  //     // For flash notifications: If user has bakongPlatform, find template matching it
+  //     let template: Template | null = null
+  //     let notificationType: NotificationType
+
+  //     if (
+  //       dto.accountId &&
+  //       dto.notificationType === NotificationType.FLASH_NOTIFICATION &&
+  //       userBakongPlatform
+  //     ) {
+  //       // Find template matching user's bakongPlatform
+  //       // IMPORTANT: Only include published templates (isSent: true), exclude drafts
+  //       const templates = await this.templateRepo.find({
+  //         where: {
+  //           notificationType: NotificationType.FLASH_NOTIFICATION,
+  //           bakongPlatform: userBakongPlatform as any,
+  //           isSent: true, // Only published templates, exclude drafts
+  //         },
+  //         relations: ['translations', 'translations.image'],
+  //         order: { priority: 'DESC', createdAt: 'DESC' },
+  //       })
+  //       template = templates.find((t) => t.translations && t.translations.length > 0) || null
+  //       notificationType = NotificationType.FLASH_NOTIFICATION
+
+  //       if (template) {
+  //         console.log(
+  //           `📤 [sendNow] Found template matching user's bakongPlatform: ${userBakongPlatform}`,
+  //         )
+  //       } else {
+  //         console.log(
+  //           `📤 [sendNow] No published template found for bakongPlatform: ${userBakongPlatform}, using default findNotificationTemplate`,
+  //         )
+  //       }
+  //     }
+
+  //     // If no template found yet, use default method
+  //     if (!template) {
+  //       const result = await this.templateService.findNotificationTemplate(dto)
+  //       template = result.template
+  //       notificationType = result.notificationType
+  //     }
+
+  //     if (!template) throw new Error(ResponseMessage.TEMPLATE_NOT_FOUND)
+
+  //     const translationValidation = ValidationHelper.validateTranslation(template, dto.language)
+  //     if (!translationValidation.isValid) throw new Error(translationValidation.errorMessage)
+  //     const translation = translationValidation.translation
+
+  //     // For flash notifications: If user doesn't have bakongPlatform, infer it from template
+  //     // This is a fallback for users who call /send before /inbox
+  //     // IMPORTANT: Only update if user doesn't have bakongPlatform set (don't overwrite existing value)
+  //     if (
+  //       dto.accountId &&
+  //       notificationType === NotificationType.FLASH_NOTIFICATION &&
+  //       template.bakongPlatform &&
+  //       !userBakongPlatform
+  //     ) {
+  //       const user = await this.baseFunctionHelper.findUserByAccountId(Array.isArray(dto.accountId) ? dto.accountId[0] : dto.accountId)
+  //       if (user && !user.bakongPlatform) {
+  //         // User exists but doesn't have bakongPlatform set - infer it from template
+  //         await this.baseFunctionHelper.updateUserData({
+  //           accountId: Array.isArray(dto.accountId) ? dto.accountId[0] : dto.accountId,
+  //           bakongPlatform: template.bakongPlatform,
+  //         })
+  //         console.log(
+  //           `📤 [sendNow] Auto-updated user ${dto.accountId} bakongPlatform to ${template.bakongPlatform} from template (user had no bakongPlatform)`,
+  //         )
+  //       } else if (user && user.bakongPlatform) {
+  //         console.log(
+  //           `📤 [sendNow] User ${dto.accountId} already has bakongPlatform: ${user.bakongPlatform} - not overwriting`,
+  //         )
+  //       }
+  //     }
+
+  //     // Re-fetch users after potential bakongPlatform update (for flash notifications)
+  //     let allUsers = await this.bkUserRepo.find()
+  //     console.log('📤 [sendNow] Total users in database:', allUsers.length)
+
+  //     // Filter by bakongPlatform if template has it
+  //     if (template.bakongPlatform) {
+  //       const beforeCount = allUsers.length
+  //       allUsers = allUsers.filter((user) => user.bakongPlatform === template.bakongPlatform)
+  //       console.log(
+  //         `📤 [sendNow] Filtered by bakongPlatform (${template.bakongPlatform}): ${beforeCount} → ${allUsers.length} users`,
+  //       )
+
+  //       // Check if no users found for this bakongPlatform
+  //       // Skip this check for flash notifications with accountId (they target a specific user)
+  //       if (
+  //         allUsers.length === 0 &&
+  //         !(notificationType === NotificationType.FLASH_NOTIFICATION && dto.accountId)
+  //       ) {
+  //         const platformName =
+  //           template.bakongPlatform === 'BAKONG_TOURIST'
+  //             ? 'Bakong Tourist'
+  //             : template.bakongPlatform === 'BAKONG_JUNIOR'
+  //               ? 'Bakong Junior'
+  //               : 'Bakong'
+
+  //         // Mark template as draft if templateId is provided
+  //         if (dto.templateId) {
+  //           try {
+  //             await this.templateRepo.update(dto.templateId, { isSent: false })
+  //             console.log(`📤 [sendNow] Marked template ${dto.templateId} as draft due to no users`)
+  //           } catch (e) {
+  //             console.error('Error marking template as draft:', e)
+  //           }
+  //         }
+
+  //         // Return error response instead of throwing
+  //         return BaseResponseDto.error({
+  //           errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
+  //           message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
+  //           data: {
+  //             bakongPlatform: template.bakongPlatform,
+  //             platformName: platformName,
+  //           },
+  //         })
+  //       }
+  //     }
+
+  //     const usersWithTokens = allUsers.filter((u) => u.fcmToken?.trim())
+
+  //     if (notificationType === NotificationType.FLASH_NOTIFICATION) {
+  //       return await this.handleFlashNotification(template, translation, dto, req)
+  //     }
+
+  //     if (!usersWithTokens.length) throw new Error(ResponseMessage.NO_USERS_CAN_RECEIVE)
+
+  //     await this.baseFunctionHelper.syncAllUsers()
+  //     let refreshedUsers = await this.bkUserRepo.find()
+
+  //     // Filter by bakongPlatform again after sync (in case new users were added)
+  //     if (template.bakongPlatform) {
+  //       const beforeCount = refreshedUsers.length
+  //       refreshedUsers = refreshedUsers.filter(
+  //         (user) => user.bakongPlatform === template.bakongPlatform,
+  //       )
+  //       console.log(
+  //         `📤 [sendNow] After sync - Filtered by bakongPlatform (${template.bakongPlatform}): ${beforeCount} → ${refreshedUsers.length} users`,
+  //       )
+
+  //       // Check again if no users found after sync
+  //       if (refreshedUsers.length === 0) {
+  //         const platformName =
+  //           template.bakongPlatform === 'BAKONG_TOURIST'
+  //             ? 'Bakong Tourist'
+  //             : template.bakongPlatform === 'BAKONG_JUNIOR'
+  //               ? 'Bakong Junior'
+  //               : 'Bakong'
+
+  //         // Mark template as draft if templateId is provided
+  //         if (dto.templateId) {
+  //           try {
+  //             await this.templateRepo.update(dto.templateId, { isSent: false })
+  //             console.log(
+  //               `📤 [sendNow] After sync - Marked template ${dto.templateId} as draft due to no users`,
+  //             )
+  //           } catch (e) {
+  //             console.error('Error marking template as draft:', e)
+  //           }
+  //         }
+
+  //         return BaseResponseDto.error({
+  //           errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
+  //           message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
+  //           data: {
+  //             bakongPlatform: template.bakongPlatform,
+  //             platformName: platformName,
+  //           },
+  //         })
+  //       }
+  //     }
+
+  //     const refreshedWithTokens = refreshedUsers.filter((u) => u.fcmToken?.trim())
+  //     // Get FCM instance for template's bakongPlatform
+  //     const fcm = this.getFCM(template.bakongPlatform)
+  //     if (!fcm) {
+  //       throw new Error('Firebase FCM is not initialized for this platform')
+  //     }
+  //     const validUsers = await ValidationHelper.validateFCMTokens(refreshedWithTokens, fcm)
+  //     if (!validUsers.length) throw new Error('No valid FCM tokens found after user data sync')
+
+  //     const savedRecords = await Promise.all(
+  //       validUsers.map((u) =>
+  //         this.storeNotification({
+  //           accountId: u.accountId,
+  //           templateId: template.id,
+  //           fcmToken: u.fcmToken,
+  //           sendCount: 1,
+  //           firebaseMessageId: 0,
+  //         }),
+  //       ),
+  //     )
+
+  //     const firstRecord = savedRecords[0]
+
+  //     let fcmResult: { successfulCount: number; failedCount: number } | void
+  //     try {
+  //       fcmResult = await this.sendFCM(
+  //         template,
+  //         translation,
+  //         validUsers,
+  //         req,
+  //         'shared',
+  //         firstRecord.id,
+  //       )
+  //     } catch (err) {
+  //       throw new Error(`FCM ASYNC SEND ERROR: ${err}`)
+  //     }
+
+  //     // Check if FCM send was successful
+  //     if (fcmResult && typeof fcmResult === 'object' && 'successfulCount' in fcmResult) {
+  //       console.log(
+  //         `📊 FCM send result: ${fcmResult.successfulCount} successful, ${fcmResult.failedCount} failed`,
+  //       )
+  //       if (fcmResult.successfulCount === 0 && fcmResult.failedCount > 0) {
+  //         throw new Error(
+  //           `Failed to send notification to any users. All ${fcmResult.failedCount} attempts failed.`,
+  //         )
+  //       }
+  //       if (fcmResult.successfulCount === 0) {
+  //         throw new Error('No notifications were sent. FCM send returned 0 successful sends.')
+  //       }
+  //     }
+
+  //     const responseTranslation = this.templateService.findBestTranslation(template, dto.language)
+  //     const imageUrl = responseTranslation?.imageId
+  //       ? this.imageService.buildImageUrl(responseTranslation.imageId, req)
+  //       : ''
+
+  //     // Only mark as published if FCM send was successful
+  //     await this.templateService.markAsPublished(template.id, req?.user)
+
+  //     const whatNews = InboxResponseDto.buildSendApiNotificationData(
+  //       template,
+  //       responseTranslation,
+  //       dto.language,
+  //       typeof imageUrl === 'string' ? imageUrl : '',
+  //       firstRecord.id,
+  //       firstRecord.sendCount,
+  //     )
+  //     return BaseResponseDto.success({
+  //       data: { whatnews: whatNews },
+  //       message: `Send ${template.notificationType} to users successfully`,
+  //     })
+  //   } catch (error: any) {
+  //     return BaseResponseDto.error({
+  //       errorCode: error?.code || ErrorCode.INTERNAL_SERVER_ERROR,
+  //       message: `Invalid ${error?.message || ResponseMessage.INTERNAL_SERVER_ERROR}`,
+  //       data: { notification: {} },
+  //     })
+  //   }
+  // }
+
+
+  
+  // async sendNow(dto: SentNotificationDto, req?: any): Promise<BaseResponseDto> {
+  //   const fail = (message: string, errorCode: number, data?: any) =>
+  //     BaseResponseDto.error({
+  //       errorCode,
+  //       message,
+  //       data: data ?? { notification: {} },
+  //     })
+  
+  //   try {
+  //     // 1) language
+  //     const langVal = dto.language ? ValidationHelper.validateLanguage(String(dto.language)) : null
+  //     const language: Language = langVal?.isValid
+  //       ? (langVal.normalizedValue as Language)
+  //       : Language.KM
+  
+  //     // 2) accountId list normalize
+  //     const accountIdList: string[] | undefined = Array.isArray(dto.accountId)
+  //       ? dto.accountId.map((x: any) => String(x).trim()).filter(Boolean)
+  //       : typeof dto.accountId === 'string' && dto.accountId.trim()
+  //         ? [dto.accountId.trim()]
+  //         : undefined
+  
+  //     const hasAccountFilter = !!accountIdList?.length
+  //     const isSingleAccount = hasAccountFilter && accountIdList!.length === 1
+  
+  //     // 3) FLASH rule
+  //     if (
+  //       dto.notificationType === NotificationType.FLASH_NOTIFICATION &&
+  //       hasAccountFilter &&
+  //       !isSingleAccount
+  //     ) {
+  //       return fail(
+  //         'FLASH_NOTIFICATION supports only 1 accountId. Please send with a single accountId.',
+  //         ErrorCode.VALIDATION_FAILED,
+  //       )
+  //     }
+  
+  //     // 4) find template
+  //     let template: Template | null = null
+  
+  //     if (dto.templateId) {
+  //       template = await this.templateRepo.findOne({
+  //         where: { id: Number(dto.templateId) },
+  //         relations: ['translations', 'translations.image']
+  //       })
+  //     } else {
+  //       const found = await this.templateService.findNotificationTemplate(dto)
+  //       template = found?.template ?? null
+  
+  //       if (template?.id) {
+  //         template = await this.templateRepo.findOne({
+  //           where: { id: template.id },
+  //           relations: ['translations', 'translations.image']
+  //         })
+  //       }
+  //     }
+  
+  //     if (!template) {
+  //       return fail(ResponseMessage.TEMPLATE_NOT_FOUND, ErrorCode.RECORD_NOT_FOUND)
+  //     }
+  
+  //     // 5) pick translation
+  //     const translations = template.translations || []
+  //     const translation =
+  //       translations.find((t) => String(t.language).toUpperCase() === String(language).toUpperCase()) ||
+  //       translations.find((t) => String(t.language).toUpperCase() === 'EN') ||
+  //       translations[0]
+  
+  //     if (!translation) {
+  //       return fail('Template translation not found', ErrorCode.RECORD_NOT_FOUND)
+  //     }
+  
+  //     // 6) FLASH flow
+  //     if (dto.notificationType === NotificationType.FLASH_NOTIFICATION && isSingleAccount) {
+  //       return await this.handleFlashNotification(template, translation, dto, req)
+  //     }
+  
+  //     // 7) Resolve bakongPlatform (never null)
+  //     const effectiveBakongPlatform: BakongApp =
+  //       (dto as any)?.bakongPlatform || (template as any)?.bakongPlatform || BakongApp.BAKONG
+  
+  //     // image
+  //     const imageId = (translation as any)?.imageId ?? (template as any)?.imageId ?? null
+  //     const imageUrl = imageId ? this.imageService.buildImageUrl(imageId, req) : ''
+  //     const imageUrlString = typeof imageUrl === 'string' ? imageUrl : ''
+  
+  //     // template accountIds
+  //     const templateAccountIdsRaw = (template as any).accountIds
+  //     const templateAccountId = Array.isArray(templateAccountIdsRaw)
+  //       ? templateAccountIdsRaw
+  //       : templateAccountIdsRaw
+  //         ? [String(templateAccountIdsRaw)]
+  //         : []
+  
+  //     const cleanedTemplateAccountId = Array.from(
+  //       new Set(templateAccountId.map((x: any) => String(x || '').trim()).filter(Boolean)),
+  //     )
+  
+  //     // dto accountId has priority
+  //     const targetIdsFromDto: string[] | null = hasAccountFilter ? accountIdList! : null
+  //     const isStrictDtoMode = !!targetIdsFromDto?.length
+  
+  //     // Query users by platform first
+  //     let users = await this.bkUserRepo
+  //       .createQueryBuilder('user')
+  //       .where('user.bakongPlatform = :bp', { bp: effectiveBakongPlatform })
+  //       .getMany()
+  
+  //     if (!users.length) {
+  //       return BaseResponseDto.error({
+  //         errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
+  //         message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
+  //         data: { bakongPlatform: effectiveBakongPlatform },
+  //       })
+  //     }
+  
+  //     // failed list accumulator
+  //     let preFailedUsers: string[] = []
+  
+  //     // -------------------------
+  //     // STRICT DTO MODE
+  //     // -------------------------
+  //     if (isStrictDtoMode) {
+  //       const requestedIds = targetIdsFromDto!
+  //       const allow = new Set(requestedIds)
+  
+  //       const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+  //       const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+  
+  //       // invalid data = not found
+  //       const missingIds = requestedIds.filter((id) => !matchedIds.has(id))
+  
+  //       // ✅ ALL missing => invalid data
+  //       if (matchedUsers.length === 0 && missingIds.length > 0) {
+  //         return BaseResponseDto.error({
+  //           errorCode: ErrorCode.VALIDATION_FAILED, // 10
+  //           message: 'Users are invalid data or not found, please check the accountId',
+  //           data: { usersInvalid: missingIds },
+  //         })
+  //       }
+  
+  //       // token empty
+  //       const noTokenIds = matchedUsers
+  //         .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+  //         .map((u) => String(u.accountId || '').trim())
+  
+  //       const validUsers = matchedUsers.filter(
+  //         (u) => u.fcmToken && String(u.fcmToken).trim() !== '',
+  //       )
+  
+  //       // ✅ matched exists but none can be sent => invalid firebase token
+  //       if (validUsers.length === 0) {
+  //         const usersInvalid = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+        
+  //         const msg =
+  //           requestedIds.length >= 2
+  //             ? 'Users are invalid data or not found, please check the accountId'
+  //             : 'Users are invalid firebase token'
+        
+  //         return BaseResponseDto.error({
+  //           errorCode: ErrorCode.VALIDATION_FAILED, // 10
+  //           message: msg,
+  //           data: { usersInvalid: usersInvalid.length ? usersInvalid : requestedIds },
+  //         })
+  //       }
+        
+  
+  //       // merge these later
+  //       preFailedUsers = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+  
+  //       // send only valid users
+  //       users = validUsers
+  //     }
+  
+  //     // -------------------------
+  //     // TEST MODE (template.accountIds)
+  //     // -------------------------
+  //     else if (cleanedTemplateAccountId.length > 0) {
+  //       const allow = new Set(cleanedTemplateAccountId)
+  
+  //       const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+  //       const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+  
+  //       const missingIds = cleanedTemplateAccountId.filter((id) => !matchedIds.has(id))
+  
+  //       const noTokenIds = matchedUsers
+  //         .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+  //         .map((u) => String(u.accountId || '').trim())
+  
+  //       // ✅ FIX: assign to OUTER preFailedUsers (no "const")
+  //       preFailedUsers = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+  
+  //       // only send users with token
+  //       users = matchedUsers.filter((u) => u.fcmToken && String(u.fcmToken).trim() !== '')
+  
+  //       if (!users.length) {
+  //         return BaseResponseDto.success({
+  //           message: 'No valid users in test account list. Saved as draft.',
+  //           data: {
+  //             notificationId: 0,
+  //             successfulCount: 0,
+  //             failedCount: preFailedUsers.length,
+  //             failedUsers: preFailedUsers,
+  //             savedAsDraftNoUsers: true,
+  //           },
+  //         })
+  //       }
+  //     }
+  
+  //     // -------------------------
+  //     // SEND
+  //     // -------------------------
+  //     const sendResult =
+  //       (await this.sendFCM(template, translation, users, req, 'individual')) || {
+  //         notificationId: 0,
+  //         successfulCount: 0,
+  //         failedCount: 0,
+  //         failedUsers: [],
+  //       }
+  
+  //     const notificationId = Number((sendResult as any).notificationId || 0)
+  //     const successfulCount = Number((sendResult as any).successfulCount || 0)
+  //     const baseFailedUsers = Array.isArray((sendResult as any).failedUsers)
+  //       ? (sendResult as any).failedUsers
+  //       : []
+  
+  //     const mergedFailedUsers = Array.from(new Set([...preFailedUsers, ...baseFailedUsers])).filter(Boolean)
+  //     const mergedFailedCount =
+  //       Number((sendResult as any).failedCount || 0) + preFailedUsers.length
+  
+  //     // ✅ if 0 success but some failures => invalid firebase token
+  //     if (successfulCount === 0 && mergedFailedCount > 0) {
+  //       const requestedIds = targetIdsFromDto ?? []
+      
+  //       const msg =
+  //         requestedIds.length >= 2
+  //           ? 'Users are invalid data or not found, please check the accountId'
+  //           : 'Users are invalid firebase token'
+      
+  //       return BaseResponseDto.error({
+  //         errorCode: ErrorCode.VALIDATION_FAILED, // 10
+  //         message: msg,
+  //         data: { usersInvalid: mergedFailedUsers.length ? mergedFailedUsers : requestedIds },
+  //       })
+  //     }
+      
+  //     // publish only if at least 1 received
+  //     if (successfulCount > 0) {
+  //       await this.templateService.markAsPublished(template.id, req?.user)
+  //     }
+  
+  //     // build response data
+  //     const baseUrl = this.baseFunctionHelper
+  //       ? this.baseFunctionHelper.getBaseUrl(req)
+  //       : 'http://localhost:4005'
+  
+  //     const categoryIcon =
+  //       (template as any)?.categoryTypeId
+  //         ? `${baseUrl}/api/v1/category-type/${(template as any).categoryTypeId}/icon`
+  //         : undefined
+  
+  //     const whatnews = InboxResponseDto.buildSendApiNotificationData(
+  //       template,
+  //       translation,
+  //       language,
+  //       imageUrlString,
+  //       notificationId,
+  //       successfulCount
+  //     )
+  
+  //     ;(whatnews as any).bakongPlatform = effectiveBakongPlatform
+  //     ;(whatnews as any).categoryType = template.categoryType
+  
+  //     const sentTargetAccountIds = (users || [])
+  //       .map((u: any) => String(u.accountId || '').trim())
+  //       .filter(Boolean)
+  
+  //     const successfulUsers = sentTargetAccountIds.filter(
+  //       (id) => !mergedFailedUsers.includes(id),
+  //     )
+  
+  //     return BaseResponseDto.success({
+  //       message: `Send ${template.notificationType} to users successfully`,
+  //       data: {
+  //         whatnews,
+  //         successfulUsers,
+  //         failedUsers: mergedFailedUsers,
+  //       },
+  //     })
+  //   } catch (error: any) {
+  //     return BaseResponseDto.error({
+  //       errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+  //       message: error?.message || ResponseMessage.INTERNAL_SERVER_ERROR,
+  //       data: { notification: {} },
+  //     })
+  //   }
+  // }
+
+  async sendNow(dto: SentNotificationDto, req?: any): Promise<BaseResponseDto> {
+    const fail = (message: string, errorCode: number, data?: any) =>
+      BaseResponseDto.error({
+        errorCode,
+        message,
+        data: data ?? { notification: {} },
+      })
+  
     try {
-      if (dto.notificationId) {
-        // Mobile app fetching specific notification (e.g., after clicking flash notification)
-        const notification = await this.notiRepo.findOne({
-          where: { id: dto.notificationId },
-          relations: ['template', 'template.translations'],
-        })
-        if (!notification) throw new Error('Notification not found')
-
-        if (notification.template && !notification.template.translations) {
-          notification.template.translations = []
-        }
-
-        // Get user's bakongPlatform from database
-        if (dto.accountId) {
-          const user = await this.baseFunctionHelper.findUserByAccountId(dto.accountId)
-          if (user && user.bakongPlatform && notification.template.bakongPlatform) {
-            if (user.bakongPlatform !== notification.template.bakongPlatform) {
-              // User's platform doesn't match template's platform
-              return BaseResponseDto.error({
-                errorCode: ErrorCode.TEMPLATE_NOT_FOUND,
-                message: 'Notification not found for this Bakong platform',
-                data: {
-                  notificationId: dto.notificationId,
-                  userPlatform: user.bakongPlatform,
-                  templatePlatform: notification.template.bakongPlatform,
-                },
-              })
-            }
-          }
-        }
-
-        const trans = this.templateService.findBestTranslation(notification.template, dto.language)
-        const imageUrl = trans?.imageId ? this.imageService.buildImageUrl(trans.imageId, req) : ''
-
-        const result = InboxResponseDto.buildSendApiNotificationData(
-          notification.template,
-          trans,
-          dto.language,
-          typeof imageUrl === 'string' ? imageUrl : '',
-          notification.id,
-          notification.sendCount,
-        )
-
-        return BaseResponseDto.success({
-          data: { whatnews: result },
-          message: `Send ${notification.template.notificationType} to users successfully.`,
-        })
-      }
-
-      // For flash notifications: Always sync user data and ensure bakongPlatform is set
-      // Priority: Use user's registered bakongPlatform > Infer from accountId/participantCode > Infer from template
-      let userBakongPlatform: string | undefined = undefined
-      if (dto.accountId && dto.notificationType === NotificationType.FLASH_NOTIFICATION) {
-        // Always sync user data again to ensure all fields are up to date
-        const user = await this.baseFunctionHelper.findUserByAccountId(dto.accountId)
-        
-        console.log(`📤 [sendNow] Syncing user data for ${dto.accountId}`, {
-          existingBakongPlatform: user?.bakongPlatform || 'NULL',
-          providedBakongPlatform: dto.bakongPlatform || 'NULL',
-          accountId: dto.accountId,
-          participantCode: dto.participantCode || 'N/A',
-        })
-        
-        // Mobile app ALWAYS provides bakongPlatform in the request
-        // This is the primary path - mobile provides all data including bakongPlatform
-        let bakongPlatformToSync = dto.bakongPlatform
-        
-        // Fallback logic (shouldn't normally happen since mobile always provides bakongPlatform):
-        // Only used for edge cases like:
-        // - Old mobile app versions that don't send bakongPlatform
-        // - API calls from other sources
-        // - Backward compatibility
-        if (!bakongPlatformToSync) {
-          // Try existing user value first
-          if (user?.bakongPlatform) {
-            bakongPlatformToSync = user.bakongPlatform
-            console.warn(
-              `⚠️ [sendNow] Mobile did not provide bakongPlatform (unexpected), using existing from user: ${bakongPlatformToSync}`,
-            )
-          } else {
-            // Last resort: try to infer from accountId/participantCode
-            const inferred = this.inferBakongPlatform(dto.participantCode, dto.accountId)
-            if (inferred) {
-              bakongPlatformToSync = inferred
-              console.warn(
-                `⚠️ [sendNow] Mobile did not provide bakongPlatform (unexpected), inferred from accountId: ${dto.accountId}, participantCode: ${dto.participantCode || 'N/A'} -> ${inferred}`,
-              )
-            } else {
-              console.error(
-                `❌ [sendNow] CRITICAL: bakongPlatform not provided by mobile and cannot be determined for ${dto.accountId}`,
-              )
-            }
-          }
-        }
-
-        // Always sync ALL user data from mobile app
-        // Mobile app always provides all data including: language, fcmToken, platform, participantCode, bakongPlatform
-        const syncData: any = {
-          accountId: dto.accountId,
-          language: dto.language,
-          fcmToken: dto.fcmToken || '', // Use empty string as placeholder if not provided
-          platform: dto.platform,
-          participantCode: dto.participantCode,
-          bakongPlatform: bakongPlatformToSync, // Mobile always provides this
-        }
-        
-        console.log(`📤 [sendNow] Syncing ALL user data from mobile (always includes bakongPlatform):`, {
-          accountId: syncData.accountId,
-          language: syncData.language || 'N/A',
-          platform: syncData.platform || 'N/A',
-          participantCode: syncData.participantCode || 'N/A',
-          bakongPlatform: syncData.bakongPlatform || 'NULL (unexpected - mobile should always provide)',
-        })
-        
-        // Always sync all user data - mobile provides all fields including bakongPlatform
-        await this.baseFunctionHelper.updateUserData(syncData)
-
-        // Re-fetch user to get the latest bakongPlatform
-        const updatedUser = await this.baseFunctionHelper.findUserByAccountId(dto.accountId)
-        if (updatedUser && updatedUser.bakongPlatform) {
-          userBakongPlatform = updatedUser.bakongPlatform
-          console.log(
-            `✅ [sendNow] User ${dto.accountId} bakongPlatform after sync: ${userBakongPlatform}`,
-          )
-        } else {
-          console.log(
-            `⚠️ [sendNow] User ${dto.accountId} still has no bakongPlatform after sync attempt`,
-          )
-        }
-      }
-
-      // For flash notifications: If user has bakongPlatform, find template matching it
-      let template: Template | null = null
-      let notificationType: NotificationType
-
+      // 1) language
+      const langVal = dto.language
+        ? ValidationHelper.validateLanguage(String(dto.language))
+        : null
+  
+      const language: Language = langVal?.isValid
+        ? (langVal.normalizedValue as Language)
+        : Language.KM
+  
+      // 2) accountId normalize (IMPORTANT: [] => undefined)
+      const normalizedIds = Array.isArray(dto.accountId)
+        ? dto.accountId.map((x: any) => String(x).trim()).filter(Boolean)
+        : typeof dto.accountId === 'string' && dto.accountId.trim()
+          ? [dto.accountId.trim()]
+          : []
+  
+      const accountIdList: string[] | undefined = normalizedIds.length ? normalizedIds : undefined
+  
+      const hasAccountFilter = !!accountIdList?.length
+      const isSingleAccount = hasAccountFilter && accountIdList!.length === 1
+  
+      // 3) FLASH rule
       if (
-        dto.accountId &&
         dto.notificationType === NotificationType.FLASH_NOTIFICATION &&
-        userBakongPlatform
+        hasAccountFilter &&
+        !isSingleAccount
       ) {
-        // Find template matching user's bakongPlatform
-        // IMPORTANT: Only include published templates (isSent: true), exclude drafts
-        const templates = await this.templateRepo.find({
-          where: {
-            notificationType: NotificationType.FLASH_NOTIFICATION,
-            bakongPlatform: userBakongPlatform as any,
-            isSent: true, // Only published templates, exclude drafts
-          },
-          relations: ['translations', 'translations.image'],
-          order: { priority: 'DESC', createdAt: 'DESC' },
-        })
-        template = templates.find((t) => t.translations && t.translations.length > 0) || null
-        notificationType = NotificationType.FLASH_NOTIFICATION
-
-        if (template) {
-          console.log(
-            `📤 [sendNow] Found template matching user's bakongPlatform: ${userBakongPlatform}`,
-          )
-        } else {
-          console.log(
-            `📤 [sendNow] No published template found for bakongPlatform: ${userBakongPlatform}, using default findNotificationTemplate`,
-          )
-        }
-      }
-
-      // If no template found yet, use default method
-      if (!template) {
-        const result = await this.templateService.findNotificationTemplate(dto)
-        template = result.template
-        notificationType = result.notificationType
-      }
-
-      if (!template) throw new Error(ResponseMessage.TEMPLATE_NOT_FOUND)
-
-      const translationValidation = ValidationHelper.validateTranslation(template, dto.language)
-      if (!translationValidation.isValid) throw new Error(translationValidation.errorMessage)
-      const translation = translationValidation.translation
-
-      // For flash notifications: If user doesn't have bakongPlatform, infer it from template
-      // This is a fallback for users who call /send before /inbox
-      // IMPORTANT: Only update if user doesn't have bakongPlatform set (don't overwrite existing value)
-      if (
-        dto.accountId &&
-        notificationType === NotificationType.FLASH_NOTIFICATION &&
-        template.bakongPlatform &&
-        !userBakongPlatform
-      ) {
-        const user = await this.baseFunctionHelper.findUserByAccountId(dto.accountId)
-        if (user && !user.bakongPlatform) {
-          // User exists but doesn't have bakongPlatform set - infer it from template
-          await this.baseFunctionHelper.updateUserData({
-            accountId: dto.accountId,
-            bakongPlatform: template.bakongPlatform,
-          })
-          console.log(
-            `📤 [sendNow] Auto-updated user ${dto.accountId} bakongPlatform to ${template.bakongPlatform} from template (user had no bakongPlatform)`,
-          )
-        } else if (user && user.bakongPlatform) {
-          console.log(
-            `📤 [sendNow] User ${dto.accountId} already has bakongPlatform: ${user.bakongPlatform} - not overwriting`,
-          )
-        }
-      }
-
-      // Re-fetch users after potential bakongPlatform update (for flash notifications)
-      let allUsers = await this.bkUserRepo.find()
-      console.log('📤 [sendNow] Total users in database:', allUsers.length)
-
-      // Filter by bakongPlatform if template has it
-      if (template.bakongPlatform) {
-        const beforeCount = allUsers.length
-        allUsers = allUsers.filter((user) => user.bakongPlatform === template.bakongPlatform)
-        console.log(
-          `📤 [sendNow] Filtered by bakongPlatform (${template.bakongPlatform}): ${beforeCount} → ${allUsers.length} users`,
+        return fail(
+          'FLASH_NOTIFICATION supports only 1 accountId. Please send with a single accountId.',
+          ErrorCode.VALIDATION_FAILED,
         )
-
-        // Check if no users found for this bakongPlatform
-        // Skip this check for flash notifications with accountId (they target a specific user)
-        if (
-          allUsers.length === 0 &&
-          !(notificationType === NotificationType.FLASH_NOTIFICATION && dto.accountId)
-        ) {
-          const platformName =
-            template.bakongPlatform === 'BAKONG_TOURIST'
-              ? 'Bakong Tourist'
-              : template.bakongPlatform === 'BAKONG_JUNIOR'
-                ? 'Bakong Junior'
-                : 'Bakong'
-
-          // Mark template as draft if templateId is provided
-          if (dto.templateId) {
-            try {
-              await this.templateRepo.update(dto.templateId, { isSent: false })
-              console.log(`📤 [sendNow] Marked template ${dto.templateId} as draft due to no users`)
-            } catch (e) {
-              console.error('Error marking template as draft:', e)
-            }
-          }
-
-          // Return error response instead of throwing
-          return BaseResponseDto.error({
-            errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
-            message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
-            data: {
-              bakongPlatform: template.bakongPlatform,
-              platformName: platformName,
-            },
+      }
+  
+      // 4) find template
+      let template: Template | null = null
+      if (dto.templateId) {
+        template = await this.templateRepo.findOne({
+          where: { id: Number(dto.templateId) },
+          relations: ['translations', 'translations.image'],
+        })
+      } else {
+        const found = await this.templateService.findNotificationTemplate(dto)
+        template = found?.template ?? null
+  
+        if (template?.id) {
+          template = await this.templateRepo.findOne({
+            where: { id: template.id },
+            relations: ['translations', 'translations.image'],
           })
         }
       }
-
-      const usersWithTokens = allUsers.filter((u) => u.fcmToken?.trim())
-
-      if (notificationType === NotificationType.FLASH_NOTIFICATION) {
+  
+      if (!template) {
+        return fail(ResponseMessage.TEMPLATE_NOT_FOUND, ErrorCode.RECORD_NOT_FOUND)
+      }
+  
+      // 5) translation pick
+      const translations = template.translations || []
+      const translation =
+        translations.find(
+          (t) => String(t.language).toUpperCase() === String(language).toUpperCase(),
+        ) ||
+        translations.find((t) => String(t.language).toUpperCase() === 'EN') ||
+        translations[0]
+  
+      if (!translation) {
+        return fail('Template translation not found', ErrorCode.RECORD_NOT_FOUND)
+      }
+  
+      // 6) FLASH flow keep old
+      if (dto.notificationType === NotificationType.FLASH_NOTIFICATION && isSingleAccount) {
         return await this.handleFlashNotification(template, translation, dto, req)
       }
-
-      if (!usersWithTokens.length) throw new Error(ResponseMessage.NO_USERS_CAN_RECEIVE)
-
-      await this.baseFunctionHelper.syncAllUsers()
-      let refreshedUsers = await this.bkUserRepo.find()
-
-      // Filter by bakongPlatform again after sync (in case new users were added)
-      if (template.bakongPlatform) {
-        const beforeCount = refreshedUsers.length
-        refreshedUsers = refreshedUsers.filter(
-          (user) => user.bakongPlatform === template.bakongPlatform,
+  
+      // 7) resolve bakongPlatform
+      const effectiveBakongPlatform: BakongApp =
+        (dto as any)?.bakongPlatform || (template as any)?.bakongPlatform || BakongApp.BAKONG
+  
+      // image
+      const imageId = (translation as any)?.imageId ?? (template as any)?.imageId ?? null
+      const imageUrl = imageId ? this.imageService.buildImageUrl(imageId, req) : ''
+      const imageUrlString = typeof imageUrl === 'string' ? imageUrl : ''
+  
+      // template accountIds (test mode)
+      const templateAccountIdsRaw = (template as any).accountIds
+      const templateAccountId = Array.isArray(templateAccountIdsRaw)
+        ? templateAccountIdsRaw
+        : templateAccountIdsRaw
+          ? [String(templateAccountIdsRaw)]
+          : []
+  
+      const cleanedTemplateAccountId = Array.from(
+        new Set(templateAccountId.map((x: any) => String(x || '').trim()).filter(Boolean)),
+      )
+  
+      // if dto.accountId provided => STRICT mode
+      const targetIdsFromDto: string[] | null = hasAccountFilter ? accountIdList! : null
+      const isStrictDtoMode = !!targetIdsFromDto?.length
+  
+      // 8) load users by bakongPlatform
+      let users = await this.bkUserRepo
+        .createQueryBuilder('user')
+        .where('user.bakongPlatform = :bp', { bp: effectiveBakongPlatform })
+        .getMany()
+  
+      if (!users.length) {
+        return BaseResponseDto.error({
+          errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
+          message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
+          data: { bakongPlatform: effectiveBakongPlatform },
+        })
+      }
+  
+      // 9) filtering
+      let preFailedUsers: string[] = []
+  
+      if (isStrictDtoMode) {
+        const requestedIds = targetIdsFromDto! // normalized
+  
+        const allow = new Set(requestedIds)
+        const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+        const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+  
+        // missing in DB
+        const missingIds = requestedIds.filter((id) => !matchedIds.has(id))
+  
+        // empty token
+        const noTokenIds = matchedUsers
+          .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+          .map((u) => String(u.accountId || '').trim())
+  
+        // users we can try sending to (have token)
+        const validUsers = matchedUsers.filter(
+          (u) => u.fcmToken && String(u.fcmToken).trim() !== '',
         )
-        console.log(
-          `📤 [sendNow] After sync - Filtered by bakongPlatform (${template.bakongPlatform}): ${beforeCount} → ${refreshedUsers.length} users`,
-        )
-
-        // Check again if no users found after sync
-        if (refreshedUsers.length === 0) {
-          const platformName =
-            template.bakongPlatform === 'BAKONG_TOURIST'
-              ? 'Bakong Tourist'
-              : template.bakongPlatform === 'BAKONG_JUNIOR'
-                ? 'Bakong Junior'
-                : 'Bakong'
-
-          // Mark template as draft if templateId is provided
-          if (dto.templateId) {
-            try {
-              await this.templateRepo.update(dto.templateId, { isSent: false })
-              console.log(
-                `📤 [sendNow] After sync - Marked template ${dto.templateId} as draft due to no users`,
-              )
-            } catch (e) {
-              console.error('Error marking template as draft:', e)
-            }
-          }
-
+  
+        // if nothing valid to send => ALL invalid data (stop early)
+        if (validUsers.length === 0) {
+          const usersInvalid = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+  
+          // ✅ your rule: if >=2 users => invalid data, if 1 => invalid firebase token
+          const msg =
+            requestedIds.length >= 2 ? 'Users are invalid data' : 'Users are invalid firebase token'
+  
           return BaseResponseDto.error({
-            errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
-            message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
+            errorCode: ErrorCode.VALIDATION_FAILED, // 10
+            message: msg,
             data: {
-              bakongPlatform: template.bakongPlatform,
-              platformName: platformName,
+              usersInvalid: usersInvalid.length ? usersInvalid : requestedIds,
+            },
+          })
+        }
+  
+        // continue sending, but remember these as failed (not fatal)
+        preFailedUsers = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+        users = validUsers
+      } else if (cleanedTemplateAccountId.length > 0) {
+        // TEST MODE (template.accountIds)
+        const allow = new Set(cleanedTemplateAccountId)
+  
+        const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+        const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+  
+        const missingIds = cleanedTemplateAccountId.filter((id) => !matchedIds.has(id))
+  
+        const noTokenIds = matchedUsers
+          .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+          .map((u) => String(u.accountId || '').trim())
+  
+        preFailedUsers = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+  
+        users = matchedUsers.filter((u) => u.fcmToken && String(u.fcmToken).trim() !== '')
+  
+        if (!users.length) {
+          return BaseResponseDto.success({
+            message: 'No valid users in test account list. Saved as draft.',
+            data: {
+              notificationId: 0,
+              successfulCount: 0,
+              failedCount: preFailedUsers.length,
+              failedUsers: preFailedUsers,
+              savedAsDraftNoUsers: true,
+            },
+          })
+        }
+      } else {
+        // ✅ SEND TO ALL USERS (no dto.accountId and no template.accountIds)
+        // treat users without token as failedUsers, and do NOT attempt sending to them.
+        const noTokenUsers = (users || []).filter(
+          (u) => !u.fcmToken || String(u.fcmToken).trim() === '',
+        )
+  
+        preFailedUsers = Array.from(
+          new Set(
+            noTokenUsers
+              .map((u) => String(u.accountId || '').trim())
+              .filter(Boolean),
+          ),
+        )
+  
+        users = (users || []).filter((u) => u.fcmToken && String(u.fcmToken).trim() !== '')
+  
+        if (!users.length) {
+          return BaseResponseDto.success({
+            message: 'No valid users (missing FCM token).',
+            data: {
+              whatnews: {},
+              successfulUsers: [],
+              failedUsers: preFailedUsers,
             },
           })
         }
       }
+  
+      // 10) send (users here are ONLY attempted users)
+      const sendResult = await this.sendFCM(template, translation, users, req, 'individual')
 
-      const refreshedWithTokens = refreshedUsers.filter((u) => u.fcmToken?.trim())
-      // Get FCM instance for template's bakongPlatform
-      const fcm = this.getFCM(template.bakongPlatform)
-      if (!fcm) {
-        throw new Error('Firebase FCM is not initialized for this platform')
+      const baseFailedUsers = sendResult.failedUsers || []
+      const failedUsers = Array.from(new Set([...preFailedUsers, ...baseFailedUsers])).filter(Boolean)
+
+      // ✅ Only Firebase-success users
+      const successfulUsers = sendResult.successfulUsers || []
+
+  
+      const notificationId = Number((sendResult as any).notificationId || 0)
+      const successfulCount = Number((sendResult as any).successfulCount || 0)
+   
+      const mergedFailedUsers = Array.from(new Set([...preFailedUsers, ...baseFailedUsers])).filter(Boolean)
+  
+      // ✅ if no success (and accountId filter provided) => use message rules
+      if (successfulCount === 0 && isStrictDtoMode) {
+        const msg =
+          (targetIdsFromDto?.length || 0) >= 2
+            ? 'Users are invalid data'
+            : 'Users are invalid firebase token'
+  
+        return BaseResponseDto.error({
+          errorCode: ErrorCode.VALIDATION_FAILED, // 10
+          message: msg,
+          data: {
+            usersInvalid: mergedFailedUsers.length ? mergedFailedUsers : (targetIdsFromDto || []),
+          },
+        })
       }
-      const validUsers = await ValidationHelper.validateFCMTokens(refreshedWithTokens, fcm)
-      if (!validUsers.length) throw new Error('No valid FCM tokens found after user data sync')
-
-      const savedRecords = await Promise.all(
-        validUsers.map((u) =>
-          this.storeNotification({
-            accountId: u.accountId,
-            templateId: template.id,
-            fcmToken: u.fcmToken,
-            sendCount: 1,
-            firebaseMessageId: 0,
-          }),
-        ),
-      )
-
-      const firstRecord = savedRecords[0]
-
-      let fcmResult: { successfulCount: number; failedCount: number } | void
-      try {
-        fcmResult = await this.sendFCM(
-          template,
-          translation,
-          validUsers,
-          req,
-          'shared',
-          firstRecord.id,
-        )
-      } catch (err) {
-        throw new Error(`FCM ASYNC SEND ERROR: ${err}`)
+  
+      // 11) publish only if at least 1 received
+      if (successfulCount > 0) {
+        await this.templateService.markAsPublished(template.id, req?.user)
       }
-
-      // Check if FCM send was successful
-      if (fcmResult && typeof fcmResult === 'object' && 'successfulCount' in fcmResult) {
-        console.log(
-          `📊 FCM send result: ${fcmResult.successfulCount} successful, ${fcmResult.failedCount} failed`,
-        )
-        if (fcmResult.successfulCount === 0 && fcmResult.failedCount > 0) {
-          throw new Error(
-            `Failed to send notification to any users. All ${fcmResult.failedCount} attempts failed.`,
-          )
-        }
-        if (fcmResult.successfulCount === 0) {
-          throw new Error('No notifications were sent. FCM send returned 0 successful sends.')
-        }
-      }
-
-      const responseTranslation = this.templateService.findBestTranslation(template, dto.language)
-      const imageUrl = responseTranslation?.imageId
-        ? this.imageService.buildImageUrl(responseTranslation.imageId, req)
-        : ''
-
-      // Only mark as published if FCM send was successful
-      await this.templateService.markAsPublished(template.id, req?.user)
-
-      const whatNews = InboxResponseDto.buildSendApiNotificationData(
+  
+      // 12) response build
+      const baseUrl = this.baseFunctionHelper
+        ? this.baseFunctionHelper.getBaseUrl(req)
+        : 'http://localhost:4005'
+  
+      const categoryIcon =
+        (template as any)?.categoryTypeId
+          ? `${baseUrl}/api/v1/category-type/${(template as any).categoryTypeId}/icon`
+          : undefined
+  
+      const whatnews = InboxResponseDto.buildSendApiNotificationData(
         template,
-        responseTranslation,
-        dto.language,
-        typeof imageUrl === 'string' ? imageUrl : '',
-        firstRecord.id,
-        firstRecord.sendCount,
+        translation,
+        language,
+        imageUrlString,
+        notificationId,
+        successfulCount,
       )
+  
+      ;(whatnews as any).bakongPlatform = effectiveBakongPlatform
+      ;(whatnews as any).categoryType = template.categoryType
+      ;(whatnews as any).categoryIcon = categoryIcon
+  
+      // ✅ users list result
+      // attempted = users with token (after filtering)
+      const attemptedAccountIds = (users || [])
+        .map((u: any) => String(u.accountId || '').trim())
+        .filter(Boolean)
+  
+      // success = attempted - FCM failed (preFailed were never attempted)
+      const fcmFailedSet = new Set(baseFailedUsers)
+      const successfulUsersList = attemptedAccountIds.filter((id) => !fcmFailedSet.has(id))
+  
       return BaseResponseDto.success({
-        data: { whatnews: whatNews },
         message: `Send ${template.notificationType} to users successfully`,
+        data: {
+          whatnews,
+          successfulUsers: successfulUsersList,
+          failedUsers: mergedFailedUsers,
+        },
       })
     } catch (error: any) {
       return BaseResponseDto.error({
-        errorCode: error?.code || ErrorCode.INTERNAL_SERVER_ERROR,
-        message: `Invalid ${error?.message || ResponseMessage.INTERNAL_SERVER_ERROR}`,
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+        message: error?.message || ResponseMessage.INTERNAL_SERVER_ERROR,
         data: { notification: {} },
       })
     }
   }
+  
+
+  // private async sendFCM(
+  //   template: Template,
+  //   translation: TemplateTranslation,
+  //   validUsers: BakongUser[],
+  //   req?: any,
+  //   mode: 'individual' | 'shared' = 'individual',
+  //   sharedNotificationId?: number,
+  // ): Promise<{
+  //   notificationId: number | null
+  //   successfulCount: number
+  //   failedCount: number
+  // } | void> {
+  //   console.log('📨 [sendFCM] Starting FCM send process:', {
+  //     templateId: template.id,
+  //     validUsersCount: validUsers.length,
+  //     mode: mode,
+  //   })
+
+  //   try {
+  //     const successfulNotifications: Array<{ id: number }> = []
+  //     const failedUsers: Array<{ accountId: string; error: string; errorCode?: string }> = []
+  //     let sharedSuccessfulCount = 0
+  //     let sharedFailedCount = 0
+
+  //     const imageUrl = translation.imageId
+  //       ? this.imageService.buildImageUrl(translation.imageId, req)
+  //       : ''
+  //     const imageUrlString = typeof imageUrl === 'string' ? imageUrl : ''
+  //     const title = this.baseFunctionHelper.truncateText('title', translation.title)
+  //     const body = this.baseFunctionHelper.truncateText('content', translation.content)
+
+  //     console.log('📨 [sendFCM] Notification details:', {
+  //       title: title,
+  //       bodyLength: body?.length || 0,
+  //       hasImage: !!imageUrlString,
+  //     })
+
+  //     const fcmUsers = this.baseFunctionHelper.filterValidFCMUsers(validUsers, mode)
+  //     console.log('📨 [sendFCM] Filtered FCM users:', fcmUsers.length)
+
+  //     for (const user of fcmUsers) {
+  //       try {
+  //         console.log('📨 [sendFCM] Sending to user:', {
+  //           accountId: user.accountId,
+  //           platform: user.platform,
+  //           normalizedPlatform: ValidationHelper.normalizeEnum(user.platform),
+  //           fcmToken: user.fcmToken ? `${user.fcmToken.substring(0, 30)}...` : 'NO TOKEN',
+  //         })
+
+  //         let notificationId = sharedNotificationId ?? 0
+  //         if (mode === 'individual') {
+  //           const saved = await this.storeNotification({
+  //             accountId: user.accountId,
+  //             templateId: template.id,
+  //             fcmToken: user.fcmToken,
+  //             sendCount: 1,
+  //             firebaseMessageId: 0,
+  //           })
+  //           notificationId = saved.id
+  //           console.log('📨 [sendFCM] Created notification record:', notificationId)
+  //         }
+
+  //         const notificationIdStr = String(notificationId)
+
+  //         if (
+  //           mode === 'shared' &&
+  //           template.notificationType === NotificationType.FLASH_NOTIFICATION
+  //         ) {
+  //           console.log('📨 [sendFCM] Skipping FLASH_NOTIFICATION in shared mode')
+  //           continue
+  //         }
+
+  //         console.log('📨 [sendFCM] Calling sendFCMPayloadToPlatform for user:', user.accountId)
+  //         const response = await this.sendFCMPayloadToPlatform(
+  //           user,
+  //           template,
+  //           translation,
+  //           title,
+  //           body,
+  //           notificationIdStr,
+  //           imageUrlString,
+  //           mode,
+  //         )
+
+  //         if (response) {
+  //           const responseString =
+  //             typeof response === 'string' ? response : JSON.stringify(response)
+  //           await this.updateNotificationRecord(
+  //             user,
+  //             template,
+  //             notificationId,
+  //             responseString,
+  //             mode,
+  //           )
+  //           console.log('✅ [sendFCM] Successfully sent to user:', user.accountId)
+  //           if (mode === 'individual') {
+  //             successfulNotifications.push({ id: notificationId })
+  //           } else if (mode === 'shared') {
+  //             sharedSuccessfulCount++
+  //           }
+  //         } else {
+  //           console.warn('⚠️ [sendFCM] No response from FCM for user:', user.accountId)
+  //           if (mode === 'shared') {
+  //             sharedFailedCount++
+  //           }
+  //         }
+  //       } catch (error: any) {
+  //         console.error(
+  //           '❌ [sendFCM] Failed to send to user:',
+  //           user.accountId,
+  //           'Error:',
+  //           error.message,
+  //         )
+  //         if (mode === 'individual') {
+  //           failedUsers.push({
+  //             accountId: user.accountId,
+  //             error: error.message,
+  //             errorCode: error.code,
+  //           })
+  //         } else if (mode === 'shared') {
+  //           sharedFailedCount++
+  //         }
+  //         // Continue to next user instead of throwing - don't stop sending to other users
+  //         continue
+  //       }
+  //     }
+
+  //     const totalSuccessful =
+  //       mode === 'individual' ? successfulNotifications.length : sharedSuccessfulCount
+  //     const totalFailed = mode === 'individual' ? failedUsers.length : sharedFailedCount
+
+  //     console.log('📨 [sendFCM] Send process complete:', {
+  //       successful: totalSuccessful,
+  //       failed: totalFailed,
+  //       total: fcmUsers.length,
+  //       mode: mode,
+  //     })
+
+  //     return InboxResponseDto.buildFCMResult(
+  //       mode,
+  //       successfulNotifications,
+  //       failedUsers,
+  //       fcmUsers,
+  //       sharedNotificationId,
+  //       sharedSuccessfulCount,
+  //       sharedFailedCount,
+  //     )
+  //   } catch (error: any) {
+  //     console.error('❌ [sendFCM] Critical error in sendFCM:', error.message)
+  //     return InboxResponseDto.buildFCMResult(
+  //       mode,
+  //       [],
+  //       [],
+  //       validUsers,
+  //       undefined,
+  //       0,
+  //       validUsers.length,
+  //     )
+  //   }
+  // }
+
 
   private async sendFCM(
     template: Template,
@@ -579,45 +1351,39 @@ export class NotificationService {
     notificationId: number | null
     successfulCount: number
     failedCount: number
-  } | void> {
+    successfulUsers: string[]
+    failedUsers: string[]
+  }> {
     console.log('📨 [sendFCM] Starting FCM send process:', {
       templateId: template.id,
       validUsersCount: validUsers.length,
       mode: mode,
     })
-
+  
     try {
       const successfulNotifications: Array<{ id: number }> = []
-      const failedUsers: Array<{ accountId: string; error: string; errorCode?: string }> = []
+      const failedUsersDetail: Array<{ accountId: string; error: string; errorCode?: string }> = []
+  
+      // ✅ NEW: track by accountId
+      const successfulUsers: string[] = []
+      const failedUsers: string[] = []
+  
       let sharedSuccessfulCount = 0
       let sharedFailedCount = 0
-
+  
       const imageUrl = translation.imageId
         ? this.imageService.buildImageUrl(translation.imageId, req)
         : ''
       const imageUrlString = typeof imageUrl === 'string' ? imageUrl : ''
       const title = this.baseFunctionHelper.truncateText('title', translation.title)
       const body = this.baseFunctionHelper.truncateText('content', translation.content)
-
-      console.log('📨 [sendFCM] Notification details:', {
-        title: title,
-        bodyLength: body?.length || 0,
-        hasImage: !!imageUrlString,
-      })
-
+  
       const fcmUsers = this.baseFunctionHelper.filterValidFCMUsers(validUsers, mode)
-      console.log('📨 [sendFCM] Filtered FCM users:', fcmUsers.length)
-
+  
       for (const user of fcmUsers) {
         try {
-          console.log('📨 [sendFCM] Sending to user:', {
-            accountId: user.accountId,
-            platform: user.platform,
-            normalizedPlatform: ValidationHelper.normalizeEnum(user.platform),
-            fcmToken: user.fcmToken ? `${user.fcmToken.substring(0, 30)}...` : 'NO TOKEN',
-          })
-
           let notificationId = sharedNotificationId ?? 0
+  
           if (mode === 'individual') {
             const saved = await this.storeNotification({
               accountId: user.accountId,
@@ -627,20 +1393,17 @@ export class NotificationService {
               firebaseMessageId: 0,
             })
             notificationId = saved.id
-            console.log('📨 [sendFCM] Created notification record:', notificationId)
           }
-
+  
           const notificationIdStr = String(notificationId)
-
+  
           if (
             mode === 'shared' &&
             template.notificationType === NotificationType.FLASH_NOTIFICATION
           ) {
-            console.log('📨 [sendFCM] Skipping FLASH_NOTIFICATION in shared mode')
             continue
           }
-
-          console.log('📨 [sendFCM] Calling sendFCMPayloadToPlatform for user:', user.accountId)
+  
           const response = await this.sendFCMPayloadToPlatform(
             user,
             template,
@@ -651,83 +1414,104 @@ export class NotificationService {
             imageUrlString,
             mode,
           )
-
-          if (response) {
-            const responseString =
-              typeof response === 'string' ? response : JSON.stringify(response)
-            await this.updateNotificationRecord(
-              user,
-              template,
-              notificationId,
-              responseString,
-              mode,
-            )
-            console.log('✅ [sendFCM] Successfully sent to user:', user.accountId)
+  
+          /**
+           * ✅ IMPORTANT FIX:
+           * Only treat as success if Firebase truly succeeded.
+           * If your sendFCMPayloadToPlatform returns:
+           *  - a messageId string => success
+           *  - an object with { success: true } => success
+           * Otherwise => FAILED
+           */
+          const isRealSuccess =
+            (typeof response === 'string' && response.trim().length > 0) ||
+            ((response as any)?.success === true) ||
+            ((response as any)?.name === 'projects' /* optional */)
+  
+          if (!isRealSuccess) {
+            // mark failed if response indicates failure or empty
+            failedUsers.push(String(user.accountId || '').trim())
             if (mode === 'individual') {
-              successfulNotifications.push({ id: notificationId })
-            } else if (mode === 'shared') {
-              sharedSuccessfulCount++
-            }
-          } else {
-            console.warn('⚠️ [sendFCM] No response from FCM for user:', user.accountId)
-            if (mode === 'shared') {
+              failedUsersDetail.push({
+                accountId: user.accountId,
+                error: 'FCM failed (no success response)',
+              })
+            } else {
               sharedFailedCount++
             }
+            continue
+          }
+  
+          // success path
+          const responseString =
+            typeof response === 'string' ? response : JSON.stringify(response)
+  
+          await this.updateNotificationRecord(
+            user,
+            template,
+            notificationId,
+            responseString,
+            mode,
+          )
+  
+          successfulUsers.push(String(user.accountId || '').trim())
+  
+          if (mode === 'individual') {
+            successfulNotifications.push({ id: notificationId })
+          } else {
+            sharedSuccessfulCount++
           }
         } catch (error: any) {
-          console.error(
-            '❌ [sendFCM] Failed to send to user:',
-            user.accountId,
-            'Error:',
-            error.message,
-          )
+          const accountId = String(user.accountId || '').trim()
+  
+          // ✅ track failed accountId
+          if (accountId) failedUsers.push(accountId)
+  
           if (mode === 'individual') {
-            failedUsers.push({
+            failedUsersDetail.push({
               accountId: user.accountId,
               error: error.message,
               errorCode: error.code,
             })
-          } else if (mode === 'shared') {
+          } else {
             sharedFailedCount++
           }
-          // Continue to next user instead of throwing - don't stop sending to other users
           continue
         }
       }
-
-      const totalSuccessful =
-        mode === 'individual' ? successfulNotifications.length : sharedSuccessfulCount
-      const totalFailed = mode === 'individual' ? failedUsers.length : sharedFailedCount
-
-      console.log('📨 [sendFCM] Send process complete:', {
-        successful: totalSuccessful,
-        failed: totalFailed,
-        total: fcmUsers.length,
-        mode: mode,
-      })
-
-      return InboxResponseDto.buildFCMResult(
-        mode,
-        successfulNotifications,
-        failedUsers,
-        fcmUsers,
-        sharedNotificationId,
-        sharedSuccessfulCount,
-        sharedFailedCount,
-      )
+  
+      // de-dup
+      const uniqSuccess = Array.from(new Set(successfulUsers)).filter(Boolean)
+      const uniqFailed = Array.from(new Set(failedUsers)).filter(Boolean)
+  
+      // NOTE: a user should not be both
+      const failedSet = new Set(uniqFailed)
+      const finalSuccess = uniqSuccess.filter((id) => !failedSet.has(id))
+  
+      const totalSuccessful = finalSuccess.length
+      const totalFailed = uniqFailed.length
+  
+      return {
+        notificationId: sharedNotificationId ?? null,
+        successfulCount: totalSuccessful,
+        failedCount: totalFailed,
+        successfulUsers: finalSuccess,
+        failedUsers: uniqFailed,
+      }
     } catch (error: any) {
       console.error('❌ [sendFCM] Critical error in sendFCM:', error.message)
-      return InboxResponseDto.buildFCMResult(
-        mode,
-        [],
-        [],
-        validUsers,
-        undefined,
-        0,
-        validUsers.length,
-      )
+      return {
+        notificationId: null,
+        successfulCount: 0,
+        failedCount: validUsers.length,
+        successfulUsers: [],
+        failedUsers: (validUsers || [])
+          .map((u: any) => String(u?.accountId || '').trim())
+          .filter(Boolean),
+      }
     }
   }
+  
 
   private async sendFCMPayloadToPlatform(
     user: BakongUser,
@@ -907,7 +1691,7 @@ export class NotificationService {
     }
 
     // Get user's bakongPlatform to ensure we find matching template
-    const user = await this.baseFunctionHelper.findUserByAccountId(accountId)
+    const user = await this.baseFunctionHelper.findUserByAccountId(Array.isArray(accountId) ? accountId[0] : accountId)
     const userBakongPlatform = user?.bakongPlatform
 
     let selectedTemplate = template
@@ -953,7 +1737,7 @@ export class NotificationService {
       // The limit is PER TEMPLATE: Each template can be sent 2 times per user per 24 hours
       // New templates can always be sent (up to 2 times each)
       const bestTemplate = await this.templateService.findBestTemplateForUser(
-        accountId,
+        Array.isArray(accountId) ? accountId[0] : accountId,
         language,
         this.notiRepo,
         userBakongPlatform, // Pass user's bakongPlatform
@@ -978,7 +1762,7 @@ export class NotificationService {
 
         // Get user's notification history
         const userNotifications = await this.notiRepo.find({
-          where: { accountId },
+          where: { accountId : Array.isArray(accountId) ? accountId[0] : accountId },
           select: ['templateId', 'createdAt'],
         })
 
@@ -1048,7 +1832,7 @@ export class NotificationService {
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
     const existingCount = await this.notiRepo.count({
       where: {
-        accountId,
+        accountId: Array.isArray(accountId) ? accountId[0] : accountId,
         templateId: selectedTemplate.id,
         createdAt: Between(twentyFourHoursAgo, now),
       },
@@ -1084,7 +1868,7 @@ export class NotificationService {
 
     // User already fetched above, reuse it
     const saved = await this.storeNotification({
-      accountId,
+      accountId: Array.isArray(accountId) ? accountId[0] : accountId,
       templateId: selectedTemplate.id,
       fcmToken: user?.fcmToken,
       sendCount: newSendCount,

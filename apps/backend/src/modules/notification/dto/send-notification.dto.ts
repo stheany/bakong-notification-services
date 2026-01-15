@@ -15,10 +15,6 @@ import { ValidationHelper } from 'src/common/util/validation.helper'
 export default class SentNotificationDto {
   @IsOptional()
   @IsString()
-  accountId?: string
-
-  @IsOptional()
-  @IsString()
   fcmToken?: string
 
   @IsOptional()
@@ -116,6 +112,20 @@ export default class SentNotificationDto {
     return value
   })
   bakongPlatform?: BakongApp
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    // allow: "abc" OR ["abc","def"] OR "abc,def"
+    if (value === undefined || value === null || value === '') return undefined
+    if (Array.isArray(value)) return value
+    if (typeof value === 'string') {
+      // support comma string too (optional)
+      if (value.includes(',')) return value.split(',').map((s) => s.trim()).filter(Boolean)
+      return value
+    }
+    return value
+  })
+  accountId?: string | string[]
 }
 
 export class FlashNotificationDto {

@@ -286,15 +286,15 @@
               </div>
 
               <div v-else>
-                <div v-for="(accountId, idx) in formData.accountIds" :key="`account-${idx}`"
+                <div v-for="(accountId, idx) in formData.accountId" :key="`account-${idx}`"
                   style="display: flex; gap: 12px; align-items: center; margin-bottom: 10px">
                   <div style="min-width: 90px; color: #6b7280">accountId</div>
 
-                  <el-input class="h-12" v-model="formData.accountIds[idx]" placeholder="Enter accountId" clearable
+                  <el-input class="h-12" v-model="formData.accountId[idx]" placeholder="Enter accountId" clearable
                     style="flex: 1" />
 
                   <el-button type="danger" plain @click="removeAccountId(idx)"
-                    :disabled="isEditMode || formData.accountIds.length === 1">
+                    :disabled="isEditMode || formData.accountId.length === 1">
                     Remove
                   </el-button>
                 </div>
@@ -517,7 +517,7 @@ const formData = reactive({
   scheduleDate: getTodayDateString(),
   scheduleTime: null as string | null,
   splashEnabled: false,
-  accountIds: [] as string[],
+  accountId: [] as string[],
 })
 
 const currentTitle = computed({
@@ -577,28 +577,28 @@ const enableAccountIds = ref(false)
 
 // init (if editing and has existing ids)
 watchEffect(() => {
-  if (Array.isArray(formData.accountIds) && formData.accountIds.length > 0) {
+  if (Array.isArray(formData.accountId) && formData.accountId.length > 0) {
     enableAccountIds.value = true
   }
 })
 
 const addAccountId = () => {
-  formData.accountIds.push('')
+  formData.accountId.push('')
 }
 
 const removeAccountId = (idx: number) => {
-  formData.accountIds.splice(idx, 1)
-  if (formData.accountIds.length === 0) enableAccountIds.value = false
+  formData.accountId.splice(idx, 1)
+  if (formData.accountId.length === 0) enableAccountIds.value = false
 }
 
 // When toggle on/off
 const onToggleAccountIds = (val: boolean) => {
   if (val) {
-    if (!formData.accountIds?.length) formData.accountIds = ['']
+    if (!formData.accountId?.length) formData.accountId = ['']
   } else {
     // choose behavior:
     // A) clear when off:
-    formData.accountIds = []
+    formData.accountId = []
     // B) keep values but hide list: comment line above
   }
 }
@@ -616,7 +616,7 @@ const loadNotificationData = async () => {
       mapNotificationTypeToFormType(template.notificationType) || NotificationType.NOTIFICATION
     formData.categoryType = mapTypeToCategoryType(template.categoryType) || CategoryType.OTHER
     formData.platform = (template.bakongPlatform as BakongApp) || BakongApp.BAKONG
-    formData.accountIds = Array.isArray(template.accountIds) ? template.accountIds : []
+    formData.accountId = Array.isArray(template.accountId) ? template.accountId : []
 
     if (template.sendSchedule) {
       formData.scheduleEnabled = true
@@ -656,7 +656,7 @@ const loadNotificationData = async () => {
         languageFormData[lang].imageUrl = fileId ? `/api/v1/image/${fileId}` : null
         languageFormData[lang].imageFile = null
         existingImageIds[lang] = fileId || null
-        template.accountIds = t.accountIds || []
+        template.accountId = t.accountId || []
       }
     }
   } catch (error) {
@@ -1345,7 +1345,6 @@ body::-webkit-scrollbar {
   height: 100vh;
   align-items: flex-start;
   gap: 80px;          /* ✅ like v1 spacing between form & preview */
-  padding: 0 32px;    /* ✅ give some breathing space */
   overflow: visible;
 }
 

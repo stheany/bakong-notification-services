@@ -49,7 +49,7 @@ export enum ResponseMessage {
   SENT_TEMPLATE = 'Template is already sent. You cannot delete/update this record.',
   IMAGE_NOT_FOUND = 'Image not found',
   TEMPLATE_NOT_FOUND = 'Template not found',
-  USER_NOT_FOUND = 'User not found',
+  USER_NOT_FOUND = 'User not found in system please check your app and registered users and try again',
   USER_REGISTERED_SUCCESSFULLY = 'This is new user, now add to system already',
   FLASH_LIMIT_REACHED_IN_TODAY = 'Flash notification limit reached in today !',
   NOTIFICATION_NOT_FOUND = 'Notification not found',

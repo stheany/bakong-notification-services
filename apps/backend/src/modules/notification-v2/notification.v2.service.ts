@@ -261,7 +261,7 @@ export class NotificationServiceV2 {
       const updatedUsers = users.filter((u) => syncResult.updatedIds.includes(u.accountId))
       console.log('📤 [sendWithTemplate] Users that were updated during sync:', {
         count: updatedUsers.length,
-        accountIds: updatedUsers.map((u) => u.accountId).slice(0, 10),
+        accountId: updatedUsers.map((u) => u.accountId).slice(0, 10),
         // Log token status for updated users
         tokenStatus: updatedUsers.slice(0, 5).map((u) => ({
           accountId: u.accountId,
@@ -608,6 +608,667 @@ export class NotificationServiceV2 {
     }
   }
 
+  // async sendNow(dto: SentNotificationDtoV2, req?: any): Promise<BaseResponseDto> {
+  //   const fail = (message: string, errorCode: number, data?: any) =>
+  //     BaseResponseDto.error({
+  //       errorCode,
+  //       message,
+  //       data: data ?? { notification: {} },
+  //     })
+
+  //   try {
+  //     // 1) language
+  //     const langVal = dto.language ? ValidationHelper.validateLanguage(String(dto.language)) : null
+  //     const language: Language = langVal?.isValid ? (langVal.normalizedValue as Language) : Language.KM
+
+  //     // 2) accountId list normalize
+  //     const accountIdList: string[] | undefined = Array.isArray(dto.accountId)
+  //       ? dto.accountId.map((x: any) => String(x).trim()).filter(Boolean)
+  //       : typeof dto.accountId === 'string' && dto.accountId.trim()
+  //         ? [dto.accountId.trim()]
+  //         : undefined
+
+  //     const hasAccountFilter = !!accountIdList?.length
+  //     const isSingleAccount = hasAccountFilter && accountIdList!.length === 1
+
+  //     // 3) FLASH rule (keep old)
+  //     if (dto.notificationType === NotificationType.FLASH_NOTIFICATION && hasAccountFilter && !isSingleAccount) {
+  //       return fail(
+  //         'FLASH_NOTIFICATION supports only 1 accountId. Please send with a single accountId.',
+  //         ErrorCode.VALIDATION_FAILED,
+  //       )
+  //     }
+
+  //     // 4) find template (templateId optional)
+  //     let template: TemplateV2 | null = null
+
+  //     if (dto.templateId) {
+  //       template = await this.templateRepo.findOne({
+  //         where: { id: Number(dto.templateId) },
+  //         relations: ['translations', 'translations.image'],
+  //       })
+  //     } else {
+  //       const found = await this.templateService.findNotificationTemplate(dto)
+  //       template = found?.template ?? null
+
+  //       if (template?.id) {
+  //         template = await this.templateRepo.findOne({
+  //           where: { id: template.id },
+  //           relations: ['translations', 'translations.image'],
+  //         })
+  //       }
+  //     }
+
+  //     if (!template) {
+  //       return fail(ResponseMessage.TEMPLATE_NOT_FOUND, ErrorCode.RECORD_NOT_FOUND)
+  //     }
+
+  //     // 5) pick translation
+  //     const translations = template.translations || []
+  //     const translation =
+  //       translations.find((t) => String(t.language).toUpperCase() === String(language).toUpperCase()) ||
+  //       translations.find((t) => String(t.language).toUpperCase() === 'EN') ||
+  //       translations[0]
+
+  //     if (!translation) {
+  //       return fail('Template translation not found', ErrorCode.RECORD_NOT_FOUND)
+  //     }
+
+  //     // 6) FLASH flow keep old
+  //     if (dto.notificationType === NotificationType.FLASH_NOTIFICATION && isSingleAccount) {
+  //       return await this.handleFlashNotification(template, translation, dto, req)
+  //     }
+
+  //     // ✅ 7) Resolve bakongPlatform (never null)
+  //     const effectiveBakongPlatform: BakongApp =
+  //       (dto as any)?.bakongPlatform ||
+  //       (template as any)?.bakongPlatform ||
+  //       BakongApp.BAKONG
+
+  //     const imageId =
+  //       (translation as any)?.imageId ??
+  //       (template as any)?.imageId ??
+  //       null
+
+  //     const imageUrl = imageId ? this.imageService.buildImageUrl(imageId, req) : ''
+  //     const imageUrlString = typeof imageUrl === 'string' ? imageUrl : ''
+
+
+  //     const templateAccountIdsRaw = (template as any).accountIds
+
+  //     const templateAccountId = Array.isArray(templateAccountIdsRaw)
+  //       ? templateAccountIdsRaw
+  //       : templateAccountIdsRaw
+  //         ? [String(templateAccountIdsRaw)]
+  //         : []
+
+  //     const cleanedTemplateAccountId = Array.from(
+  //       new Set(templateAccountId.map((x: any) => String(x || '').trim()).filter(Boolean)),
+  //     )
+
+    
+  //         // If DTO provides accountId filter, it has priority (manual target send).
+  //         const targetIdsFromDto: string[] | null = hasAccountFilter ? accountIdList! : null
+    
+  //         // Determine final targeting mode:
+  //         // - If dto.accountId provided: STRICT mode (existing behavior)
+  //         // - Else if template has accountId: TEST mode (PARTIAL allowed)
+  //         // - Else: ALL users mode
+  //         const isStrictDtoMode = !!targetIdsFromDto?.length
+    
+  //         // Query users by platform first
+  //         let users = await this.bkUserRepo
+  //           .createQueryBuilder('user')
+  //           .where('user.bakongPlatform = :bp', { bp: effectiveBakongPlatform })
+  //           .getMany()
+    
+  //         if (!users.length) {
+  //           return BaseResponseDto.error({
+  //             errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
+  //             message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
+  //             data: { bakongPlatform: effectiveBakongPlatform },
+  //           })
+  //         }
+    
+  //         // -------------------------
+  //         // 9) Target filtering logic
+  //         // -------------------------
+    
+  //         // Collect failed users list (for UI message)
+  //         let preFailedUsers: string[] = []
+    
+  //         if (isStrictDtoMode) {
+  //           const requestedIds = targetIdsFromDto! // normalized list already
+          
+  //           const allow = new Set(requestedIds)
+          
+  //           // users already loaded by bakongPlatform (your code above)
+  //           const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+          
+  //           const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+          
+  //           // 1) INVALID DATA = not found in DB
+  //           const missingIds = requestedIds.filter((id) => !matchedIds.has(id))
+          
+  //           // ✅ If ALL requested are missing => INVALID DATA (stop)
+  //           if (matchedUsers.length === 0 && missingIds.length > 0) {
+  //             return BaseResponseDto.error({
+  //               errorCode: ErrorCode.VALIDATION_FAILED, // 10
+  //               message: 'Users are invalid data',
+  //               data: { usersInvalid: missingIds },
+  //             })
+  //           }
+          
+  //           // 2) TOKEN ISSUES BEFORE SENDING
+  //           const noTokenIds = matchedUsers
+  //             .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+  //             .map((u) => String(u.accountId || '').trim())
+          
+  //           // Users we will actually attempt to send to (must have token)
+  //           const validUsers = matchedUsers.filter(
+  //             (u) => u.fcmToken && String(u.fcmToken).trim() !== '',
+  //           )
+          
+  //           // ✅ If matched users exist BUT none can be sent because tokens empty => INVALID TOKEN
+  //           if (validUsers.length === 0) {
+  //             const usersInvalid = Array.from(new Set([...noTokenIds])).filter(Boolean)
+  //             return BaseResponseDto.error({
+  //               errorCode: ErrorCode.VALIDATION_FAILED, // 10
+  //               message: 'Users are invalid firebase token',
+  //               data: { usersInvalid: usersInvalid.length ? usersInvalid : requestedIds },
+  //             })
+  //           }
+          
+  //           // keep “missingIds” & “noTokenIds” to merge later after send
+  //           preFailedUsers = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+          
+  //           // only send to validUsers
+  //           users = validUsers
+  //         }
+  //         else if (cleanedTemplateAccountId.length > 0) {
+  //           // ✅ TEST MODE: send only to template.accountId (partial allowed)
+  //           const allow = new Set(cleanedTemplateAccountId)
+          
+  //           const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+  //           const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+          
+  //           const missingIds = cleanedTemplateAccountId.filter((id: string) => !matchedIds.has(id))
+          
+  //           const noTokenIds = matchedUsers
+  //           .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+  //             .map((u) => String(u.accountId || '').trim())
+          
+  //           // ✅ record invalid but do NOT hard-fail
+  //           const preFailedUsers: string[] = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean) as string[]
+          
+  //           // ✅ only send to matched users WITH token
+  //           users = matchedUsers.filter((u) => u.fcmToken && String(u.fcmToken).trim() !== '')
+          
+  //           // ✅ if nobody valid => keep draft and do NOT publish
+  //           if (!users.length) {
+  //             return BaseResponseDto.success({
+  //               message: 'No valid users in test account list. Saved as draft.',
+  //               data: {
+  //                 notificationId: 0,
+  //                 failedUsers: preFailedUsers,
+  //                 savedAsDraftNoUsers: true,
+  //               },
+  //             })
+  //           }
+  //         }
+  
+  //         // 10) imageUrl (keep your existing code below)
+    
+  //         // 11) send
+  //         const sendResult =
+  //           (await this.sendFCM(template, translation, users, req, 'individual')) || {
+  //             notificationId: 0,
+  //             failedUsers: [],
+  //             failedDueToInvalidTokens: false,
+  //           }
+    
+  //         const notificationId = Number((sendResult as any).notificationId || 0)
+  //         const successfulCount = Number((sendResult as any).successfulCount || 0)
+  //         const baseFailedUsers = Array.isArray((sendResult as any).failedUsers)
+  //           ? (sendResult as any).failedUsers
+  //           : []
+    
+  //           const mergedFailedUsers = Array.from(new Set([...preFailedUsers, ...baseFailedUsers])).filter(Boolean)
+  //           const mergedFailedCount = Number((sendResult as any).failedCount || 0) + preFailedUsers.length
+            
+  //           // ✅ ALL FAILED (tokens rejected by Firebase etc.) => INVALID TOKEN
+  //           if (successfulCount === 0 && mergedFailedCount > 0) {
+  //             return BaseResponseDto.error({
+  //               errorCode: ErrorCode.VALIDATION_FAILED, // 10
+  //               message: 'Users are invalid firebase token',
+  //               data: { usersInvalid: mergedFailedUsers },
+  //             })
+  //           }
+    
+  //         // 12) publish ONLY if at least 1 user received
+  //         if (successfulCount > 0) {
+  //           await this.templateService.markAsPublished(template.id, req?.user)
+  //         } else {
+  //           // ✅ keep as draft
+  //           console.warn('⚠️ sendNow: successfulCount=0 => keep draft, do not mark as published')
+  //         }
+    
+  //         // ✅ IMPORTANT: from here, use mergedFailedUsers / mergedFailedCount for response
+  //               // ✅ 13) Build response + FORCE fields for ALL types
+  //           const baseUrl = this.baseFunctionHelper
+  //           ? this.baseFunctionHelper.getBaseUrl(req)
+  //           : 'http://localhost:4005'
+
+  //         const categoryIcon =
+  //           (template as any)?.categoryTypeId
+  //             ? `${baseUrl}/api/v1/category-type/${(template as any).categoryTypeId}/icon`
+  //             : undefined
+
+  //         // ✅ USE mergedFailedUsers (includes invalid test ids)
+  //         const whatnews = InboxResponseDtoV2.buildSendApiNotificationData(
+  //           template,
+  //           translation,
+  //           language,
+  //           imageUrlString,
+  //           notificationId,
+  //           successfulCount,
+  //           baseUrl,
+  //           req,
+  //           categoryIcon,
+  //           mergedFailedUsers,
+  //         )
+
+  //         // ✅ Always same response shape
+  //         ;(whatnews as any).bakongPlatform = effectiveBakongPlatform
+  //         ;(whatnews as any).categoryType =
+  //           (whatnews as any).categoryType ||
+  //           InboxResponseDtoV2.getCategoryDisplayName((template as any)?.categoryTypeEntity, language) ||
+  //           'Other'
+
+  //         // const notificationName = BaseFunctionHelperV2.formatNotificationType(String(template.notificationType))
+
+  //         // // ✅ If ALL users failed -> return ERROR (not success)
+  //         // if (successfulCount === 0 && mergedFailedCount > 0) {
+  //         //   return fail('Users are invalid firebase token', 10, {
+  //         //     usersInvalid: mergedFailedUsers,
+  //         //   })
+  //         // }
+
+  //         // return BaseResponseDto.success({
+  //         //   message: `Send ${notificationName} to users successfully`,
+  //         //   data: {
+  //         //     whatnews,
+  //         //     successfulCount,
+  //         //     failedCount: mergedFailedCount,
+  //         //     failedUsers: mergedFailedUsers,
+  //         //   },
+  //         // })
+
+  //         const notificationName = BaseFunctionHelperV2.formatNotificationType(
+  //           String(template.notificationType),
+  //         )
+          
+  //         // ✅ Build success user list from users - failedUsers
+  //         const allTargetAccountIds = (users || [])
+  //           .map((u: any) => String(u.accountId || '').trim())
+  //           .filter(Boolean)
+
+  //           const sentTargetAccountIds = (users || [])
+  //           .map((u: any) => String(u.accountId || '').trim())
+  //           .filter(Boolean)
+
+  //         const successfulUsers = sentTargetAccountIds.filter(
+  //           (id) => !mergedFailedUsers.includes(id),
+  //         )          
+
+          
+  //         if (successfulCount === 0 && mergedFailedCount > 0) {
+  //           return BaseResponseDto.error({
+  //             // ⚠️ Use your project’s error code enum.
+  //         // If your ErrorCode.VALIDATION_FAILED === 10, this matches your expected output.
+  //             errorCode: ErrorCode.VALIDATION_FAILED,
+  //             message: 'Users are invalid firebase token',
+  //             data: {
+  //               usersInvalid: mergedFailedUsers.length ? mergedFailedUsers : targetIdsFromDto!,
+  //               // (optional) keep counts for UI,
+  //             },
+  //           })
+  //         }
+
+  //         // ---------------------------
+  //         // ✅ CASE B: SUCCESS / PARTIAL
+  //         // ---------------------------
+  //         return BaseResponseDto.success({
+  //           message: `Send ${notificationName} to users successfully`,
+  //           data: {
+  //             whatnews,
+  //             successfulCount,
+  //             failedCount: mergedFailedCount,
+  //             successfulUsers,
+  //             failedUsers: mergedFailedUsers,
+  //           },
+  //         })
+          
+  //   } catch (error: any) {
+  //     return BaseResponseDto.error({
+  //       errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+  //       message: error?.message || ResponseMessage.INTERNAL_SERVER_ERROR,
+  //       data: { notification: {} },
+  //     })
+  //   }
+  // }
+
+
+  // async sendNow(dto: SentNotificationDtoV2, req?: any): Promise<BaseResponseDto> {
+  //   const fail = (message: string, errorCode: number, data?: any) =>
+  //     BaseResponseDto.error({
+  //       errorCode,
+  //       message,
+  //       data: data ?? { notification: {} },
+  //     })
+  
+  //   try {
+  //     // 1) language
+  //     const langVal = dto.language ? ValidationHelper.validateLanguage(String(dto.language)) : null
+  //     const language: Language = langVal?.isValid
+  //       ? (langVal.normalizedValue as Language)
+  //       : Language.KM
+  
+  //     // 2) accountId list normalize
+  //     const accountIdList: string[] | undefined = Array.isArray(dto.accountId)
+  //       ? dto.accountId.map((x: any) => String(x).trim()).filter(Boolean)
+  //       : typeof dto.accountId === 'string' && dto.accountId.trim()
+  //         ? [dto.accountId.trim()]
+  //         : undefined
+  
+  //     const hasAccountFilter = !!accountIdList?.length
+  //     const isSingleAccount = hasAccountFilter && accountIdList!.length === 1
+  
+  //     // 3) FLASH rule
+  //     if (
+  //       dto.notificationType === NotificationType.FLASH_NOTIFICATION &&
+  //       hasAccountFilter &&
+  //       !isSingleAccount
+  //     ) {
+  //       return fail(
+  //         'FLASH_NOTIFICATION supports only 1 accountId. Please send with a single accountId.',
+  //         ErrorCode.VALIDATION_FAILED,
+  //       )
+  //     }
+  
+  //     // 4) find template
+  //     let template: TemplateV2 | null = null
+  
+  //     if (dto.templateId) {
+  //       template = await this.templateRepo.findOne({
+  //         where: { id: Number(dto.templateId) },
+  //         relations: ['translations', 'translations.image'],
+  //       })
+  //     } else {
+  //       const found = await this.templateService.findNotificationTemplate(dto)
+  //       template = found?.template ?? null
+  
+  //       if (template?.id) {
+  //         template = await this.templateRepo.findOne({
+  //           where: { id: template.id },
+  //           relations: ['translations', 'translations.image'],
+  //         })
+  //       }
+  //     }
+  
+  //     if (!template) {
+  //       return fail(ResponseMessage.TEMPLATE_NOT_FOUND, ErrorCode.RECORD_NOT_FOUND)
+  //     }
+  
+  //     // 5) pick translation
+  //     const translations = template.translations || []
+  //     const translation =
+  //       translations.find((t) => String(t.language).toUpperCase() === String(language).toUpperCase()) ||
+  //       translations.find((t) => String(t.language).toUpperCase() === 'EN') ||
+  //       translations[0]
+  
+  //     if (!translation) {
+  //       return fail('Template translation not found', ErrorCode.RECORD_NOT_FOUND)
+  //     }
+  
+  //     // 6) FLASH flow
+  //     if (dto.notificationType === NotificationType.FLASH_NOTIFICATION && isSingleAccount) {
+  //       return await this.handleFlashNotification(template, translation, dto, req)
+  //     }
+  
+  //     // 7) Resolve bakongPlatform (never null)
+  //     const effectiveBakongPlatform: BakongApp =
+  //       (dto as any)?.bakongPlatform || (template as any)?.bakongPlatform || BakongApp.BAKONG
+  
+  //     // image
+  //     const imageId = (translation as any)?.imageId ?? (template as any)?.imageId ?? null
+  //     const imageUrl = imageId ? this.imageService.buildImageUrl(imageId, req) : ''
+  //     const imageUrlString = typeof imageUrl === 'string' ? imageUrl : ''
+  
+  //     // template accountIds
+  //     const templateAccountIdsRaw = (template as any).accountIds
+  //     const templateAccountId = Array.isArray(templateAccountIdsRaw)
+  //       ? templateAccountIdsRaw
+  //       : templateAccountIdsRaw
+  //         ? [String(templateAccountIdsRaw)]
+  //         : []
+  
+  //     const cleanedTemplateAccountId = Array.from(
+  //       new Set(templateAccountId.map((x: any) => String(x || '').trim()).filter(Boolean)),
+  //     )
+  
+  //     // dto accountId has priority
+  //     const targetIdsFromDto: string[] | null = hasAccountFilter ? accountIdList! : null
+  //     const isStrictDtoMode = !!targetIdsFromDto?.length
+  
+  //     // Query users by platform first
+  //     let users = await this.bkUserRepo
+  //       .createQueryBuilder('user')
+  //       .where('user.bakongPlatform = :bp', { bp: effectiveBakongPlatform })
+  //       .getMany()
+  
+  //     if (!users.length) {
+  //       return BaseResponseDto.error({
+  //         errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
+  //         message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
+  //         data: { bakongPlatform: effectiveBakongPlatform },
+  //       })
+  //     }
+  
+  //     // failed list accumulator
+  //     let preFailedUsers: string[] = []
+  
+  //     // -------------------------
+  //     // STRICT DTO MODE
+  //     // -------------------------
+  //     if (isStrictDtoMode) {
+  //       const requestedIds = targetIdsFromDto!
+  //       const allow = new Set(requestedIds)
+  
+  //       const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+  //       const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+  
+  //       // invalid data = not found
+  //       const missingIds = requestedIds.filter((id) => !matchedIds.has(id))
+  
+  //       // ✅ ALL missing => invalid data
+  //       if (matchedUsers.length === 0 && missingIds.length > 0) {
+  //         return BaseResponseDto.error({
+  //           errorCode: ErrorCode.VALIDATION_FAILED, // 10
+  //           message: 'Users are invalid data or not found, please check the accountId',
+  //           data: { usersInvalid: missingIds },
+  //         })
+  //       }
+  
+  //       // token empty
+  //       const noTokenIds = matchedUsers
+  //         .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+  //         .map((u) => String(u.accountId || '').trim())
+  
+  //       const validUsers = matchedUsers.filter(
+  //         (u) => u.fcmToken && String(u.fcmToken).trim() !== '',
+  //       )
+  
+  //       // ✅ matched exists but none can be sent => invalid firebase token
+  //       if (validUsers.length === 0) {
+  //         const usersInvalid = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+        
+  //         const msg =
+  //           requestedIds.length >= 2
+  //             ? 'Users are invalid data or not found, please check the accountId'
+  //             : 'Users are invalid firebase token'
+        
+  //         return BaseResponseDto.error({
+  //           errorCode: ErrorCode.VALIDATION_FAILED, // 10
+  //           message: msg,
+  //           data: { usersInvalid: usersInvalid.length ? usersInvalid : requestedIds },
+  //         })
+  //       }
+        
+  
+  //       // merge these later
+  //       preFailedUsers = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+  
+  //       // send only valid users
+  //       users = validUsers
+  //     }
+  
+  //     // -------------------------
+  //     // TEST MODE (template.accountIds)
+  //     // -------------------------
+  //     else if (cleanedTemplateAccountId.length > 0) {
+  //       const allow = new Set(cleanedTemplateAccountId)
+  
+  //       const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+  //       const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+  
+  //       const missingIds = cleanedTemplateAccountId.filter((id) => !matchedIds.has(id))
+  
+  //       const noTokenIds = matchedUsers
+  //         .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+  //         .map((u) => String(u.accountId || '').trim())
+  
+  //       // ✅ FIX: assign to OUTER preFailedUsers (no "const")
+  //       preFailedUsers = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+  
+  //       // only send users with token
+  //       users = matchedUsers.filter((u) => u.fcmToken && String(u.fcmToken).trim() !== '')
+  
+  //       if (!users.length) {
+  //         return BaseResponseDto.success({
+  //           message: 'No valid users in test account list. Saved as draft.',
+  //           data: {
+  //             notificationId: 0,
+  //             successfulCount: 0,
+  //             failedCount: preFailedUsers.length,
+  //             failedUsers: preFailedUsers,
+  //             savedAsDraftNoUsers: true,
+  //           },
+  //         })
+  //       }
+  //     }
+  
+  //     // -------------------------
+  //     // SEND
+  //     // -------------------------
+  //     const sendResult =
+  //       (await this.sendFCM(template, translation, users, req, 'individual')) || {
+  //         notificationId: 0,
+  //         successfulCount: 0,
+  //         failedCount: 0,
+  //         failedUsers: [],
+  //       }
+  
+  //     const notificationId = Number((sendResult as any).notificationId || 0)
+  //     const successfulCount = Number((sendResult as any).successfulCount || 0)
+  //     const baseFailedUsers = Array.isArray((sendResult as any).failedUsers)
+  //       ? (sendResult as any).failedUsers
+  //       : []
+  
+  //     const mergedFailedUsers = Array.from(new Set([...preFailedUsers, ...baseFailedUsers])).filter(Boolean)
+  //     const mergedFailedCount =
+  //       Number((sendResult as any).failedCount || 0) + preFailedUsers.length
+  
+  //     // ✅ if 0 success but some failures => invalid firebase token
+  //     if (successfulCount === 0 && mergedFailedCount > 0) {
+  //       const requestedIds = targetIdsFromDto ?? []
+      
+  //       const msg =
+  //         requestedIds.length >= 2
+  //           ? 'Users are invalid data or not found, please check the accountId'
+  //           : 'Users are invalid firebase token'
+      
+  //       return BaseResponseDto.error({
+  //         errorCode: ErrorCode.VALIDATION_FAILED, // 10
+  //         message: msg,
+  //         data: { usersInvalid: mergedFailedUsers.length ? mergedFailedUsers : requestedIds },
+  //       })
+  //     }
+      
+  //     // publish only if at least 1 received
+  //     if (successfulCount > 0) {
+  //       await this.templateService.markAsPublished(template.id, req?.user)
+  //     }
+  
+  //     // build response data
+  //     const baseUrl = this.baseFunctionHelper
+  //       ? this.baseFunctionHelper.getBaseUrl(req)
+  //       : 'http://localhost:4005'
+  
+  //     const categoryIcon =
+  //       (template as any)?.categoryTypeId
+  //         ? `${baseUrl}/api/v1/category-type/${(template as any).categoryTypeId}/icon`
+  //         : undefined
+  
+  //     const whatnews = InboxResponseDtoV2.buildSendApiNotificationData(
+  //       template,
+  //       translation,
+  //       language,
+  //       imageUrlString,
+  //       notificationId,
+  //       successfulCount,
+  //       baseUrl,
+  //       req,
+  //       categoryIcon,
+  //       mergedFailedUsers,
+  //     )
+  
+  //     ;(whatnews as any).bakongPlatform = effectiveBakongPlatform
+  //     ;(whatnews as any).categoryType =
+  //       (whatnews as any).categoryType ||
+  //       InboxResponseDtoV2.getCategoryDisplayName((template as any)?.categoryTypeEntity, language) ||
+  //       'Other'
+  
+  //     const notificationName = BaseFunctionHelperV2.formatNotificationType(
+  //       String(template.notificationType),
+  //     )
+  
+  //     const sentTargetAccountIds = (users || [])
+  //       .map((u: any) => String(u.accountId || '').trim())
+  //       .filter(Boolean)
+  
+  //     const successfulUsers = sentTargetAccountIds.filter(
+  //       (id) => !mergedFailedUsers.includes(id),
+  //     )
+  
+  //     return BaseResponseDto.success({
+  //       message: `Send ${template.notificationType} to users successfully`,
+  //       data: {
+  //         whatnews,
+  //         successfulUsers,
+  //         failedUsers: mergedFailedUsers,
+  //       },
+  //     })
+  //   } catch (error: any) {
+  //     return BaseResponseDto.error({
+  //       errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+  //       message: error?.message || ResponseMessage.INTERNAL_SERVER_ERROR,
+  //       data: { notification: {} },
+  //     })
+  //   }
+  // }
+  
+
   async sendNow(dto: SentNotificationDtoV2, req?: any): Promise<BaseResponseDto> {
     const fail = (message: string, errorCode: number, data?: any) =>
       BaseResponseDto.error({
@@ -615,33 +1276,40 @@ export class NotificationServiceV2 {
         message,
         data: data ?? { notification: {} },
       })
-
+  
     try {
       // 1) language
       const langVal = dto.language ? ValidationHelper.validateLanguage(String(dto.language)) : null
-      const language: Language = langVal?.isValid ? (langVal.normalizedValue as Language) : Language.KM
-
-      // 2) accountId list normalize
-      const accountIdList: string[] | undefined = Array.isArray(dto.accountId)
+      const language: Language = langVal?.isValid
+        ? (langVal.normalizedValue as Language)
+        : Language.KM
+  
+      // 2) accountId normalize (IMPORTANT: [] => undefined)
+      const normalizedIds = Array.isArray(dto.accountId)
         ? dto.accountId.map((x: any) => String(x).trim()).filter(Boolean)
         : typeof dto.accountId === 'string' && dto.accountId.trim()
           ? [dto.accountId.trim()]
-          : undefined
-
+          : []
+  
+      const accountIdList: string[] | undefined = normalizedIds.length ? normalizedIds : undefined
+  
       const hasAccountFilter = !!accountIdList?.length
       const isSingleAccount = hasAccountFilter && accountIdList!.length === 1
-
-      // 3) FLASH rule (keep old)
-      if (dto.notificationType === NotificationType.FLASH_NOTIFICATION && hasAccountFilter && !isSingleAccount) {
+  
+      // 3) FLASH rule
+      if (
+        dto.notificationType === NotificationType.FLASH_NOTIFICATION &&
+        hasAccountFilter &&
+        !isSingleAccount
+      ) {
         return fail(
           'FLASH_NOTIFICATION supports only 1 accountId. Please send with a single accountId.',
           ErrorCode.VALIDATION_FAILED,
         )
       }
-
-      // 4) find template (templateId optional)
+  
+      // 4) find template
       let template: TemplateV2 | null = null
-
       if (dto.templateId) {
         template = await this.templateRepo.findOne({
           where: { id: Number(dto.templateId) },
@@ -650,7 +1318,7 @@ export class NotificationServiceV2 {
       } else {
         const found = await this.templateService.findNotificationTemplate(dto)
         template = found?.template ?? null
-
+  
         if (template?.id) {
           template = await this.templateRepo.findOne({
             where: { id: template.id },
@@ -658,267 +1326,227 @@ export class NotificationServiceV2 {
           })
         }
       }
-
+  
       if (!template) {
         return fail(ResponseMessage.TEMPLATE_NOT_FOUND, ErrorCode.RECORD_NOT_FOUND)
       }
-
-      // 5) pick translation
+  
+      // 5) translation pick
       const translations = template.translations || []
       const translation =
         translations.find((t) => String(t.language).toUpperCase() === String(language).toUpperCase()) ||
         translations.find((t) => String(t.language).toUpperCase() === 'EN') ||
         translations[0]
-
+  
       if (!translation) {
         return fail('Template translation not found', ErrorCode.RECORD_NOT_FOUND)
       }
-
+  
       // 6) FLASH flow keep old
       if (dto.notificationType === NotificationType.FLASH_NOTIFICATION && isSingleAccount) {
         return await this.handleFlashNotification(template, translation, dto, req)
       }
-
-      // ✅ 7) Resolve bakongPlatform (never null)
+  
+      // 7) resolve bakongPlatform
       const effectiveBakongPlatform: BakongApp =
-        (dto as any)?.bakongPlatform ||
-        (template as any)?.bakongPlatform ||
-        BakongApp.BAKONG
-
-      // // 8) load users
-      // let users = await this.bkUserRepo.find()
-      
-
-      // // filter by platform
-      // users = users.filter((u) => u.bakongPlatform === effectiveBakongPlatform)
-      // if (!users.length) {
-      //   return BaseResponseDto.error({
-      //     errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
-      //     message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
-      //     data: { bakongPlatform: effectiveBakongPlatform },
-      //   })
-      // }
-
-      // // 9) NEW accountId filter (generic invalid error)
-      // if (hasAccountFilter) {
-      //   const allow = new Set(accountIdList!)
-      //   const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
-
-      //   const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
-      //   const missingIds = accountIdList!.filter((id) => !matchedIds.has(id))
-
-      //   const noTokenIds = matchedUsers
-      //     .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
-      //     .map((u) => String(u.accountId || '').trim())
-
-      //   const usersInvaild = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
-
-      //   if (usersInvaild.length > 0) {
-      //     return fail('Users are invaild data', ErrorCode.VALIDATION_FAILED, {
-      //       usersInvaild,
-      //     })
-      //   }
-
-      //   users = matchedUsers
-      // }
-
-      // // skip missing token in normal mode, but safe anyway
-      // users = users.filter((u) => u.fcmToken && String(u.fcmToken).trim() !== '')
-      // if (!users.length) {
-      //   return fail('No users to send (no valid token)', ErrorCode.RECORD_NOT_FOUND)
-      // }
-
-      // 10) imageUrl (FIX: fallback to template.imageId)
-      const imageId =
-        (translation as any)?.imageId ??
-        (template as any)?.imageId ??
-        null
-
+        (dto as any)?.bakongPlatform || (template as any)?.bakongPlatform || BakongApp.BAKONG
+  
+      // image
+      const imageId = (translation as any)?.imageId ?? (template as any)?.imageId ?? null
       const imageUrl = imageId ? this.imageService.buildImageUrl(imageId, req) : ''
       const imageUrlString = typeof imageUrl === 'string' ? imageUrl : ''
-
-      // // 11) send
-      // const sendResult =
-      //   (await this.sendFCM(template, translation, users, req, 'individual')) || {
-      //     notificationId: 0,
-      //     successfulCount: 0,
-      //     failedCount: 0,
-      //     failedUsers: [],
-      //     failedDueToInvalidTokens: false,
-      //   }
-
-      // const notificationId = Number((sendResult as any).notificationId || 0)
-      // const successfulCount = Number((sendResult as any).successfulCount || 0)
-
-      // // 12) publish
-      // await this.templateService.markAsPublished(template.id, req?.user)
-
-            // 8) Load users (with Test Mode support)
-            const templateAccountIds = Array.isArray((template as any).accountIds)
-            ? (template as any).accountIds
-            : []
-    
-          const cleanedTemplateAccountIds = [...new Set(
-            templateAccountIds.map((x: any) => String(x || '').trim()).filter(Boolean),
-          )]
-    
-    
-          // If DTO provides accountId filter, it has priority (manual target send).
-          const targetIdsFromDto: string[] | null = hasAccountFilter ? accountIdList! : null
-    
-          // Determine final targeting mode:
-          // - If dto.accountId provided: STRICT mode (existing behavior)
-          // - Else if template has accountIds: TEST mode (PARTIAL allowed)
-          // - Else: ALL users mode
-          const isStrictDtoMode = !!targetIdsFromDto?.length
-    
-          // Query users by platform first
-          let users = await this.bkUserRepo
-            .createQueryBuilder('user')
-            .where('user.bakongPlatform = :bp', { bp: effectiveBakongPlatform })
-            .getMany()
-    
-          if (!users.length) {
-            return BaseResponseDto.error({
-              errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
-              message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
-              data: { bakongPlatform: effectiveBakongPlatform },
-            })
-          }
-    
-          // -------------------------
-          // 9) Target filtering logic
-          // -------------------------
-    
-          // Collect failed users list (for UI message)
-          let preFailedUsers: string[] = []
-    
-          if (isStrictDtoMode) {
-            // ✅ Keep your existing strict behavior: ANY invalid => fail
-            const allow = new Set(targetIdsFromDto!)
-            const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
-    
-            const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
-            const missingIds = targetIdsFromDto!.filter((id) => !matchedIds.has(id))
-    
-            const noTokenIds = matchedUsers
-              .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
-              .map((u) => String(u.accountId || '').trim())
-    
-            const usersInvaild = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
-    
-            if (usersInvaild.length > 0) {
-              return fail('Users are invaild data', ErrorCode.VALIDATION_FAILED, { usersInvaild })
-            }
-    
-            users = matchedUsers
-          } else if (cleanedTemplateAccountIds.length > 0) {
-            // ✅ TEST MODE: send only to template.accountIds (partial allowed)
-          
-            const allow = new Set(cleanedTemplateAccountIds)
-          
-            const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
-            const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
-          
-            const missingIds = cleanedTemplateAccountIds.filter((id: string) => !matchedIds.has(id))
-          
-            const noTokenIds = matchedUsers
-            .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
-              .map((u) => String(u.accountId || '').trim())
-          
-            // ✅ record invalid but do NOT hard-fail
-            const preFailedUsers: string[] = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean) as string[]
-          
-            // ✅ only send to matched users WITH token
-            users = matchedUsers.filter((u) => u.fcmToken && String(u.fcmToken).trim() !== '')
-          
-            // ✅ if nobody valid => keep draft and do NOT publish
-            if (!users.length) {
-              return BaseResponseDto.success({
-                message: 'No valid users in test account list. Saved as draft.',
-                data: {
-                  notificationId: 0,
-                  successfulCount: 0,
-                  failedCount: preFailedUsers.length,
-                  failedUsers: preFailedUsers,
-                  savedAsDraftNoUsers: true,
-                },
-              })
-            }
-          }
   
-          // 10) imageUrl (keep your existing code below)
-    
-          // 11) send
-          const sendResult =
-            (await this.sendFCM(template, translation, users, req, 'individual')) || {
-              notificationId: 0,
-              successfulCount: 0,
-              failedCount: 0,
-              failedUsers: [],
-              failedDueToInvalidTokens: false,
-            }
-    
-          const notificationId = Number((sendResult as any).notificationId || 0)
-          const successfulCount = Number((sendResult as any).successfulCount || 0)
-          const baseFailedUsers = Array.isArray((sendResult as any).failedUsers)
-            ? (sendResult as any).failedUsers
-            : []
-    
-          const mergedFailedUsers = Array.from(new Set([...preFailedUsers, ...baseFailedUsers])).filter(Boolean)
-          const mergedFailedCount =
-            Number((sendResult as any).failedCount || 0) + preFailedUsers.length
-    
-          // 12) publish ONLY if at least 1 user received
-          if (successfulCount > 0) {
-            await this.templateService.markAsPublished(template.id, req?.user)
-          } else {
-            // ✅ keep as draft
-            console.warn('⚠️ sendNow: successfulCount=0 => keep draft, do not mark as published')
-          }
-    
-          // ✅ IMPORTANT: from here, use mergedFailedUsers / mergedFailedCount for response
-                // ✅ 13) Build response + FORCE fields for ALL types
-            const baseUrl = this.baseFunctionHelper
-            ? this.baseFunctionHelper.getBaseUrl(req)
-            : 'http://localhost:4005'
-
-          const categoryIcon =
-            (template as any)?.categoryTypeId
-              ? `${baseUrl}/api/v1/category-type/${(template as any).categoryTypeId}/icon`
-              : undefined
-
-          // ✅ USE mergedFailedUsers (includes invalid test ids)
-          const whatnews = InboxResponseDtoV2.buildSendApiNotificationData(
-            template,
-            translation,
-            language,
-            imageUrlString,
-            notificationId,
-            successfulCount,
-            baseUrl,
-            req,
-            categoryIcon,
-            mergedFailedUsers,
-          )
-
-          // ✅ Always same response shape
-          ;(whatnews as any).bakongPlatform = effectiveBakongPlatform
-          ;(whatnews as any).categoryType =
-            (whatnews as any).categoryType ||
-            InboxResponseDtoV2.getCategoryDisplayName((template as any)?.categoryTypeEntity, language) ||
-            'Other'
-
-          const notificationName = BaseFunctionHelperV2.formatNotificationType(String(template.notificationType))
-          return BaseResponseDto.success({
-            message: `Send ${notificationName} to users successfully`,
+      // template accountIds (test mode)
+      const templateAccountIdsRaw = (template as any).accountIds
+      const templateAccountId = Array.isArray(templateAccountIdsRaw)
+        ? templateAccountIdsRaw
+        : templateAccountIdsRaw
+          ? [String(templateAccountIdsRaw)]
+          : []
+  
+      const cleanedTemplateAccountId = Array.from(
+        new Set(templateAccountId.map((x: any) => String(x || '').trim()).filter(Boolean)),
+      )
+  
+      // if dto.accountId provided => STRICT mode
+      const targetIdsFromDto: string[] | null = hasAccountFilter ? accountIdList! : null
+      const isStrictDtoMode = !!targetIdsFromDto?.length
+  
+      // 8) load users by bakongPlatform
+      let users = await this.bkUserRepo
+        .createQueryBuilder('user')
+        .where('user.bakongPlatform = :bp', { bp: effectiveBakongPlatform })
+        .getMany()
+  
+      if (!users.length) {
+        return BaseResponseDto.error({
+          errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
+          message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
+          data: { bakongPlatform: effectiveBakongPlatform },
+        })
+      }
+  
+      // 9) filtering
+      let preFailedUsers: string[] = []
+  
+      if (isStrictDtoMode) {
+        const requestedIds = targetIdsFromDto! // normalized
+  
+        const allow = new Set(requestedIds)
+        const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+        const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+  
+        // missing in DB
+        const missingIds = requestedIds.filter((id) => !matchedIds.has(id))
+  
+        // empty token
+        const noTokenIds = matchedUsers
+          .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+          .map((u) => String(u.accountId || '').trim())
+  
+        // users we can try sending to (have token)
+        const validUsers = matchedUsers.filter(
+          (u) => u.fcmToken && String(u.fcmToken).trim() !== '',
+        )
+  
+        // if nothing valid to send => ALL invalid data (stop early)
+        if (validUsers.length === 0) {
+          const usersInvalid = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+  
+          // ✅ your requirement: if >=2 users => invalid data, if 1 => invalid firebase token
+          const msg = requestedIds.length >= 2 ? 'Users are invalid data' : 'Users are invalid firebase token'
+  
+          return BaseResponseDto.error({
+            errorCode: ErrorCode.VALIDATION_FAILED, // 10
+            message: msg,
             data: {
-              whatnews,
-              successfulCount,
-              failedCount: mergedFailedCount,
-              failedUsers: mergedFailedUsers,
+              usersInvalid: usersInvalid.length ? usersInvalid : requestedIds,
             },
           })
+        }
+  
+        // continue sending, but remember these as failed (not fatal)
+        preFailedUsers = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+        users = validUsers
+      } else if (cleanedTemplateAccountId.length > 0) {
+        // TEST MODE (template.accountIds)
+        const allow = new Set(cleanedTemplateAccountId)
+  
+        const matchedUsers = users.filter((u) => allow.has(String(u.accountId || '').trim()))
+        const matchedIds = new Set(matchedUsers.map((u) => String(u.accountId || '').trim()))
+  
+        const missingIds = cleanedTemplateAccountId.filter((id) => !matchedIds.has(id))
+  
+        const noTokenIds = matchedUsers
+          .filter((u) => !u.fcmToken || String(u.fcmToken).trim() === '')
+          .map((u) => String(u.accountId || '').trim())
+  
+        preFailedUsers = Array.from(new Set([...missingIds, ...noTokenIds])).filter(Boolean)
+  
+        users = matchedUsers.filter((u) => u.fcmToken && String(u.fcmToken).trim() !== '')
+  
+        if (!users.length) {
+          return BaseResponseDto.success({
+            message: 'No valid users in test account list. Saved as draft.',
+            data: {
+              notificationId: 0,
+              successfulCount: 0,
+              failedCount: preFailedUsers.length,
+              failedUsers: preFailedUsers,
+              savedAsDraftNoUsers: true,
+            },
+          })
+        }
+      }
+      // else: send to all users (no pre-validation of accountId)
+  
+      // 10) send
+      const sendResult =
+        (await this.sendFCM(template, translation, users, req, 'individual')) || {
+          notificationId: 0,
+          successfulCount: 0,
+          failedCount: 0,
+          failedUsers: [],
+        }
+  
+      const notificationId = Number((sendResult as any).notificationId || 0)
+      const successfulCount = Number((sendResult as any).successfulCount || 0)
+      const baseFailedUsers = Array.isArray((sendResult as any).failedUsers)
+        ? (sendResult as any).failedUsers
+        : []
+  
+      const mergedFailedUsers = Array.from(new Set([...preFailedUsers, ...baseFailedUsers])).filter(Boolean)
+      const mergedFailedCount = Number((sendResult as any).failedCount || 0) + preFailedUsers.length
+  
+      // ✅ if no success (and accountId filter provided) => use message rules
+      if (successfulCount === 0 && isStrictDtoMode) {
+        const msg =
+          (targetIdsFromDto?.length || 0) >= 2
+            ? 'Users are invalid data'
+            : 'Users are invalid firebase token'
+  
+        return BaseResponseDto.error({
+          errorCode: ErrorCode.VALIDATION_FAILED, // 10
+          message: msg,
+          data: {
+            usersInvalid: mergedFailedUsers.length ? mergedFailedUsers : (targetIdsFromDto || []),
+          },
+        })
+      }
+  
+      // 11) publish only if at least 1 received
+      if (successfulCount > 0) {
+        await this.templateService.markAsPublished(template.id, req?.user)
+      }
+  
+      // 12) response build
+      const baseUrl = this.baseFunctionHelper
+        ? this.baseFunctionHelper.getBaseUrl(req)
+        : 'http://localhost:4005'
+  
+      const categoryIcon =
+        (template as any)?.categoryTypeId
+          ? `${baseUrl}/api/v1/category-type/${(template as any).categoryTypeId}/icon`
+          : undefined
+  
+      const whatnews = InboxResponseDtoV2.buildSendApiNotificationData(
+        template,
+        translation,
+        language,
+        imageUrlString,
+        notificationId,
+        successfulCount,
+        baseUrl,
+        req,
+        categoryIcon,
+        mergedFailedUsers,
+      )
+  
+      ;(whatnews as any).bakongPlatform = effectiveBakongPlatform
+      ;(whatnews as any).categoryType =
+        (whatnews as any).categoryType ||
+        InboxResponseDtoV2.getCategoryDisplayName((template as any)?.categoryTypeEntity, language) ||
+        'Other'
+  
+      const notificationName = BaseFunctionHelperV2.formatNotificationType(String(template.notificationType))
+  
+      // Build users list
+      const sentTargetAccountIds = (users || [])
+        .map((u: any) => String(u.accountId || '').trim())
+        .filter(Boolean)
+  
+      const successfulUsers = sentTargetAccountIds.filter((id) => !mergedFailedUsers.includes(id))
+  
+      return BaseResponseDto.success({
+        message: `Send ${notificationName} to users successfully`,
+        data: {
+          whatnews,
+          successfulCount,
+          failedCount: mergedFailedCount,
+          successfulUsers,
+          failedUsers: mergedFailedUsers,
+        },
+      })
     } catch (error: any) {
       return BaseResponseDto.error({
         errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
@@ -927,6 +1555,7 @@ export class NotificationServiceV2 {
       })
     }
   }
+  
 
   private async sendFCM(
     template: TemplateV2,
@@ -2095,13 +2724,12 @@ private async sendFCMPayloadToPlatform(
   ) {
     const { language, templateId } = dto
 
-    const accountIds: string[] | undefined = Array.isArray(dto.accountId)
-      ? dto.accountId.map((x) => String(x).trim()).filter(Boolean)
-      : typeof dto.accountId === 'string' && dto.accountId.trim()
-        ? [dto.accountId.trim()]
-        : undefined
+    const accountId: string[] = Array.isArray(dto.accountId)
+      ? [...new Set(dto.accountId.map((x) => String(x).trim()).filter(Boolean))]
+      : [dto.accountId ? String(dto.accountId).trim() : '']
+      console.log('🔵 [HANDLE FLASH NOTIFICATION] Test account ID:', accountId)
 
-    if (!accountIds) {
+    if (!accountId.length) {
       return BaseResponseDto.error({
         errorCode: ErrorCode.USER_NOT_FOUND,
         message: ResponseMessage.USER_NOT_FOUND,
@@ -2110,7 +2738,7 @@ private async sendFCMPayloadToPlatform(
     }
 
     // Get user's bakongPlatform to ensure we find matching template
-    const user = await this.baseFunctionHelper.findUserByAccountId(accountIds[0])
+    const user = await this.baseFunctionHelper.findUserByAccountId(accountId[0])
     const userBakongPlatform = user?.bakongPlatform
 
     let selectedTemplate = template
@@ -2119,7 +2747,7 @@ private async sendFCMPayloadToPlatform(
     if (templateId) {
       selectedTemplate = await this.templateRepo.findOne({
         where: { id: templateId, notificationType: NotificationType.FLASH_NOTIFICATION },
-        relations: ['translations', 'categoryTypeEntity'],
+        relations: ['translations', 'translations.image'],
       })
 
       if (!selectedTemplate) {
@@ -2156,7 +2784,7 @@ private async sendFCMPayloadToPlatform(
       // The limit is PER TEMPLATE: Each template can be sent 2 times per user per 24 hours
       // New templates can always be sent (up to 2 times each)
       const bestTemplate = await this.templateService.findBestTemplateForUser(
-        accountIds[0],
+        accountId[0],
         language,
         this.notiRepo,
         userBakongPlatform, // Pass user's bakongPlatform
@@ -2179,12 +2807,12 @@ private async sendFCMPayloadToPlatform(
           select: ['id'],
         })
 
-        const accountIds = Array.isArray(dto.accountId) ? dto.accountId : undefined
+        const accountId = Array.isArray(dto.accountId) ? dto.accountId : undefined
 
         // Get user's notification history
         const userNotifications = await this.notiRepo.find({
           where: {
-            ...(accountIds?.length ? { accountId: In(accountIds) } : {}),
+            ...(accountId?.length ? { accountId: In(accountId) } : {}),
             ...(typeof dto.accountId === 'string' ? { accountId: dto.accountId } : {}),
           }
         })
@@ -2214,7 +2842,7 @@ private async sendFCMPayloadToPlatform(
           allAvailableTemplates.every((t) => templatesAtLimit.includes(t.id))
         ) {
           console.warn(
-            `⚠️ [handleFlashNotification] All ${allAvailableTemplates.length} templates have reached their limits for user ${accountIds[0]}`,
+            `⚠️ [handleFlashNotification] All ${allAvailableTemplates.length} templates have reached their limits for user ${accountId[0]}`,
           )
           return BaseResponseDto.error({
             errorCode: ErrorCode.FLASH_LIMIT_REACHED_IN_TODAY,
@@ -2239,7 +2867,7 @@ private async sendFCMPayloadToPlatform(
 
       console.log(
         `📤 [handleFlashNotification] Found template ${selectedTemplate.id
-        } for user ${accountIds[0]} with bakongPlatform: ${selectedTemplate.bakongPlatform || 'NULL'}`,
+        } for user ${accountId[0]} with bakongPlatform: ${selectedTemplate.bakongPlatform || 'NULL'}`,
       )
     }
 
@@ -2265,20 +2893,20 @@ private async sendFCMPayloadToPlatform(
 
     const todayCount = await this.notiRepo.count({
       where: {
-        accountId: accountIds[0],
+        accountId: accountId[0],
         templateId: selectedTemplate.id,
         createdAt: Between(todayStart, todayEnd),
       },
     })
 
     console.log(
-      `📊 [handleFlashNotification] Template ${selectedTemplate.id} has been sent ${todayCount} times to user ${accountIds[0]} today (limit: ${showPerDay} per day)`,
+      `📊 [handleFlashNotification] Template ${selectedTemplate.id} has been sent ${todayCount} times to user ${accountId[0]} today (limit: ${showPerDay} per day)`,
     )
 
     // Check if user has already received this template showPerDay times today
     if (todayCount >= showPerDay) {
       console.warn(
-        `⚠️ [handleFlashNotification] DAILY LIMIT REACHED: User ${accountIds[0]} has already received template ${selectedTemplate.id} ${todayCount} times today (limit: ${showPerDay} per day)`,
+        `⚠️ [handleFlashNotification] DAILY LIMIT REACHED: User ${accountId[0]} has already received template ${selectedTemplate.id} ${todayCount} times today (limit: ${showPerDay} per day)`,
       )
       return BaseResponseDto.error({
         errorCode: ErrorCode.FLASH_LIMIT_REACHED_IN_TODAY,
@@ -2297,7 +2925,7 @@ private async sendFCMPayloadToPlatform(
     // Count distinct days user has received this template
     const allNotifications = await this.notiRepo.find({
       where: {
-        accountId: accountIds[0],
+        accountId: accountId[0],
         templateId: selectedTemplate.id,
       },
       select: ['createdAt'],
@@ -2316,13 +2944,13 @@ private async sendFCMPayloadToPlatform(
 
     const daysCount = distinctDays.size
     console.log(
-      `📊 [handleFlashNotification] Template ${selectedTemplate.id} has been shown to user ${accountIds[0]} for ${daysCount} distinct day(s) (limit: ${maxDayShowing} days)`,
+      `📊 [handleFlashNotification] Template ${selectedTemplate.id} has been shown to user ${accountId[0]} for ${daysCount} distinct day(s) (limit: ${maxDayShowing} days)`,
     )
 
     // Check if user has already seen this template for maxDayShowing days
     if (daysCount >= maxDayShowing) {
       console.warn(
-        `⚠️ [handleFlashNotification] MAX DAYS LIMIT REACHED: User ${accountIds[0]} has already seen template ${selectedTemplate.id} for ${daysCount} days (limit: ${maxDayShowing} days)`,
+        `⚠️ [handleFlashNotification] MAX DAYS LIMIT REACHED: User ${accountId[0]} has already seen template ${selectedTemplate.id} for ${daysCount} days (limit: ${maxDayShowing} days)`,
       )
       return BaseResponseDto.error({
         errorCode: ErrorCode.FLASH_LIMIT_REACHED_IN_TODAY,
@@ -2346,7 +2974,7 @@ private async sendFCMPayloadToPlatform(
 
     // User already fetched above, reuse it
     const saved = await this.storeNotification({
-      accountId: accountIds[0],
+      accountId: accountId[0],
       templateId: selectedTemplate.id,
       fcmToken: user?.fcmToken,
       sendCount: newSendCount,

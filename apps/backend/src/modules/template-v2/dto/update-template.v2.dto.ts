@@ -94,5 +94,5 @@ export class UpdateTemplateDtoV2 {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  accountIds?: string[]
+  accountId?: string | string[]
 }

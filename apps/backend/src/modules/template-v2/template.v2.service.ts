@@ -189,10 +189,10 @@ export class TemplateServiceV2 implements OnModuleInit {
     // Normalize platforms: ["IOS", "ANDROID"] -> ["ALL"]
     const normalizedPlatforms = ValidationHelper.parsePlatforms(dto.platforms)
 
-    const accountIds = Array.isArray(dto.accountIds)
-      ? [...new Set(dto.accountIds.map(x => String(x ?? '').trim()).filter(Boolean))]
-      : []
-      console.log('🔵 [TEMPLATE CREATE] Test account IDs:', accountIds)
+    const accountId = Array.isArray(dto.accountId)
+      ? [...new Set(dto.accountId.map(x => String(x ?? '').trim()).filter(Boolean))]
+      : [dto.accountId ? String(dto.accountId ?? '').trim() : '']
+      console.log('🔵 [TEMPLATE CREATE] Test account ID:', accountId)
 
     let template = this.repo.create({
       platforms: normalizedPlatforms,
@@ -216,8 +216,8 @@ export class TemplateServiceV2 implements OnModuleInit {
 
       createdBy: currentUser?.username,
       updatedBy: currentUser?.username,
-      accountIds: accountIds
-    })
+      accountId: dto.accountId
+      })
 
     template = await this.repo.save(template)
     console.log('🔵 [TEMPLATE CREATE] Template saved with ID:', template.id)
@@ -746,9 +746,9 @@ export class TemplateServiceV2 implements OnModuleInit {
         updateFields.updatedBy = currentUser.username
       }
 
-     // ✅ handle accountIds (persist!)
-      if (dto.accountIds !== undefined) {
-        updateFields.accountIds = (dto.accountIds ?? [])
+     // ✅ handle accountId (persist!)
+      if (dto.accountId !== undefined) {
+        updateFields.accountId = Array.isArray(dto.accountId) ? dto.accountId : [dto.accountId]
           .map((x) => String(x).trim())
           .filter(Boolean)
       }
@@ -1041,10 +1041,10 @@ export class TemplateServiceV2 implements OnModuleInit {
       }
       updateFields.updatedAt = new Date()
 
-        if (dto.accountIds !== undefined) {
-          updateFields.accountIds = Array.isArray(dto.accountIds)
-            ? [...new Set(dto.accountIds.map(x => String(x ?? '').trim()).filter(Boolean))]
-            : []
+        if (dto.accountId !== undefined) {
+          updateFields.accountId = Array.isArray(dto.accountId)
+            ? [...new Set(dto.accountId.map(x => String(x ?? '').trim()).filter(Boolean))]
+            : [dto.accountId ? String(dto.accountId ?? '').trim() : '']
         }
         
         if (Object.keys(updateFields).length > 0) {
@@ -1483,8 +1483,8 @@ export class TemplateServiceV2 implements OnModuleInit {
               : null,
         }))
         : [],
-        accountIds: Array.isArray((template as any).accountIds)
-          ? (template as any).accountIds
+        accountId: Array.isArray((template as any).accountId)
+          ? (template as any).accountId
           : [],   
       }
 
@@ -1499,7 +1499,7 @@ export class TemplateServiceV2 implements OnModuleInit {
       formattedTemplate.failedCount = (template as any).failedCount
       formattedTemplate.failedUsers = (template as any).failedUsers || []
       formattedTemplate.failedDueToInvalidTokens = (template as any).failedDueToInvalidTokens || false
-      formattedTemplate.accountIds = (template as any).accountIds || []
+      formattedTemplate.accountId = (template as any).accountId || []
     }
 
     return formattedTemplate

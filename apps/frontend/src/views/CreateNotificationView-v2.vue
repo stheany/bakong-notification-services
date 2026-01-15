@@ -196,118 +196,6 @@
               </div>
             </div>
           </div>
-          <!-- <div class="schedule-datetime-row" style="margin-top: 12px">
-          <div class="schedule-form-group" style="flex: 1">
-            <label class="schedule-form-label">Test AccountId (optional)</label>
-
-            <el-select
-              v-model="formData.accountIds"
-              multiple
-              filterable
-              allow-create
-              default-first-option
-              placeholder="Type accountId and press Enter"
-              style="width: 100%"
-              :disabled="isEditingPublished"
-            />
-          </div> -->
-          <!-- <div class="schedule-datetime-row" style="margin-top: 12px">
-            <div class="splash-options" style="width: 100%">
-              <div class="schedule-options-header" style="margin-bottom: 12px">
-                <div class="schedule-option-left">
-                  <span class="option-title">Test AccountId</span>
-                  <span class="option-description">
-                    Only those users with the accountId will receive the notification
-                  </span>
-                </div>
-
-                <div class="schedule-option-right">
-                  <label class="toggle-switch" :class="{ disabled: isEditingPublished }">
-                    <input
-                      v-model="formData.accountIds"
-                      type="checkbox"
-                      :disabled="isEditingPublished"
-                    />
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
-
-              <div v-if="formData.accountIds.length === 0" class="option-description">
-                No accountId added.
-              </div>
-
-              <div
-                v-for="(accountId, idx) in formData.accountIds"
-                :key="`test-account-${idx}`"
-                style="display: flex; gap: 12px; align-items: center; margin-bottom: 10px"
-              >
-                <div style="min-width: 90px">accountId:</div>
-
-                <el-input
-                  v-model="formData.accountIds[idx]"
-                  placeholder="Enter accountId"
-                  clearable
-                  style="flex: 1"
-                />
-
-                <el-button type="danger" plain @click="removeTestAccountId(idx)">
-                  Remove
-                </el-button>
-                <el-button type="primary" plain @click="addAccountId">
-                  Add
-                </el-button>
-              </div>
-            </div>
-          </div> -->
-
-          <!-- 
-          <div class="schedule-datetime-row" style="margin-top: 12px">
-            <div class="splash-options" style="width: 100%">
-              <div class="schedule-options-header" style="margin-bottom: 12px">
-                <div class="schedule-option-left">
-                  <span class="option-title">Test AccountId</span>
-                  <span class="option-description">
-                    Only those users with the accountId will receive the notification
-                  </span>
-                </div>
-
-                <div class="schedule-option-right">
-                  <label class="toggle-switch" :class="{ disabled: isEditingPublished }">
-                    <input v-model="formData.enableaccountIds" type="checkbox" :disabled="isEditingPublished"
-                      @change="onToggleTestAccounts(enableTestAccounts)" />
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
-
-              <div v-if="!formData.enableaccountIds" class="option-description">
-                Turn on to add test accountId(s).
-              </div>
-
-              <div v-else>
-                <div v-for="(accountId, idx) in formData.accountIds" :key="`test-account-${idx}`"
-                  style="display: flex; gap: 12px; align-items: center; margin-bottom: 10px">
-                  <div style="min-width: 90px; color: #6b7280">accountId</div>
-
-                  <el-input class="h-12" v-model="formData.accountIds[idx]" placeholder="Enter accountId" clearable
-                    style="flex: 1" />
-
-                  <el-button type="danger" plain @click="removeTestAccountId(idx)"
-                    :disabled="isEditingPublished || formData.accountIds.length === 1">
-                    Remove
-                  </el-button>
-                </div>
-
-                <div style="display: flex; justify-content: flex-end; margin-top: 8px">
-                  <el-button type="primary" plain @click="addAccountId" :disabled="isEditingPublished">
-                    + Add accountId
-                  </el-button>
-                </div>
-              </div>
-            </div>
-          </div> -->
-
           <div class="schedule-datetime-row" style="margin-top: 12px">
             <div class="splash-options" style="width: 100%">
               <!-- Header -->
@@ -322,10 +210,10 @@
                 <div class="schedule-option-right">
                   <label class="toggle-switch" :class="{ disabled: isEditingPublished }">
                       <input
-                        v-model="formData.enableaccountIds"
+                        v-model="formData.enableaccountId"
                         type="checkbox"
                         :disabled="isEditingPublished"
-                        @change="onToggleTestAccounts(formData.enableaccountIds)"
+                        @change="onToggleTestAccounts(formData.enableaccountId)"
                       />
                       <span class="toggle-slider"></span>
                     </label>
@@ -333,21 +221,21 @@
               </div>
 
               <!-- Disabled state -->
-              <div v-if="!formData.enableaccountIds" class="option-description">
+                <div v-if="!formData.enableaccountId" class="option-description">
                 Turn on to add test accountId(s).
               </div>
 
               <!-- Enabled state -->
               <div v-else>
-                <div v-for="(accountId, idx) in formData.accountIds" :key="`test-account-${idx}`"
+                <div v-for="(accountId, idx) in formData.accountId" :key="`test-account-${idx}`"
                   style="display: flex; gap: 12px; align-items: center; margin-bottom: 10px">
                   <div style="min-width: 90px; color: #6b7280">accountId</div>
 
-                  <el-input v-model="formData.accountIds[idx]" placeholder="Enter accountId" clearable style="flex: 1"
+                  <el-input v-model="formData.accountId[idx]" placeholder="Enter accountId" clearable style="flex: 1"
                     :disabled="isEditingPublished" />
 
                   <el-button type="danger" plain @click="removeTestAccountId(idx)"
-                    :disabled="isEditingPublished || formData.accountIds.length === 1">
+                    :disabled="isEditingPublished || formData.accountId.length === 1">
                     Remove
                   </el-button>
                 </div>
@@ -644,51 +532,51 @@ const formData = reactive({
   scheduleDate: getTodayDateString(),
   scheduleTime: null as string | null,
   splashEnabled: false,
-  enableaccountIds: false,
-  accountIds: [] as string[],
+  enableaccountId: true,
+  accountId: [] as string[],
 })
 
 // NEW: toggle state
-const enableaccountIds = ref(false)
+const enableaccountId = ref(true)
 
 // init (if editing and has existing ids)
 watchEffect(() => {
-  if (formData.accountIds.length > 0) {
-    formData.enableaccountIds = true
+  if (formData.accountId.length > 0) {
+    formData.enableaccountId = true
   }
 })
 
 const removeTestAccountId = (idx: number) => {
-  formData.accountIds.splice(idx, 1)
-  if (formData.accountIds.length === 0) {
-    formData.enableaccountIds = false
+  formData.accountId.splice(idx, 1)
+  if (formData.accountId.length === 0) {
+    formData.enableaccountId = false
   }
 }
 
 const addAccountId = () => {
-  formData.accountIds.push('')
+  formData.accountId.push('')
 }
 
 const sanitizeaccountIds = () => {
-  return formData.enableaccountIds
-    ? [...new Set(formData.accountIds.map(x => String(x).trim()).filter(Boolean))]
+  return formData.enableaccountId
+    ? [...new Set(formData.accountId.map(x => String(x).trim()).filter(Boolean))]
     : []
 }
 
 const onToggleTestAccounts = (val: boolean) => {
   if (val) {
-    if (!formData.accountIds?.length) formData.accountIds = ['']
+    if (!formData.accountId?.length) formData.accountId = ['']
   } else {
     // ✅ MUST clear when OFF
-    formData.accountIds = []
+    formData.accountId = []
   }
 }
 
 watch(
-  () => formData.enableaccountIds,
+  () => formData.enableaccountId,
   (enabled) => {
     if (!enabled) {
-      formData.accountIds = [] // ✅ force clear when toggle OFF
+      formData.accountId = [] // ✅ force clear when toggle OFF
     }
   },
 )
@@ -782,7 +670,7 @@ const loadNotificationData = async () => {
     formData.categoryTypeId = template.categoryTypeId || null
     formData.platform = (template.bakongPlatform as BakongApp) || BakongApp.BAKONG
     originalFormData.categoryTypeId = template.categoryTypeId || null
-    formData.accountIds = Array.isArray(template.accountIds) ? template.accountIds : []
+    formData.accountId = Array.isArray(template.accountId) ? template.accountId : []
     originalFormData.platform = (template.bakongPlatform as BakongApp) || BakongApp.BAKONG
     if (template.platforms && Array.isArray(template.platforms) && template.platforms.length > 0) {
       const formPlatform = mapPlatformToFormPlatform(template.platforms)
@@ -1419,8 +1307,8 @@ const handlePublishNowInternal = async () => {
     // 4) Build template payload (V2)
     // ---------------------------
     const cleanedIds =
-      Array.isArray(formData.accountIds) && formData.accountIds.length > 0
-        ? formData.accountIds.map((x: string) => String(x || '').trim()).filter(Boolean)
+      Array.isArray(formData.accountId) && formData.accountId.length > 0
+        ? formData.accountId.map((x: string) => String(x || '').trim()).filter(Boolean)
         : []
 
         const templateData: CreateTemplateRequestV2 = {
@@ -1433,10 +1321,10 @@ const handlePublishNowInternal = async () => {
           categoryTypeId: Number(formData.categoryTypeId ?? 1),
           priority: 1,
 
-          // ✅ ALWAYS send accountIds (important for clearing old value on update)
+          // ✅ ALWAYS send accountId (important for clearing old value on update)
           // - when toggle ON  -> send cleanedIds
           // - when toggle OFF -> send []
-          accountIds: formData.enableaccountIds ? cleanedIds : [],
+          accountId: formData.enableaccountId ? cleanedIds : [],
         }
 
 
@@ -1674,10 +1562,10 @@ const handleSaveDraft = async (forceDraft: boolean = false) => {
     }
     const useSchedule = formData.scheduleEnabled && formData.scheduleDate && formData.scheduleTime
     const finalSendType = (forceDraft || !useSchedule) ? SendType.SEND_NOW : SendType.SEND_SCHEDULE
-    const cleanedAccountIds = (enableaccountIds.value ? formData.accountIds : [])
+    const cleanedAccountId = (enableaccountId.value ? formData.accountId : [])
       .map((x) => String(x).trim())
       .filter(Boolean)
-    console.log('🔍 [CLEANED ACCOUNT IDS] cleanedAccountIds:', cleanedAccountIds)
+    console.log('🔍 [CLEANED ACCOUNT ID] cleanedAccountId:', cleanedAccountId)
 
     const templateData: CreateTemplateRequestV2 = {
       platforms: [mapPlatformToEnum(formData.pushToPlatforms)],
@@ -1690,7 +1578,7 @@ const handleSaveDraft = async (forceDraft: boolean = false) => {
       priority: 1,
 
       // ✅ THIS is the fix
-      accountIds: buildAccountIdsPayload(),
+      accountId: buildAccountIdPayload(),
     }
     if (useSchedule) {
       const scheduleDateTime = DateUtils.parseScheduleDateTime(
@@ -1755,12 +1643,12 @@ const handleSaveDraft = async (forceDraft: boolean = false) => {
   }
 }
 
-const buildAccountIdsPayload = (): string[] => {
-  const cleaned = (formData.accountIds || [])
+    const buildAccountIdPayload = (): string[] => {
+  const cleanedAccountId = (formData.accountId || [])
     .map((x: any) => String(x).trim())
     .filter(Boolean)
 
-  return formData.enableaccountIds ? cleaned : [] // ✅ OFF => []
+  return formData.enableaccountId ? cleanedAccountId : [] // ✅ OFF => []
 }
 
 const handleDiscard = () => {
@@ -1970,68 +1858,6 @@ const formatBakongApp = (app: BakongApp | undefined): string => {
   }
 }
 
-// const sendNotificationAndNotify = async (args: {
-//   templateId: number
-//   notificationType: any
-//   goPublished: () => void
-//   goDraft: () => void
-// }) => {
-//   ;(ElNotification as any).closeAll?.()
-
-//   const sendRes = await notificationApi.sendNotification(
-//     args.templateId,
-//     args.notificationType,
-//     true,
-//   )
-
-//   const body = (sendRes as any)?.data ?? sendRes ?? {}
-//   const responseCode = Number(body?.responseCode ?? -1)
-//   const errorCode = Number(body?.errorCode ?? -1)
-//   const responseMessage = String(body?.responseMessage || body?.message || '')
-
-//   const payload = body?.data ?? {}
-//   const successfulCount = Number(payload?.successfulCount ?? 0)
-//   const failedUsers = Array.isArray(payload?.failedUsers)
-//     ? payload.failedUsers
-//     : Array.isArray(payload?.usersInvalid)
-//       ? payload.usersInvalid
-//       : []
-//   const failedCount = Number(payload?.failedCount ?? failedUsers.length ?? 0)
-
-//   const apiOk = responseCode === 0 && errorCode === 0
-//   const allSuccess = apiOk && successfulCount > 0 && failedCount === 0
-
-//   if (allSuccess) {
-//     ElNotification({
-//       title: 'Success',
-//       message: `Sent to ${successfulCount} user${successfulCount > 1 ? 's' : ''} successfully.`,
-//       type: 'success',
-//       duration: 3000,
-//     })
-//     args.goPublished()
-//     return
-//   }
-
-//   const shortFailed =
-//     failedUsers.length > 8 ? `${failedUsers.slice(0, 8).join(', ')}...` : failedUsers.join(', ')
-
-//   const msg =
-//     failedCount > 0
-//       ? `Failed to send to some user(s). Success: ${successfulCount}, Failed: ${failedCount}${
-//           shortFailed ? `. Failed users: ${shortFailed}` : ''
-//         }`
-//       : responseMessage || 'Failed to send notification.'
-
-//   ElNotification({
-//     title: 'Error',
-//     message: String(msg || 'Failed to send notification.'),
-//     type: 'error',
-//     duration: 8000,
-//   })
-
-//   args.goDraft()
-// }
-
 </script>
 <style>
 html,
@@ -2084,9 +1910,6 @@ body::-webkit-scrollbar {
   height: 100vh;
   align-items: flex-start;
   gap: 80px;
-  /* ✅ like v1 spacing between form & preview */
-  padding: 0 32px;
-  /* ✅ give some breathing space */
   overflow: visible;
 }
 

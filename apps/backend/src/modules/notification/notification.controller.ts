@@ -28,79 +28,74 @@ export class NotificationController {
       notificationType: dto.notificationType,
       bakongPlatform: dto.bakongPlatform,
     })
+ 
+    const accountIdList = Array.isArray(dto.accountId) ? dto.accountId.map((x: any) => String(x).trim()).filter(Boolean) : undefined
+    const singleAccountId = typeof dto.accountId === 'string' && dto.accountId.trim() ? dto.accountId.trim() : undefined
 
     try {
-      if (dto.accountId) {
-        dto.notificationType = NotificationType.FLASH_NOTIFICATION
+      if (singleAccountId) {
+        const notificationTypeLabel = dto.notificationType || 'UNKNOWN'
+        console.log(
+          `🔄 [v2 sendNotification] Syncing user data FIRST for ${singleAccountId} before processing ${notificationTypeLabel}`,
+        )
 
-        // Mobile app ALWAYS provides bakongPlatform in the request
-        // Fallback: Only infer if mobile didn't provide it (shouldn't happen, but for backward compatibility)
-        if (!dto.bakongPlatform) {
-          const inferredBakongPlatform = this.inferBakongPlatform(dto.participantCode, dto.accountId)
-          if (inferredBakongPlatform) {
-            console.warn(
-              `⚠️ [sendNotification] Mobile did not provide bakongPlatform (unexpected), inferred from accountId: ${dto.accountId} -> ${inferredBakongPlatform}`,
-            )
-            dto.bakongPlatform = inferredBakongPlatform
-          }
+        // If notificationType missing for single-user send, default to FLASH (same as your old logic)
+        if (!dto.notificationType) {
+          dto.notificationType = NotificationType.FLASH_NOTIFICATION
         }
 
-        // Auto-sync/register user with data from mobile app
-        // Mobile app always provides all data including bakongPlatform
-        await this.baseFunctionHelper.updateUserData({
-          accountId: dto.accountId,
-          language: dto.language,
-          fcmToken: dto.fcmToken || '', // Use empty string as placeholder if not provided
-          platform: dto.platform,
-          participantCode: dto.participantCode,
-          bakongPlatform: dto.bakongPlatform, // Mobile always provides this
-        })
+        const syncData: any = { accountId: singleAccountId }
+
+        // Keep your existing sync rules (do not overwrite with empty string)
+        if (dto.fcmToken !== undefined && dto.fcmToken !== null && dto.fcmToken !== '') {
+          syncData.fcmToken = dto.fcmToken
+        }
+        if (dto.bakongPlatform !== undefined && dto.bakongPlatform !== null) {
+          syncData.bakongPlatform = dto.bakongPlatform
+        }
+        if (dto.language !== undefined && dto.language !== null) {
+          syncData.language = dto.language
+        }
+        if (
+          dto.participantCode !== undefined &&
+          dto.participantCode !== null &&
+          dto.participantCode !== ''
+        ) {
+          syncData.participantCode = dto.participantCode
+        }
+
+        // ✅ Use only functions that exist
+        await this.baseFunctionHelper.updateUserData(syncData)
+      } else if (accountIdList?.length) {
+        console.log(
+          `📌 [v2 sendNotification] accountId list provided (${accountIdList.length}) -> skip sync user step, send only to these users`,
+        )
+
+        // optional: default type when none provided
+        if (!dto.notificationType) {
+          dto.notificationType = NotificationType.ANNOUNCEMENT
+        }
       } else {
+        // No accountId -> current behavior
         if (!dto.notificationType) {
           dto.notificationType = NotificationType.ANNOUNCEMENT
         }
       }
 
+      // ✅ Now call service (service will filter by accountId list)
       const result = await this.service.sendNow(dto, req)
-
-      // Check if result is an error response (for no users case)
-      if (
-        result &&
-        typeof result === 'object' &&
-        'responseCode' in result &&
-        result.responseCode !== 0
-      ) {
-        // If no users found, also mark template as draft if templateId is provided
-        if (dto.templateId && result.errorCode === ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM) {
-          try {
-            const templateService =
-              this.service['templateService'] ||
-              (await import('../template/template.service')).TemplateService
-            // Mark as draft - we'll do this via a service method if available
-            // For now, the error response is sufficient
-          } catch (e) {
-            console.error('Error marking template as draft:', e)
-          }
-        }
-        return result
-      }
-
       return result
     } catch (error: any) {
-      console.error('❌ [CONTROLLER] Error in sendNotification:', error)
+      console.error('❌ [V2 CONTROLLER] Error in sendNotification:', error)
 
-      // Check if error is about no users for bakongPlatform
       if (error?.message && error.message.includes('No users found for')) {
         return BaseResponseDto.error({
           errorCode: ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM,
           message: ResponseMessage.NO_USERS_FOR_BAKONG_PLATFORM,
-          data: {
-            error: error.message,
-          },
+          data: { error: error.message },
         })
       }
 
-      // Re-throw other errors
       throw error
     }
   }

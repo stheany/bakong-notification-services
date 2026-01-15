@@ -126,6 +126,7 @@
   import { useErrorHandler } from '@/composables/useErrorHandler'
   import { mockUsers } from '../../data-mock/mock-user.ts'
   import type { UserItem } from '@/components/common/TableBody.vue'
+import { ResponseMessage } from '@bakong/shared'
   
   const router = useRouter()
   const route = useRoute()
@@ -326,7 +327,7 @@
           user = await userApi.getUserById(userId.value)
           // If API returns null, fall back to mock data
           if (!user) {
-            throw new Error('User not found in API')
+            throw new Error(ResponseMessage.USER_NOT_FOUND as string)
           }
         } catch (apiError) {
           // If API fails, use mock data for testing
@@ -355,7 +356,7 @@
           formRef.value?.clearValidate()
         } else {
           // If no user found in API or mock data, show error
-          handleApiError(new Error('User not found'), { operation: 'fetchUser' })
+          handleApiError(new Error(ResponseMessage.USER_NOT_FOUND as string), { operation: 'fetchUser' })
         }
       } catch (error) {
         handleApiError(error, { operation: 'fetchUser' })

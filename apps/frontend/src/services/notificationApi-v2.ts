@@ -24,7 +24,7 @@ export interface CreateTemplateRequestV2 {
   notificationType?: string
   categoryTypeId?: number
   priority?: number
-  accountIds?: string[]
+  accountId?: string | string[]
 }
 export interface NotificationV2 {
   author: any

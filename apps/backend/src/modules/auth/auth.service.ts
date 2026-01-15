@@ -161,12 +161,16 @@ export class AuthService implements OnModuleInit {
       const user = await this.userService.findById(id)
 
       if (!user) {
-        return { message: 'User not found' }
+        return { message: ResponseMessage.USER_NOT_FOUND }
+        }
+  
+        return { data: user }
+      } catch (error) {
+        throw new BaseResponseDto({
+          responseCode: 1,
+          errorCode: ErrorCode.USER_NOT_FOUND,
+          responseMessage: ResponseMessage.USER_NOT_FOUND,
+        })
       }
-
-      return { data: user }
-    } catch (error) {
-      throw error
     }
-  }
 }

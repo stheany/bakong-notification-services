@@ -160,7 +160,7 @@ export class ErrorHandler {
         return 'The requested item was not found.'
 
       case ErrorCode.USER_NOT_FOUND:
-        return responseMessage || 'User not found.'
+        return responseMessage || 'User not found in system please check your app and registered users and try again.'
 
       case ErrorCode.TEMPLATE_NOT_FOUND:
         return 'Template not found.'

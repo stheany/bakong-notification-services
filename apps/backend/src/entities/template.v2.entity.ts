@@ -95,5 +95,5 @@ export class TemplateV2 {
   deletedAt?: Date
 
   @Column('text', { array: true, default: () => "'{}'", nullable: false })
-  accountIds: string[]
+  accountId?: string | string[]
 }
