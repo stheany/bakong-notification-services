@@ -85,7 +85,7 @@ export class InboxResponseDto implements NotificationData {
       categoryTypeName && typeof categoryTypeName === 'string' && categoryTypeName.trim() !== ''
         ? InboxResponseDto.normalizeCategoryType(categoryTypeName)
         : 'NEWS'
-    this.categoryTitle = InboxResponseDto.getCategoryTitle(data.template?.categoryTypeEntity, language)
+    this.categoryType = InboxResponseDto.getCategoryTitle(data.template?.categoryTypeEntity, language)
     
     // Final validation: Ensure categoryType is never null/undefined/empty
     if (!this.categoryType || typeof this.categoryType !== 'string' || this.categoryType.trim() === '') {

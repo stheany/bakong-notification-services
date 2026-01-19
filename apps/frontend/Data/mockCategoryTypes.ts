@@ -3,7 +3,7 @@
  * This data matches the CategoryType interface with all required fields
  */
 
-import type { CategoryType } from '@/services/categoryTypeApi'
+import type { CategoryType } from '../src/services/categoryTypeApi'
 
 /**
  * Base64 placeholder icon (1x1 transparent PNG)

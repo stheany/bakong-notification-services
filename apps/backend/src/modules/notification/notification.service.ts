@@ -2756,7 +2756,7 @@ export class NotificationService {
    * Infer bakongPlatform from participantCode or accountId
    * Priority: participantCode > accountId domain
    */
-  private inferBakongPlatform(participantCode?: string, accountId?: string): BakongApp | undefined {
+  inferBakongPlatform(participantCode?: string, accountId?: string): BakongApp | undefined {
     // Check participantCode first (higher priority)
     if (participantCode) {
       const normalized = participantCode.toUpperCase()

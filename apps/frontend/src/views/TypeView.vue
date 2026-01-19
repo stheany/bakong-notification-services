@@ -82,11 +82,13 @@ const filteredItems = computed(() => {
     name: ct.name,
     icon: ct.icon || '', // Icon is now included in the main response as base64
     categoryType: ct,
+    namekh: ct.namekh || '',
+    namejp: ct.namejp || '',
   }))
 
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase().trim()
-    items = items.filter((item) => item.name.toLowerCase().includes(query))
+    items = items.filter((item) => item.name.toLowerCase().includes(query) || item.namekh.toLowerCase().includes(query) || item.namejp.toLowerCase().includes(query))
   }
 
   return items
@@ -129,15 +131,15 @@ const handlePerPageChange = (newPerPage: number) => {
 
 const addNew = () => {
   // Commented out: Add Category feature - coming soon
-  // router.push('/templates/create')
+  router.push('/templates/create')
 
   // Show notification that feature is coming soon
-  ElNotification({
-    title: 'Coming Soon',
-    message: 'This feature is coming soon!',
-    type: 'info',
-    duration: 3000,
-  })
+  // ElNotification({
+  //   title: 'Coming Soon',
+  //   message: 'This feature is coming soon!',
+  //   type: 'info',
+  //   duration: 3000,
+  // })
 }
 
 const filter = () => {
@@ -165,12 +167,13 @@ const fetchCategoryTypes = async () => {
       console.log(`✅ [TypeView] Successfully loaded ${data.length} categories from API`)
     } else {
       console.warn('⚠️ [TypeView] API returned empty categories, falling back to mock data')
-    categoryTypes.value = [...mockCategoryTypes]
+      categoryTypes.value = [...mockCategoryTypes]
     }
   } catch (error) {
     console.error('❌ [TypeView] API failed, falling back to mock data:', error)
     // Silently fall back to mock data for better UX as requested
     categoryTypes.value = [...mockCategoryTypes]
+    categoryTypes.value = [...categoryTypes.value]
     // Optional: show a small info notification about using offline/mock data
     /*
     ElMessage({
@@ -211,7 +214,7 @@ const handleDeleteConfirm = async () => {
 
   try {
     // Simulate API call with mock data
-    await new Promise((resolve) => setTimeout(resolve, 300))
+    await categoryTypeApi.delete(categoryToDelete.value.id)
 
     // Remove from local mock data
     const index = categoryTypes.value.findIndex((ct) => ct.id === categoryToDelete.value!.id)

@@ -57,10 +57,60 @@
               line-height: 150%;
               letter-spacing: 0%;
             "
-            >Type name <span class="text-red-500">*</span></label
+            >Type name (English) <span class="text-red-500">*</span></label
           >
           <input
             v-model="typeName"
+            type="text"
+            placeholder="Product and feature"
+            required
+            :disabled="isViewMode"
+            :readonly="isViewMode"
+            class="w-full border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+            style="height: 56px; border-radius: 8px; border-width: 1px; padding: 16px"
+          />
+        </div>
+
+        <!-- Type Name Input -->
+        <div class="w-full flex flex-col gap-[7px] opacity-100" style="transform: rotate(0deg)">
+          <label
+            class="text-[#011246]"
+            style="
+              font-family: 'IBM Plex Sans', sans-serif;
+              font-weight: 400;
+              font-size: 14px;
+              line-height: 150%;
+              letter-spacing: 0%;
+            "
+            >Type name (Khmer) </label
+          >
+          <input
+            v-model="typeNameKh"
+            type="text"
+            placeholder="Product and feature"
+            required
+            :disabled="isViewMode"
+            :readonly="isViewMode"
+            class="w-full border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+            style="height: 56px; border-radius: 8px; border-width: 1px; padding: 16px"
+          />
+        </div>
+
+        <!-- Type Name Input -->
+        <div class="w-full flex flex-col gap-[7px] opacity-100" style="transform: rotate(0deg)">
+          <label
+            class="text-[#011246]"
+            style="
+              font-family: 'IBM Plex Sans', sans-serif;
+              font-weight: 400;
+              font-size: 14px;
+              line-height: 150%;
+              letter-spacing: 0%;
+            "
+            >Type name (Japanese) </label
+          >
+          <input
+            v-model="typeNameJp"
             type="text"
             placeholder="Product and feature"
             required
@@ -146,10 +196,14 @@ const categoryTypeId = computed(() => {
 
 // Form data
 const typeName = ref('')
+const typeNameKh = ref('')  
+const typeNameJp = ref('')
 const selectedFile = ref<File | null>(null)
 const isLoading = ref(false)
 const existingImageUrl = ref<string>('')
 const existingName = ref<string>('')
+const existingTypeNameKh = ref<string>('')
+const existingTypeNameJp = ref<string>('')
 const loadingData = ref(false)
 
 const { handleApiError, showSuccess } = useErrorHandler({
@@ -181,8 +235,12 @@ const fetchCategoryType = async () => {
   try {
     const categoryType = await categoryTypeApi.getById(categoryTypeId.value)
     typeName.value = categoryType.name
+    typeNameKh.value = categoryType.namekh || ''
+    typeNameJp.value = categoryType.namejp || ''
     existingName.value = categoryType.name
-
+    existingTypeNameKh.value = categoryType.namekh || ''
+    existingTypeNameJp.value = categoryType.namejp || ''
+    console.log(existingTypeNameKh.value, existingTypeNameJp.value)
     // Load icon
     try {
       const iconUrl = await categoryTypeApi.getIcon(categoryTypeId.value)
@@ -217,7 +275,7 @@ const handleCreate = async () => {
   isLoading.value = true
 
   try {
-    const created = await categoryTypeApi.create(typeName.value.trim(), selectedFile.value)
+    const created = await categoryTypeApi.create(typeName.value.trim(), typeNameKh.value.trim(), typeNameJp.value.trim(), selectedFile.value)
 
     // Add to store and clear cache
     categoryTypesStore.addCategoryType(created)
@@ -250,6 +308,8 @@ const handleUpdate = async () => {
 
   // Check if anything has changed
   const nameChanged = typeName.value.trim() !== existingName.value
+  const nameKhChanged = typeNameKh.value.trim() !== existingTypeNameKh.value
+  const nameJpChanged = typeNameJp.value.trim() !== existingTypeNameJp.value
   const iconChanged = selectedFile.value !== null
 
   if (!nameChanged && !iconChanged) {
@@ -264,6 +324,8 @@ const handleUpdate = async () => {
     const updated = await categoryTypeApi.update(
       categoryTypeId.value,
       nameChanged ? typeName.value.trim() : undefined,
+      nameKhChanged ? typeNameKh.value.trim() : undefined,
+      nameJpChanged ? typeNameJp.value.trim() : undefined,
       iconChanged && selectedFile.value ? selectedFile.value : undefined,
     )
 

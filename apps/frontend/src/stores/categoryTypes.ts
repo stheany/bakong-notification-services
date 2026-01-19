@@ -25,7 +25,17 @@ export const useCategoryTypesStore = defineStore('categoryTypes', () => {
     try {
       const cachedData = localStorage.getItem(CACHE_STORAGE_KEY)
       const cachedTime = localStorage.getItem(CACHE_TIMESTAMP_KEY)
-
+      console.log(cachedData, cachedTime)
+      if (cachedData) {
+        categoryTypes.value = JSON.parse(cachedData) as CategoryType[]
+      }
+      if (cachedTime) {
+        const timestamp = parseInt(cachedTime, 10)
+        if (timestamp < Date.now() - CACHE_TTL) {
+          localStorage.removeItem(CACHE_STORAGE_KEY)
+          localStorage.removeItem(CACHE_TIMESTAMP_KEY)
+        }
+      }
       if (cachedData && cachedTime) {
         const timestamp = parseInt(cachedTime, 10)
         const now = Date.now()
@@ -146,6 +156,9 @@ export const useCategoryTypesStore = defineStore('categoryTypes', () => {
       // Save to localStorage
       saveCacheToStorage(types, timestamp)
 
+      types.sort((a, b) => a.name.localeCompare(b.name) || (a.namekh || '').localeCompare(b.namekh || '') || (a.namejp || '').localeCompare(b.namejp || ''))
+      console.log(types)
+
       return types
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to fetch category types'
@@ -186,7 +199,8 @@ export const useCategoryTypesStore = defineStore('categoryTypes', () => {
     if (!exists) {
       categoryTypes.value.push(categoryType)
       // Sort by name to maintain order
-      categoryTypes.value.sort((a, b) => a.name.localeCompare(b.name))
+      categoryTypes.value.sort((a, b) => a.name.localeCompare(b.name) || (a.namekh || '').localeCompare(b.namekh || '') || (a.namejp || '').localeCompare(b.namejp || ''))
+      console.log(categoryTypes.value)
 
       // Update cache
       const timestamp = Date.now()
@@ -206,8 +220,8 @@ export const useCategoryTypesStore = defineStore('categoryTypes', () => {
     if (index !== -1) {
       categoryTypes.value[index] = categoryType
       // Sort by name to maintain order
-      categoryTypes.value.sort((a, b) => a.name.localeCompare(b.name))
-
+      categoryTypes.value.sort((a, b) => a.name.localeCompare(b.name) || (a.namekh || '').localeCompare(b.namekh || '') || (a.namejp || '').localeCompare(b.namejp || '') || a.name.localeCompare(b.name))
+      console.log(categoryTypes.value)
       // Update cache
       const timestamp = Date.now()
       cache.value = {
@@ -225,7 +239,8 @@ export const useCategoryTypesStore = defineStore('categoryTypes', () => {
     const index = categoryTypes.value.findIndex((ct) => ct.id === id)
     if (index !== -1) {
       categoryTypes.value.splice(index, 1)
-
+      categoryTypes.value.sort((a, b) => a.name.localeCompare(b.name) || (a.namekh || '').localeCompare(b.namekh || '') || (a.namejp || '').localeCompare(b.namejp || ''))
+      console.log(categoryTypes.value)
       // Update cache
       const timestamp = Date.now()
       cache.value = {

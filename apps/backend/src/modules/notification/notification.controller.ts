@@ -4,7 +4,7 @@ import { NotificationInboxDto } from './dto/notification-inbox.dto'
 import { NotificationService } from './notification.service'
 import SentNotificationDto from './dto/send-notification.dto'
 import { BaseResponseDto } from 'src/common/base-response.dto'
-import { ErrorCode, ResponseMessage, BakongApp, inferBakongPlatform } from '@bakong/shared'
+import { ErrorCode, ResponseMessage, BakongApp } from '@bakong/shared'
 import { NotificationType } from '@bakong/shared'
 import { BaseFunctionHelper } from 'src/common/util/base-function.helper'
 import { Roles } from 'src/common/middleware/roles.guard'
@@ -49,7 +49,7 @@ export class NotificationController {
         // Mobile app ALWAYS provides bakongPlatform in the request
         // Fallback: Only infer if mobile didn't provide it (shouldn't happen, but for backward compatibility)
         if (!dto.bakongPlatform) {
-          const inferredBakongPlatform = inferBakongPlatform(
+          const inferredBakongPlatform = this.service.inferBakongPlatform(
             dto.participantCode,
             dto.accountId,
           )
