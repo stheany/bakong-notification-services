@@ -311,6 +311,7 @@
         :description="currentDescription"
         :image="currentImageUrl || ''"
         :categoryType="categoryTypes.find((ct: CategoryTypeData) => ct.id === formData.categoryTypeId)?.name || ''"
+        :link-preview="currentLinkToSeeMore"
         :title-has-khmer="titleHasKhmer"
         :description-has-khmer="descriptionHasKhmer"
       />

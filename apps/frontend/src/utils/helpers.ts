@@ -498,9 +498,9 @@ export const processFile = async (
   onError: (error: string) => void,
   validateAspectRatio: boolean = true,
   acceptTypes: string = 'image/*',
-  maxSize: number = 2 * 1024 * 1024, // 2MB default (safer for batch uploads)
-  autoConvert: boolean = true, // New parameter: automatically convert instead of rejecting
-  targetAspectRatio: number = 2 / 1, // Default to 2:1 as shown in UI
+  maxSize: number = 2 * 1024 * 1024,
+  autoConvert: boolean = true,
+  targetAspectRatio: number = 2 / 1,
 ) => {
   const acceptedTypes = acceptTypes.split(',').map((type) => type.trim())
   const isValidType = acceptedTypes.some((type) => {
@@ -508,108 +508,129 @@ export const processFile = async (
     const baseType = type.split('/')[0]
     return file.type.startsWith(baseType + '/')
   })
+
   if (!isValidType) {
     onError(`File type ${file.type} is not supported. Please select a valid file.`)
     return
   }
 
-  // If auto-convert is enabled, process the image automatically
-  if (autoConvert && file.type.startsWith('image/')) {
-    try {
-      // Check if conversion is needed
-      const needsSizeConversion = file.size > maxSize
-      let needsAspectRatioConversion = false
-
-      if (validateAspectRatio) {
-        const imageCheck = await new Promise<{ needsConversion: boolean; aspectRatio: number }>(
-          (resolve) => {
-            const reader = new FileReader()
-            reader.onload = (e) => {
-              const img = new Image()
-              img.onload = () => {
-                const aspectRatio = img.width / img.height
-                // Only accept 2:1 aspect ratio (or 880:440 which is also 2:1)
-                const targetRatio = 2 / 1
-                const tolerance = 0.05 // 5% tolerance for rounding
-                const isAcceptable = Math.abs(aspectRatio - targetRatio) <= tolerance
-                resolve({ needsConversion: !isAcceptable, aspectRatio })
-              }
-              img.onerror = () => resolve({ needsConversion: false, aspectRatio: 1 })
-              img.src = e.target?.result as string
-            }
-            reader.readAsDataURL(file)
-          },
-        )
-        needsAspectRatioConversion = imageCheck.needsConversion
-      }
-
-      // If conversion is needed, process the image
-      if (needsSizeConversion || needsAspectRatioConversion) {
-        const {
-          file: convertedFile,
-          dataUrl,
-          wasConverted,
-        } = await compressImage(file, {
-          maxBytes: maxSize,
-          maxWidth: 2000,
-          targetAspectRatio,
-          correctAspectRatio: validateAspectRatio && needsAspectRatioConversion,
-        })
-
-        onSuccess(convertedFile, dataUrl, wasConverted)
-        return
-      } else {
-        // No conversion needed, just return the original file
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          onSuccess(file, e.target?.result as string, false)
-        }
-        reader.readAsDataURL(file)
-        return
-      }
-    } catch (error) {
-      console.error('Error processing image:', error)
-      onError('Failed to process image. Please try again.')
+  // If not image OR autoConvert disabled -> keep your old validation behavior
+  if (!file.type.startsWith('image/') || !autoConvert) {
+    if (file.size > maxSize) {
+      onError(
+        `File size ${(file.size / 1024 / 1024).toFixed(2)}MB exceeds the maximum limit of ${(maxSize / 1024 / 1024).toFixed(2)}MB.`,
+      )
       return
     }
-  }
 
-  // If no conversion needed or auto-convert is disabled, validate normally
-  if (file.size > maxSize && !autoConvert) {
-    onError(
-      `File size ${(file.size / 1024 / 1024).toFixed(2)}MB exceeds the maximum limit of ${(maxSize / 1024 / 1024).toFixed(2)}MB.`,
-    )
+    if (validateAspectRatio) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const img = new Image()
+        img.onload = () => {
+          const aspectRatio = img.width / img.height
+          const tolerance = 0.05
+          const isAcceptable = Math.abs(aspectRatio - targetAspectRatio) <= tolerance
+          if (!isAcceptable) {
+            onError(
+              `Image aspect ratio ${aspectRatio.toFixed(2)}:1 is not supported. Please use images with 2:1 aspect ratio (e.g., 880:440).`,
+            )
+            return
+          }
+          onSuccess(file, e.target?.result as string, false)
+        }
+        img.src = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => onSuccess(file, e.target?.result as string, false)
+    reader.readAsDataURL(file)
     return
   }
 
-  if (validateAspectRatio && file.type.startsWith('image/') && !autoConvert) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const aspectRatio = img.width / img.height
-        // Only accept 2:1 aspect ratio (or 880:440 which is also 2:1)
-        const targetRatio = 2 / 1
-        const tolerance = 0.05 // 5% tolerance for rounding
-        const isAcceptable = Math.abs(aspectRatio - targetRatio) <= tolerance
-        if (!isAcceptable) {
-          const errorMsg = `Image aspect ratio ${aspectRatio.toFixed(2)}:1 is not supported. Please use images with 2:1 aspect ratio (e.g., 880:440).`
-          onError(errorMsg)
-          return
-        }
-        onSuccess(file, e.target?.result as string)
+  // ✅ AutoConvert image flow
+  try {
+    const needsSizeConversion = file.size > maxSize
+
+    // Check aspect ratio
+    let needsAspectRatioConversion = false
+    let aspectRatio = 1
+
+    if (validateAspectRatio) {
+      const check = await new Promise<{ needsConversion: boolean; aspectRatio: number }>(
+        (resolve) => {
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            const img = new Image()
+            img.onload = () => {
+              aspectRatio = img.width / img.height
+              const tolerance = 0.05
+              const isAcceptable = Math.abs(aspectRatio - targetAspectRatio) <= tolerance
+              resolve({ needsConversion: !isAcceptable, aspectRatio })
+            }
+            img.onerror = () => resolve({ needsConversion: false, aspectRatio: 1 })
+            img.src = e.target?.result as string
+          }
+          reader.readAsDataURL(file)
+        },
+      )
+
+      needsAspectRatioConversion = check.needsConversion
+      aspectRatio = check.aspectRatio
+    }
+
+    // If nothing to do -> return original
+    if (!needsSizeConversion && !needsAspectRatioConversion) {
+      const reader = new FileReader()
+      reader.onload = (e) => onSuccess(file, e.target?.result as string, false)
+      reader.readAsDataURL(file)
+      return
+    }
+
+    // ✅ When aspect ratio is wrong -> use COVER CROP converter (NO WHITE MARGINS)
+    if (needsAspectRatioConversion) {
+      // Standard output size for your UI requirement (2:1)
+      // const targetW = Math.round(440 * targetAspectRatio) // for 2:1 => 880
+      // const targetH = 440
+
+      const targetW = 880
+      const targetH = 440
+      
+      const convertedFile = await convertImageToCoverAspectTopPreferCropWidth(
+        file,
+        targetW,
+        targetH,
+        maxSize,
+        'image/jpeg',
+      )
+      
+
+      const previewReader = new FileReader()
+      previewReader.onload = (e) => {
+        onSuccess(convertedFile, e.target?.result as string, true)
       }
-      img.src = e.target?.result as string
+      previewReader.readAsDataURL(convertedFile)
+      return
     }
-    reader.readAsDataURL(file)
-  } else {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      onSuccess(file, e.target?.result as string)
-    }
-    reader.readAsDataURL(file)
+
+    // ✅ If only size is too big but aspect is OK -> compress WITHOUT aspect padding
+    const { file: compressed, dataUrl, wasConverted } = await compressImage(file, {
+      maxBytes: maxSize,
+      maxWidth: 2000,
+      targetAspectRatio,
+      correctAspectRatio: false, // IMPORTANT: no padding
+    })
+
+    onSuccess(compressed, dataUrl, Boolean(wasConverted))
+  } catch (error) {
+    console.error('Error processing image:', error)
+    onError('Failed to process image. Please try again.')
   }
 }
+
 
 /**
  * Corrects image aspect ratio to target ratio (default 2:1)
@@ -857,4 +878,78 @@ export const handleFileDrop = (event: DragEvent, onFileDrop: (file: File) => voi
 
 export const triggerFileUpload = (fileInput: HTMLInputElement | undefined) => {
   fileInput?.click()
+}
+
+export async function convertImageToCoverAspectTopPreferCropWidth(
+  file: File,
+  targetW: number,
+  targetH: number,
+  maxBytes: number,
+  outputMime: 'image/jpeg' | 'image/png' = 'image/jpeg',
+): Promise<File> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result as string)
+    r.onerror = () => reject(new Error('Failed to read file'))
+    r.readAsDataURL(file)
+  })
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image()
+    i.onload = () => resolve(i)
+    i.onerror = () => reject(new Error('Failed to load image'))
+    i.src = dataUrl
+  })
+
+  const iw = img.naturalWidth || img.width
+  const ih = img.naturalHeight || img.height
+
+  // Prefer crop width: try fit height first
+  const scaleByHeight = targetH / ih
+  const scaledWByHeight = iw * scaleByHeight
+  const useCropWidth = scaledWByHeight >= targetW
+
+  const scale = useCropWidth ? scaleByHeight : targetW / iw
+  const drawW = iw * scale
+  const drawH = ih * scale
+
+  // center horizontally, TOP align vertically (don’t cut top)
+  const dx = (targetW - drawW) / 2
+  const dy = (targetH - drawH) * 0.15 // 20% down
+
+  const canvas = document.createElement('canvas')
+  canvas.width = targetW
+  canvas.height = targetH
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas not supported')
+
+  if (outputMime === 'image/jpeg') {
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, targetW, targetH)
+  }
+
+  ctx.drawImage(img, dx, dy, drawW, drawH)
+
+  const toBlob = (q: number) =>
+    new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('Failed to export image'))),
+        outputMime,
+        q,
+      )
+    })
+
+  let quality = 0.92
+  let blob = await toBlob(quality)
+
+  if (outputMime === 'image/jpeg') {
+    while (blob.size > maxBytes && quality > 0.5) {
+      quality = Math.max(0.5, quality - 0.07)
+      blob = await toBlob(quality)
+    }
+  }
+
+  const ext = outputMime === 'image/png' ? 'png' : 'jpg'
+  const baseName = file.name.replace(/\.(png|jpe?g|webp)$/i, '')
+  return new File([blob], `${baseName}_${targetW}x${targetH}.${ext}`, { type: outputMime })
 }

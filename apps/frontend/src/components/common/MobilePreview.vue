@@ -9,26 +9,33 @@
         role="dialog"
         aria-modal="true"
       >
-        <div
-          class="image-container absolute top-0 h-[159.5px] rounded-t-[18.1129px]"
-          :class="props.image ? 'bg-transparent' : 'bg-[#E2E2E2]'"
-          style="left: -1px; right: -1px; width: calc(100% + 5px)"
-        >
-          <div
-            class="absolute left-1/2 -translate-x-1/2 top-[5px] w-[46px] h-[6px] rounded-full bg-gray-400 z-10"
-          ></div>
-          <img
-            v-if="props.image"
-            :src="displayImage"
-            alt=""
-            class="absolute inset-0 rounded-t-[18.1129px]"
-            style="width: 100%; height: 100%; object-fit: cover"
-          />
-          <div v-else class="grid place-items-center h-full w-full">
-            <img :src="displayImage" alt="" class="w-full h-full object-contain" />
-          </div>
-          <div class="absolute bottom-0 inset-x-0 h-[1px] bg-black/10 z-10"></div>
-        </div>
+      <div
+  class="image-container absolute top-0 h-[159.5px] rounded-t-[18.1129px] overflow-hidden"
+  :class="props.image ? 'bg-transparent' : 'bg-[#E2E2E2]'"
+  style="left: -1px; right: -1px; width: calc(100% + 5px)"
+>
+  <!-- handle bar -->
+  <div
+    class="absolute left-1/2 -translate-x-1/2 top-[5px] w-[46px] h-[6px] rounded-full bg-gray-400 z-10"
+  ></div>
+
+  <!-- ✅ image -->
+  <img
+    v-if="props.image"
+    :src="displayImage"
+    alt=""
+    class="absolute inset-0 w-full h-full rounded-t-[18.1129px] object-cover"
+    style="object-position: center 30%;"
+  />
+
+  <!-- placeholder -->
+  <div v-else class="grid place-items-center h-full w-full">
+    <img :src="displayImage" alt="" class="w-full h-full object-contain" />
+  </div>
+
+  <div class="absolute bottom-0 inset-x-0 h-[1px] bg-black/10 z-10"></div>
+</div>
+
         <div
           class="scrollable-content absolute left-[12.08px] top-[170.5px] bottom-[61px] w-[307.92px] flex flex-col items-start gap-[6.04px] px-[30px] pt-[12px] pb-[20px] overflow-y-auto overflow-x-hidden"
         >
@@ -67,20 +74,26 @@
             <div class="border-b border-dotted border-black h-[12px]"></div>
           </div>
         </div>
-        <div class="absolute left-[5px] right-0 bottom-[10px] h-[51.15px] px-[10.08px]">
-          <div
-            class="rounded-[12.08px] p-[12.08px] bg-[#DB1A1A] text-white font-semibold text-[16px] text-center select-none flex items-center justify-center"
-            style="
-              width: 307.92px;
-              height: 42.15px;
-              pointer-events: none;
-              cursor: default;
-              user-select: none;
-            "
-          >
-            Close
-          </div>
-        </div>
+        <!-- Bottom buttons -->
+<div class="absolute left-[5px] right-0 bottom-[10px] h-[51.15px] px-[10.08px]">
+  <div class="flex items-center gap-[10.08px]">
+    <div
+      class="rounded-[12.08px] p-[12.08px] bg-[#DB1A1A] text-white font-semibold text-[16px] text-center select-none flex items-center justify-center"
+      :style="closeButtonStyle"
+    >
+      Close
+    </div>
+
+    <div
+      v-if="hasLinkPreview"
+      class="rounded-[12.08px] p-[12.08px] bg-[#DB1A1A] text-white font-semibold text-[16px] text-center select-none flex items-center justify-center"
+      :style="readMoreButtonStyle"
+    >
+      Read more
+    </div>
+  </div>
+</div>
+
       </section>
     </div>
   </div>
@@ -109,6 +122,7 @@ interface Props {
   image?: string
   type?: string
   categoryType?: string
+  linkPreview?: string
   titleHasKhmer?: boolean
   descriptionHasKhmer?: boolean
 }
@@ -118,9 +132,33 @@ const props = withDefaults(defineProps<Props>(), {
   description: '',
   image: '',
   categoryType: '',
+  linkPreview: '',
   titleHasKhmer: false,
   descriptionHasKhmer: false,
 })
+
+const hasLinkPreview = computed(() => Boolean(props.linkPreview && props.linkPreview.trim()))
+
+const closeButtonStyle = computed(() => {
+  return {
+    width: hasLinkPreview.value ? '148.92px' : '307.92px',
+    height: '42.15px',
+    pointerEvents: 'none',
+    cursor: 'default',
+    userSelect: 'none',
+  } as Record<string, string>
+})
+
+const readMoreButtonStyle = computed(() => {
+  return {
+    width: '148.92px',
+    height: '42.15px',
+    pointerEvents: 'none',
+    cursor: 'default',
+    userSelect: 'none',
+  } as Record<string, string>
+})
+
 
 const displayImage = computed(() => {
   return props.image || headerImg
