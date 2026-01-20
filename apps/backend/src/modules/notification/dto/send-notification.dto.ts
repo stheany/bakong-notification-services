@@ -12,10 +12,20 @@ import {
 import { Language, NotificationType, Platform, BakongApp } from '@bakong/shared'
 import { ValidationHelper } from 'src/common/util/validation.helper'
 
-export default class SentNotificationDto {
+export default class SentNotificationDtoV2 {
   @IsOptional()
-  @IsString()
-  accountId?: string
+  @Transform(({ value }) => {
+    // allow: "abc" OR ["abc","def"] OR "abc,def"
+    if (value === undefined || value === null || value === '') return undefined
+    if (Array.isArray(value)) return value
+    if (typeof value === 'string') {
+      // support comma string too (optional)
+      if (value.includes(',')) return value.split(',').map((s) => s.trim()).filter(Boolean)
+      return value
+    }
+    return value
+  })
+  accountId?: string | string[]
 
   @IsOptional()
   @IsString()
@@ -110,4 +120,18 @@ export class FlashNotificationDto {
   })
   @IsEnum(Language, { message: 'Language must be one of: EN, KM, JP' })
   language: Language
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    // allow: "abc" OR ["abc","def"] OR "abc,def"
+    if (value === undefined || value === null || value === '') return undefined
+    if (Array.isArray(value)) return value
+    if (typeof value === 'string') {
+      // support comma string too (optional)
+      if (value.includes(',')) return value.split(',').map((s) => s.trim()).filter(Boolean)
+      return value
+    }
+    return value
+  })
+  accountId?: string | string[]
 }

@@ -51,7 +51,7 @@ export class NotificationController {
         if (!dto.bakongPlatform) {
           const inferredBakongPlatform = this.service.inferBakongPlatform(
             dto.participantCode,
-            dto.accountId,
+            dto.accountId as string,
           )
           if (inferredBakongPlatform) {
             console.warn(
@@ -72,7 +72,7 @@ export class NotificationController {
 
         // Check fcmToken status for logging
         if (dto.fcmToken === undefined) {
-          const existingUser = await this.baseFunctionHelper.findUserByAccountId(dto.accountId)
+          const existingUser = await this.baseFunctionHelper.findUserByAccountId(dto.accountId as string)
           if (existingUser?.fcmToken) {
             console.warn(
               `⚠️ [sendNotification] ${dto.notificationType || 'Notification'} for ${

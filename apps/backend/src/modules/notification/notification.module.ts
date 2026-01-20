@@ -4,7 +4,7 @@ import { BakongUser } from 'src/entities/bakong-user.entity'
 import { Image } from 'src/entities/image.entity'
 import { Notification } from 'src/entities/notification.entity'
 import { NotificationController } from './notification.controller'
-import { NotificationV2Controller } from './notification.v2.controller'
+import { NotificationControllerV2 } from './notification.v2.controller'
 import { NotificationService } from './notification.service'
 import { NotificationSchedulerService } from './notification-scheduler.service'
 import { Template } from 'src/entities/template.entity'
@@ -21,7 +21,7 @@ import { Logger } from '@nestjs/common'
     TypeOrmModule.forFeature([Notification, BakongUser, Template, TemplateTranslation, Image]),
     forwardRef(() => TemplateModule),
   ],
-  controllers: [NotificationController, NotificationV2Controller],
+  controllers: [NotificationController, NotificationControllerV2],
   providers: [
     NotificationService,
     NotificationSchedulerService,

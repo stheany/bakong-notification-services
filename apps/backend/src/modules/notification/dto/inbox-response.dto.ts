@@ -1,19 +1,22 @@
-import { Notification } from 'src/entities/notification.entity'
-import { DateFormatter } from '@bakong/shared'
+import { DateFormatter, PaginationMeta, Language, NotificationType } from '@bakong/shared'
 import { BaseResponseDto } from 'src/common/base-response.dto'
 import { Message, ApnsConfig } from 'firebase-admin/messaging'
-import { TemplateService } from '../../template/template.service'
 import { ImageService } from '../../image/image.service'
-import { PaginationMeta } from '@bakong/shared'
-import { Language, NotificationType } from '@bakong/shared'
+import { TemplateService } from '@/modules/template/template.service'
+import { Template } from 'src/entities/template.entity'
+import { CategoryType } from '@/entities/category-type.entity'
+
 
 export interface NotificationData {
   id: number
   templateId: number
   language: string
   notificationType: string
+
+  // ✅ V2 requirement: categoryType is translated display string (not enum, not id)
   categoryType: string
   categoryIcon?: string
+
   bakongPlatform?: string
   createdDate: string
   timestamp: string
@@ -32,9 +35,11 @@ export class InboxResponseDto implements NotificationData {
   content: string
   imageUrl: string
   linkPreview: string
+
   notificationType: string
   categoryType: string
   categoryIcon?: string
+
   bakongPlatform?: string
   createdDate: string
   timestamp: string
@@ -48,73 +53,62 @@ export class InboxResponseDto implements NotificationData {
     imageService?: ImageService,
     req?: any,
   ) {
+    const template = (data as any).template as Template | undefined
+  
     const userTranslation =
-      templateService?.findBestTranslation(data.template, language) ||
-      (data.template?.translations && data.template.translations.length > 0
-        ? data.template.translations.find((t) => t.language === language)
-        : null) ||
-      (data.template?.translations && data.template.translations.length > 0
-        ? data.template.translations[0]
-        : null)
+      (template && templateService?.findBestTranslation(template, language)) || null
+  
+    this.id = Number((data as any).id)
+    this.templateId = Number((data as any).templateId || template?.id || 0)
+    this.language = String(language)
+  
+    this.notificationType = ((template as any)?.notificationType ||
+      NotificationType.ANNOUNCEMENT) as any
 
-    this.id = Number(data.id)
-    this.templateId = data.templateId || 0
-    this.language = language
-    this.notificationType = data.template?.notificationType || NotificationType.ANNOUNCEMENT
-    
-    // CRITICAL FIX: Ensure categoryType is always a string, never null or undefined
-    // Android mobile app requires this field to be a string value
-    // Try multiple fallback strategies to ensure we always have a valid string
-    let categoryTypeName: string | null | undefined = null
-    
-    // Strategy 1: Try categoryTypeEntity.name (preferred)
-    if (data.template?.categoryTypeEntity?.name) {
-      categoryTypeName = data.template.categoryTypeEntity.name
-    }
-    
-    // Strategy 2: If categoryTypeEntity is missing but categoryTypeId exists, log warning
-    if (!categoryTypeName && data.template?.categoryTypeId) {
-      console.warn(
-        `⚠️ [InboxResponseDto] Template ${data.templateId} has categoryTypeId ${data.template.categoryTypeId} but categoryTypeEntity is missing`,
-      )
-    }
-    
-    // Strategy 3: Fallback to 'NEWS' if no categoryType found
-    // This ensures Android always receives a valid string value
-    this.categoryType =
-      categoryTypeName && typeof categoryTypeName === 'string' && categoryTypeName.trim() !== ''
-        ? InboxResponseDto.normalizeCategoryType(categoryTypeName)
-        : 'NEWS'
-    this.categoryType = InboxResponseDto.getCategoryTitle(data.template?.categoryTypeEntity, language)
-    
-    // Final validation: Ensure categoryType is never null/undefined/empty
-    if (!this.categoryType || typeof this.categoryType !== 'string' || this.categoryType.trim() === '') {
-      console.error(
-        `❌ [InboxResponseDto] CRITICAL: categoryType is still invalid after all fallbacks! Template: ${data.templateId}, Setting to 'NEWS'`,
-      )
-      this.categoryType = 'NEWS'
-    }
+      // ✅ V2 requirement: categoryType MUST be translated display string
+      this.categoryType =
+        InboxResponseDto.getCategoryDisplayName(template?.categoryTypeEntity, language) || 'Other'
 
-    // Populate categoryIcon URL only for API V2
-    const isV2 = (req as any)?.version === '2' || req?.url?.includes('/v2/') || req?.originalUrl?.includes('/v2/')
-    
-    if (isV2 && data.template?.categoryTypeId) {
-      this.categoryIcon = `${baseUrl}/api/v1/category-type/${data.template.categoryTypeId}/icon`
-    }
-    
-    this.bakongPlatform = data.template?.bakongPlatform
+      // ✅ V2 requirement: categoryIcon per record
+      this.categoryIcon = baseUrl
+        ? InboxResponseDto.buildCategoryIconUrl(
+            baseUrl,
+            template?.categoryTypeId ?? template?.categoryTypeEntity?.id ?? null,
+          )
+        : undefined
 
-    // Ensure createdAt is a Date object before formatting
-    const createdAtDate = data.createdAt instanceof Date ? data.createdAt : new Date(data.createdAt)
-    this.createdDate = DateFormatter.formatDateByLanguage(createdAtDate, language)
-    this.timestamp = createdAtDate.toISOString()
+  
+    this.bakongPlatform =
+      (template as any)?.bakongPlatform ||
+      (data as any)?.userBakongPlatform ||
+      'BAKONG'
+  
+    this.createdDate = DateFormatter.formatDateByLanguage((data as any).createdAt, language)
+    this.timestamp = (data as any).createdAt.toISOString()
+  
     this.title = userTranslation?.title || ''
     this.content = userTranslation?.content || ''
+  
+    const imageId =
+      (userTranslation as any)?.imageId ??
+      (template as any)?.imageId ??
+      null
+  
     this.imageUrl =
-      imageService?.buildImageUrl(userTranslation?.imageId, undefined, baseUrl) ||
-      (userTranslation?.imageId ? `${baseUrl}/api/v1/image/${userTranslation.imageId}` : '')
+      imageId
+        ? (imageService?.buildImageUrl(imageId, req, baseUrl) ||
+          `${baseUrl}/api/v1/image/${imageId}`)
+        : ''
+  
     this.linkPreview = userTranslation?.linkPreview || ''
+    console.log('template translations:', (data as any).template?.translations?.length)
+    console.log('picked translation:', userTranslation?.language)
+
   }
+  
+  // =========================
+  // ✅ RESPONSE BUILDERS
+  // =========================
 
   static getResponse(
     data: NotificationData | NotificationData[],
@@ -123,15 +117,16 @@ export class InboxResponseDto implements NotificationData {
   ) {
     if (!Array.isArray(data)) {
       return BaseResponseDto.success({
-        data: { whatnews: data },
+        data,
         message,
       })
     }
 
-    const sortedNotifications = data.sort((a, b) => b.id - a.id)
+    const sorted = [...data].sort((a, b) => Number(b.id) - Number(a.id))
+
     return BaseResponseDto.success({
       data: {
-        notifications: sortedNotifications,
+        notifications: sorted,
         ...pagination,
       },
       message,
@@ -139,33 +134,27 @@ export class InboxResponseDto implements NotificationData {
   }
 
   static getNotificationCenterResponse(
-    notifications: NotificationData[],
+    notifications: NotificationData | NotificationData[],
     message: string,
     pagination?: PaginationMeta,
     userBakongPlatform?: string,
   ) {
-    // CRITICAL FIX: Ensure all notifications have valid categoryType before serialization
-    // This prevents Android from receiving null categoryType values
-    const sanitizedNotifications = notifications.map((notif) => {
-      // Ensure categoryType is always a valid string, never null or undefined
-      if (!notif.categoryType || typeof notif.categoryType !== 'string' || notif.categoryType.trim() === '') {
-        console.warn(
-          `⚠️ [getNotificationCenterResponse] Notification ${notif.id} has invalid categoryType: ${notif.categoryType}, setting to 'NEWS'`,
-        )
-        notif.categoryType = 'NEWS'
-      }
-      return notif
-    })
+    // ✅ sanitize: categoryType must never be empty
+    const sanitized = (notifications as NotificationData[]).map((n) => ({
+      ...n,
+      categoryType:
+        typeof n.categoryType === 'string' && n.categoryType.trim()
+          ? n.categoryType
+          : 'Other',
+    }))
+                                                                                                                                 
+    const response = this.getResponse(sanitized, message, pagination)
 
-    const response = this.getResponse(sanitizedNotifications, message, pagination)
-    if (
-      userBakongPlatform &&
-      response.data &&
-      typeof response.data === 'object' &&
-      'notifications' in response.data
-    ) {
-      ;(response.data as any).userBakongPlatform = userBakongPlatform
+    // attach extra field
+    if (userBakongPlatform && response.data && typeof response.data === 'object') {
+      ; (response.data as any).userBakongPlatform = userBakongPlatform
     }
+
     return response
   }
 
@@ -180,9 +169,7 @@ export class InboxResponseDto implements NotificationData {
     },
   ) {
     return BaseResponseDto.success({
-      message: dataUpdated
-        ? 'User data synchronized successfully'
-        : 'User data is already up to date',
+      message: dataUpdated ? 'User data synchronized successfully' : 'User data is already up to date',
       data: {
         accountId,
         bakongPlatform,
@@ -193,58 +180,54 @@ export class InboxResponseDto implements NotificationData {
     })
   }
 
+  // =========================
+  // ✅ DATA BUILDERS (used by send APIs)
+  // =========================
+
   static buildBaseNotificationData(
     template: any,
     translation: any,
-    language: string,
+    language: Language,
     imageUrl = '',
     notificationId?: number,
     sendCount?: number,
     baseUrl?: string,
     req?: any,
+    categoryIcon?: string,
+    failedUsers?: string[],
   ): NotificationData {
-    // Detect V2 version
-    const isV2 =
-      (req as any)?.version === '2' || req?.url?.includes('/v2/') || req?.originalUrl?.includes('/v2/')
-    const includeCategoryIcon =
-      isV2 ||
-      ['true', '1', 'yes'].includes(
-        String((req as any)?.query?.includeCategoryIcon || '').toLowerCase(),
-      )
-    const responseLanguage = translation?.language || language
+
+    const categoryType = InboxResponseDto.getCategoryDisplayName(
+      template?.categoryTypeEntity,
+      language,
+    )
 
     const baseData: NotificationData = {
       id: Number(notificationId),
-      templateId: Number(template.id),
-      language: responseLanguage,
-      notificationType: template.notificationType,
-      // Use categoryTypeEntity.name (string enum) instead of categoryTypeId (numeric ID)
-      // Mobile app expects category name like "NEWS", "ANNOUNCEMENT", etc., not numeric ID
-      // Ensure categoryType is always a string, never null or undefined (required for Android)
-      categoryType:
-        InboxResponseDto.getCategoryTitle(template.categoryTypeEntity, responseLanguage) ||
-        (template.categoryTypeEntity?.name &&
-        typeof template.categoryTypeEntity.name === 'string' &&
-        template.categoryTypeEntity.name.trim() !== ''
-          ? InboxResponseDto.normalizeCategoryType(template.categoryTypeEntity.name)
-          : 'NEWS'),
+      templateId: Number(template?.id),
+      language: String(translation?.language || language),
+      notificationType: template?.notificationType,
+
+      // ✅ translated display name
+      categoryType,
+
+      // ✅ icon only on v2
       categoryIcon:
-        includeCategoryIcon && template.categoryTypeId && baseUrl
-          ? `${baseUrl}/api/v1/category-type/${template.categoryTypeId}/icon`
+        baseUrl
+          ? (categoryIcon || InboxResponseDto.buildCategoryIconUrl(baseUrl, template?.categoryTypeId))
           : undefined,
-      bakongPlatform: template.bakongPlatform,
-      createdDate: DateFormatter.formatDateByLanguage(
-        template.createdAt instanceof Date ? template.createdAt : new Date(template.createdAt),
-        responseLanguage as Language,
-      ),
-      timestamp: (template.createdAt instanceof Date ? template.createdAt : new Date(template.createdAt)).toISOString(),
-      title: translation.title,
-      content: translation.content,
+
+
+      bakongPlatform: template?.bakongPlatform,
+      createdDate: DateFormatter.formatDateByLanguage(new Date(), language),
+      timestamp: new Date().toISOString(),
+      title: translation?.title || '',
+      content: translation?.content || '',
       imageUrl: imageUrl || '',
-      linkPreview: translation.linkPreview || '',
+      linkPreview: translation?.linkPreview || '',
     }
 
-    if (template.notificationType === NotificationType.FLASH_NOTIFICATION) {
+    if (template?.notificationType === NotificationType.FLASH_NOTIFICATION) {
       baseData.sendCount = sendCount || 1
     }
 
@@ -254,14 +237,16 @@ export class InboxResponseDto implements NotificationData {
   static buildSendApiNotificationData(
     template: any,
     translation: any,
-    language: string,
+    language: Language,
     imageUrl = '',
     notificationId?: number,
     sendCount?: number,
     baseUrl?: string,
     req?: any,
+    categoryIcon?: string,
+    failedUsers?: string[],
   ): NotificationData {
-    const baseData = this.buildBaseNotificationData(
+    return this.buildBaseNotificationData(
       template,
       translation,
       language,
@@ -270,13 +255,38 @@ export class InboxResponseDto implements NotificationData {
       sendCount,
       baseUrl,
       req,
+      categoryIcon,
+      failedUsers,
     )
+  }
 
-    if (template.notificationType === NotificationType.FLASH_NOTIFICATION) {
-      baseData.sendCount = sendCount || 1
-    }
+  // =========================
+  // ✅ CATEGORY HELPERS (single source of truth)
+  // =========================
 
-    return baseData
+  static getCategoryDisplayName(
+    categoryType: CategoryType | undefined,
+    lang: Language,
+  ): string {
+    const defaultOther =
+      lang === Language.KM ? 'ផ្សេងៗ'
+        : lang === Language.JP ? 'その他'
+          : 'Other'
+
+    if (!categoryType) return defaultOther
+
+    const safe = (v?: string) => (typeof v === 'string' ? v.trim() : '')
+
+    if (lang === Language.KM) return safe(categoryType.namekh) || safe(categoryType.name) || defaultOther
+    if (lang === Language.JP) return safe(categoryType.namejp) || safe(categoryType.name) || defaultOther
+    return safe(categoryType.name) || defaultOther
+  }
+
+  private static DEFAULT_OTHER_CATEGORY_ID = 3
+
+  static buildCategoryIconUrl(baseUrl: string, categoryTypeId?: number | null): string {
+    const id = categoryTypeId ?? InboxResponseDto.DEFAULT_OTHER_CATEGORY_ID
+    return `${baseUrl}/api/v1/category-type/${id}/icon`
   }
 
   static buildFCMResult(
@@ -346,6 +356,7 @@ export class InboxResponseDto implements NotificationData {
     }
   }
 
+
   static buildAndroidPayload(
     token: string,
     title: string,
@@ -356,41 +367,30 @@ export class InboxResponseDto implements NotificationData {
     const dataPayload = {
       type: 'NOTIFICATION',
       notificationId,
-      title: title,
-      body: body,
+      title,
+      body,
       timestamp: new Date().toISOString(),
       ...(extra ?? {}),
-      content: extra?.content || '',
-      linkPreview: extra?.linkPreview || '',
-      createdDate:
-        extra?.createdDate ||
-        DateFormatter.formatDateByLanguage(new Date(), Language.EN),
-      notification_title: extra?.notification_title || title,
-      notification_body: extra?.notification_body || body,
     }
-  
-    const stringDataPayload: Record<string, string> = {}
-    Object.entries(dataPayload).forEach(([key, value]) => {
-      // Skip undefined fields (e.g., categoryIcon in V1)
-      if (value === undefined) return
-      
-      // CRITICAL: Ensure categoryType is never empty string
-      if (key === 'categoryType' && (!value || String(value).trim() === '')) {
-        stringDataPayload[key] = 'NEWS'
-      } else {
-        stringDataPayload[key] = String(value || '')
-      }
+
+    // ensure all values are string & not undefined
+    const safeData: Record<string, string> = {}
+    Object.entries(dataPayload).forEach(([k, v]) => {
+      if (v === undefined) return
+      safeData[k] = String(v ?? '')
     })
-  
+
+    // ensure categoryType never empty
+    if (safeData.categoryType !== undefined && !safeData.categoryType.trim()) {
+      safeData.categoryType = 'Other'
+    }
+
     return {
       token,
-      data: dataPayload,
-      android: {
-        priority: 'high',
-      },
+      data: safeData,
+      android: { priority: 'high' },
     }
   }
-  
 
   static buildAndroidDataOnlyPayload(
     token: string,
@@ -407,11 +407,15 @@ export class InboxResponseDto implements NotificationData {
       timestamp: new Date().toISOString(),
       ...(extra
         ? Object.fromEntries(
-            Object.entries(extra)
-              .filter(([_, value]) => value !== undefined)
-              .map(([key, value]) => [key, String(value || '')]),
-          )
+          Object.entries(extra)
+            .filter(([_, value]) => value !== undefined)
+            .map(([key, value]) => [key, String(value ?? '')]),
+        )
         : {}),
+    }
+
+    if (data.categoryType !== undefined && !data.categoryType.trim()) {
+      data.categoryType = 'Other'
     }
 
     return {
@@ -432,43 +436,32 @@ export class InboxResponseDto implements NotificationData {
     notificationId: string,
     notification?: Record<string, string | number>,
   ): Message {
-    // APS (Apple Push Notification service) payload - only valid APNs fields allowed
-    // Valid fields: alert, badge, sound, content-available, category, thread-id, mutable-content
-    // Note: Do NOT include content-available when you have alert - it's for silent notifications only
-    // When both are present, iOS may not display the notification properly
     const aps: Record<string, any> = {
       alert: { title, body },
       sound: 'default',
       badge: 1,
       type: 'NOTIFICATION',
-      notification : notification || [] // Mobile app reads this from aps payload (non-standard but was working before)
-      // Removed content-available - it's only for silent background notifications
-      // When combined with alert, it can prevent notification from displaying
+      notification: notification || [],
     }
 
-    // Build data payload for iOS (accessible when app is opened from notification)
-    // Data fields must be strings for FCM
-    // Note: Mobile app will determine redirect screen based on notificationType field
-    // IMPORTANT: Set 'type' AFTER adding other fields to ensure it's never overwritten
     const dataPayload: Record<string, string> = {
       notificationId: String(notificationId),
     }
 
-    // Add other notification data fields if present (in data, not APS)
-    // This includes notificationType which mobile app uses for routing
     if (notification) {
       Object.entries(notification).forEach(([key, value]) => {
-        // Skip 'type' field from notification object to prevent overwriting
-        // Also skip undefined fields (e.g., categoryIcon in V1)
-        if (key !== 'type' && value !== undefined) {
-          dataPayload[key] = String(value ?? '')
-        }
+        if (value === undefined) return
+        if (key === 'type') return
+        dataPayload[key] = String(value ?? '')
       })
     }
 
-    // IMPORTANT: Set 'type' AFTER all other fields to ensure it's always 'NOTIFICATION'
-    // Mobile app requires this field and expects it to be 'NOTIFICATION'
     dataPayload.type = 'NOTIFICATION'
+
+    // ensure categoryType never empty
+    if (dataPayload.categoryType !== undefined && !dataPayload.categoryType.trim()) {
+      dataPayload.categoryType = 'Other'
+    }
 
     const apns: ApnsConfig = {
       headers: {
@@ -478,15 +471,9 @@ export class InboxResponseDto implements NotificationData {
       payload: { aps },
     }
 
-    // IMPORTANT: Add 'notification' field at root level (like Firebase Console does)
-    // This ensures iOS displays the notification even when app is in background/terminated
-    // Firebase Console uses this structure, so we match it for consistency
     return {
       token,
-      notification: {
-        title,
-        body,
-      },
+      notification: { title, body },
       apns,
       data: dataPayload,
     }
@@ -500,31 +487,9 @@ export class InboxResponseDto implements NotificationData {
     notificationId: string,
     notification?: Record<string, string | number>,
   ): Message {
-    // FLASH_NOTIFICATION now sends FCM push like other notification types
-    // Mobile app will display it differently (as popup/flash screen)
     return this.buildIOSAlertPayload(token, title, body, notificationId, notification)
   }
-
-  private static normalizeCategoryType(value: string): string {
-    return value
-      .trim()
-      .toUpperCase()
-      .replace(/\s*&\s*/g, '_AND_')
-      .replace(/\s+/g, '_')
-      .replace(/_+/g, '_')
-  }
-
-  static getCategoryTitle(categoryTypeEntity: any, language?: string): string {
-    if (!categoryTypeEntity) return ''
-
-    const normalizedLanguage = String(language || '').toUpperCase()
-    if (normalizedLanguage === String(Language.JP)) {
-      return categoryTypeEntity.namejp || categoryTypeEntity.name || ''
-    }
-    if (normalizedLanguage === String(Language.KM)) {
-      return categoryTypeEntity.namekh || categoryTypeEntity.name || ''
-    }
-
-    return categoryTypeEntity.name || ''
-  }
 }
+
+
+

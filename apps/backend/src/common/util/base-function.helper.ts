@@ -5,7 +5,7 @@ import { Repository } from 'typeorm'
 import { cert, initializeApp, getApps } from 'firebase-admin/app'
 import * as fs from 'fs'
 import * as path from 'path'
-import { BakongApp } from '@bakong/shared'
+import { BakongApp, NotificationType } from '@bakong/shared'
 
 type SingleUserSyncResult = { isNewUser: boolean; savedUser: BakongUser; dataUpdated?: boolean }
 type AllUsersSyncResult = {
@@ -783,6 +783,18 @@ export class BaseFunctionHelper {
         console.error('[Firebase Init] Stack trace:', error.stack)
       }
       return false
+    }
+  }
+  static formatNotificationType(type: string): string {
+    switch (type?.toUpperCase()) {
+      case NotificationType.NOTIFICATION:
+        return 'Notification'
+      case NotificationType.ANNOUNCEMENT:
+        return 'Announcement'
+      case NotificationType.FLASH_NOTIFICATION:
+        return 'Flash Notification'
+      default:
+        return type || 'Announcement'
     }
   }
 }
