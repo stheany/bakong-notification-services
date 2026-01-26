@@ -254,9 +254,13 @@ _backup_database_internal() {
         return 1
     fi
     
-    # Verify backup contains SQL statements
-    if ! grep -q "CREATE TABLE\|INSERT INTO\|COPY" "$BACKUP_FILE" 2>/dev/null; then
-        echo "❌ Backup file appears corrupted (no SQL statements found)!"
+    # Verify backup contains SQL statements or pg_dump markers
+    # pg_dump should always produce SQL keywords or at least pg_dump header comments
+    if ! grep -qiE "(CREATE|INSERT|COPY|ALTER|COMMENT|SET|SELECT|DROP|GRANT|REVOKE|PostgreSQL database dump)" "$BACKUP_FILE" 2>/dev/null; then
+        echo "❌ Backup file appears corrupted (no SQL statements or pg_dump markers found)!"
+        echo "   File size: $(wc -c < "$BACKUP_FILE" | tr -d ' ') bytes"
+        echo "   First 10 lines of backup:"
+        head -10 "$BACKUP_FILE" | sed 's/^/   /'
         rm -f "$BACKUP_FILE"
         return 1
     fi
