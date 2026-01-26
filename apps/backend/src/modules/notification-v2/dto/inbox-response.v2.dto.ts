@@ -284,7 +284,7 @@ export class InboxResponseDtoV2 implements NotificationDataV2 {
 
   static buildCategoryIconUrl(baseUrl: string, categoryTypeId?: number | null): string {
     const id = categoryTypeId ?? InboxResponseDtoV2.DEFAULT_OTHER_CATEGORY_ID
-    return `${baseUrl}/api/v1/category-type/${id}/icon`
+    return `${baseUrl}/api/v2/category-type/${id}/icon`
   }
 
 

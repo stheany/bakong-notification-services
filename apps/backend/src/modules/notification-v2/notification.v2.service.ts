@@ -1506,7 +1506,7 @@ export class NotificationServiceV2 {
   
       const categoryIcon =
         (template as any)?.categoryTypeId
-          ? `${baseUrl}/api/v1/category-type/${(template as any).categoryTypeId}/icon`
+          ? `${baseUrl}/api/v2/category-type/${(template as any).categoryTypeId}/icon`
           : undefined
   
       const whatnews = InboxResponseDtoV2.buildSendApiNotificationData(

@@ -1417,7 +1417,7 @@ export class TemplateServiceV2 implements OnModuleInit {
     const isV2 = (req as any)?.version === '2' || req?.url?.includes('/v2/') || req?.originalUrl?.includes('/v2/')
 
     const categoryIcon = (isV2 && template.categoryTypeId)
-      ? `${baseUrl}/api/v1/category-type/${template.categoryTypeId}/icon`
+      ? `${baseUrl}/api/v2/category-type/${template.categoryTypeId}/icon`
       : undefined
 
     // Determine request language for categoryType translation
@@ -1565,7 +1565,7 @@ export class TemplateServiceV2 implements OnModuleInit {
     const isV2 = (req as any)?.version === '2' || req?.url?.includes('/v2/') || req?.originalUrl?.includes('/v2/')
 
     const categoryIcon = (isV2 && template.categoryTypeId)
-      ? `${baseUrl}/api/v1/category-type/${template.categoryTypeId}/icon`
+      ? `${baseUrl}/api/v2/category-type/${template.categoryTypeId}/icon`
       : undefined
 
     return {
