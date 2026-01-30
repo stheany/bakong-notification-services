@@ -212,7 +212,24 @@ export class NotificationController {
   @ApiKeyRequired()
   @Roles(UserRole.ADMINISTRATOR, UserRole.EDITOR)
   async postNotificationInbox(@Body() dto: NotificationInboxDto, @Req() req: any) {
-    return await this.service.getNotificationCenter(dto, req)
+    console.log('📥 /inbox API called:', {
+      accountId: dto.accountId,
+      language: dto.language,
+      page: dto.page,
+      size: dto.size,
+      platform: dto.platform,
+      bakongPlatform: dto.bakongPlatform,
+    })
+    const response = await this.service.getNotificationCenter(dto, req)
+    if (response && typeof response === 'object' && 'responseCode' in response) {
+      const data = (response as any).data
+      console.log('📥 /inbox API response:', {
+        responseCode: (response as any).responseCode,
+        errorCode: (response as any).errorCode,
+        notificationCount: Array.isArray(data) ? data.length : undefined,
+      })
+    }
+    return response
   }
 
   /**
