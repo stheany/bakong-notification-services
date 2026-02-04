@@ -1369,7 +1369,13 @@ const loadNotificationData = async () => {
         const title = t.title || ''
         const description = t.content || ''
         const linkPreview = t.linkPreview || ''
-        const fileId = t.image?.fileId || t.image?.fileID || t.imageId || t.image?.id
+
+        const fileId =
+          t.image?.fileId ||
+          t.image?.fileID ||
+          t.imageId ||
+          t.image?.id ||
+          (typeof t.image === 'string' ? t.image : null)
 
         // CRITICAL: Store existing image ID FIRST before setting imageUrl
         // This ensures existingImageIds is always set even if imageUrl becomes null later
@@ -2504,12 +2510,14 @@ const handlePublishNowInternal = async () => {
             // Compress to 2MB per image (safer for batch uploads)
             // 3 images × 2MB = 6MB total, well under 18MB limit
             const { file: compressed, dataUrl } = await compressImage(langData.imageFile, {
-              maxBytes: 2 * 1024 * 1024, // 2MB per image (safer for batch uploads)
-              maxWidth: 2000,
-              targetAspectRatio: 2 / 1, // 2:1 aspect ratio as shown in UI
-              correctAspectRatio: true, // Automatically correct aspect ratio
+              keepOriginalFile: true,
+              maxBytes: 2 * 1024 * 1024,
+              maxWidth: 880, // mobile preview width
+              targetAspectRatio: 2 / 1,
+              correctAspectRatio: true,
             })
-            imagesToUpload.push({ file: compressed, language: langKey })
+            imagesToUpload.push({ file: compressed, language: langKey }) // <- ORIGINAL file
+            languageFormData[langKey].imageUrl = dataUrl // <- PREVIEW dataUrl
             if (languageFormData[langKey]) {
               languageFormData[langKey].imageUrl = dataUrl
             }

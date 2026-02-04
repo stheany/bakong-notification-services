@@ -77,17 +77,17 @@ export class InboxResponseDto implements NotificationData {
     // For categoryType and date: Use user's preferred language (with KM fallback)
     // This ensures users see labels in their preferred language even if content is KM
     let displayLanguage: Language = language
-        // Check if template has translation in user's language
-        if (template?.translations && Array.isArray(template.translations)) {
-          const userLangExists = template.translations.some((t: any) => t.language === language)
-          if (!userLangExists) {
-            // User's language not available, fallback to KM
-            displayLanguage = Language.KM
-          }
-        } else {
-          // No translations available, use KM as fallback
-          displayLanguage = Language.KM
-        }
+    // Check if template has translation in user's language
+    if (template?.translations && Array.isArray(template.translations)) {
+      const userLangExists = template.translations.some((t: any) => t.language === language)
+      if (!userLangExists) {
+        // User's language not available, fallback to KM
+        displayLanguage = Language.KM
+      }
+    } else {
+      // No translations available, use KM as fallback
+      displayLanguage = Language.KM
+    }
 
     // If the stored notification language is EN, prefer English for display
     try {
@@ -163,10 +163,14 @@ export class InboxResponseDto implements NotificationData {
       null
 
     this.imageUrl =
-      imageId
-        ? (imageService?.buildImageUrl(imageId, req, baseUrl) ||
-          `${baseUrl}/api/v1/image/${imageId}`)
-        : ''
+      imageService?.buildImageUrl(userTranslation?.imageId, undefined, baseUrl, {
+        width: 654,
+        height: 330,
+        fit: 'cover',
+      }) ||
+      (userTranslation?.imageId
+        ? `${baseUrl}/api/v1/image/${userTranslation.imageId}?w=654&h=330&fit=cover`
+        : '')
 
     this.linkPreview = storedTranslation?.linkPreview || ''
   }

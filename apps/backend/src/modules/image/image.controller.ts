@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Res,
   UploadedFiles,
   UseInterceptors,
@@ -22,7 +23,7 @@ import { ErrorCode, ResponseMessage } from '@bakong/shared'
 @Controller('image')
 @UseInterceptors(ClassSerializerInterceptor)
 export class ImageController {
-  constructor(private readonly imageService: ImageService) {}
+  constructor(private readonly imageService: ImageService) { }
 
   @Post('upload')
   @Roles(UserRole.ADMINISTRATOR, UserRole.EDITOR)
@@ -73,7 +74,7 @@ export class ImageController {
         const parsed = JSON.parse(languagesRaw)
         if (Array.isArray(parsed)) languages = parsed
       }
-    } catch {}
+    } catch { }
 
     const filesPayload = results.map((result, index) => ({
       language: languages[index] || undefined,
@@ -91,16 +92,23 @@ export class ImageController {
   async findByFileId(
     @Res({ passthrough: false }) res: Response,
     @Param('fileId', ParseUUIDPipe) fileId: string,
+    @Query('w') width?: string,
+    @Query('h') height?: string,
+    @Query('fit') fit?: string,
   ) {
-    const image = await this.imageService.findByFileId(fileId)
+    const resizeOptions =
+      width && height
+        ? {
+          width: Number(width),
+          height: Number(height),
+          fit: fit,
+        }
+        : undefined
 
-    // Set CORS headers to allow cross-origin image loading
+    const image = await this.imageService.findByFileId(fileId, resizeOptions)
+
     res.set({
       'Content-Type': image.mimeType,
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Cross-Origin-Resource-Policy': 'cross-origin',
     })
     res.send(image.file)
   }

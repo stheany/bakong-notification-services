@@ -10,10 +10,10 @@
         aria-modal="true"
       >
         <div
-          class="image-container absolute top-0 h-[159.5px] rounded-t-[18.1129px]"
+          class="image-container absolute top-0 left-0 right-0 w-full h-[159.5px] overflow-hidden"
           :class="props.image ? 'bg-transparent' : 'bg-[#E2E2E2]'"
-          style="left: -1px; right: -1px; width: calc(100% + 5px)"
         >
+
           <div
             class="absolute left-1/2 -translate-x-1/2 top-[5px] w-[46px] h-[6px] rounded-full bg-gray-400 z-10"
           ></div>
@@ -21,8 +21,7 @@
             v-if="props.image"
             :src="displayImage"
             alt=""
-            class="absolute inset-0 rounded-t-[18.1129px]"
-            style="width: 100%; height: 100%; object-fit: cover"
+            class="absolute inset-0 w-full h-full object-cover"
           />
           <div v-else class="grid place-items-center h-full w-full">
             <img :src="displayImage" alt="" class="w-full h-full object-contain" />
@@ -103,6 +102,7 @@ const handleAvatarError = () => {
   avatarLoadError.value = true
 }
 
+
 interface Props {
   title?: string
   description?: string
@@ -122,9 +122,24 @@ const props = withDefaults(defineProps<Props>(), {
   descriptionHasKhmer: false,
 })
 
+const toPreviewUrl = (url: string) => {
+  if (!url) return ''
+  // local preview
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url
+
+  // add resize only for preview
+  const [base, qs] = url.split('?')
+  const params = new URLSearchParams(qs || '')
+  params.set('w', '880')
+  params.set('h', '440')
+  params.set('fit', 'cover')
+  return `${base}?${params.toString()}`
+}
+
 const displayImage = computed(() => {
-  return props.image || headerImg
+  return props.image ? toPreviewUrl(props.image) : headerImg
 })
+
 
 const displayTitle = computed(() => {
   const title = props.title || ''
@@ -253,11 +268,14 @@ const currentDate = computed(() => {
 
 /* Ensure image container spans full width of section */
 .image-container {
-  left: 0 !important;
-  right: 0 !important;
-  width: 100% !important;
+  /* Force bleed effect with !important to ensure it works in all modes */
+  left: -15% !important;
+  right: -15% !important;
+  top: -1px !important;
+  width: 130% !important;
   margin: 0 !important;
   padding: 0 !important;
+  overflow: hidden;
 }
 
 /* Ensure image fills container completely - full width, no gaps */
@@ -266,8 +284,6 @@ const currentDate = computed(() => {
   top: 0 !important;
   left: 0 !important;
   width: 100% !important;
-  min-width: 100% !important;
-  max-width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
   display: block !important;

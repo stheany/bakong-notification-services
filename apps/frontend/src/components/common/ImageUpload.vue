@@ -117,12 +117,32 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   acceptTypes: 'image/png,image/jpeg',
-  maxSize: 2 * 1024 * 1024, // 2MB per image (safer for batch uploads)
-  formatText: 'Supported format: PNG, JPG (2:1 W:H or 880:440)',
-  sizeText: 'Maximum size: 2MB (will be auto-compressed)',
-  validateAspectRatio: true,
-  disabled: false,
+  maxSize: 3 * 1024 * 1024,
+  formatText: 'Supported format: PNG, JPG (any size)',
+  sizeText: 'Maximum size: 3MB',
+  validateAspectRatio: false,
 })
+
+// script
+const toPreviewUrl = (url: string) => {
+  if (!url) return ''
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url
+
+  const [base, qs] = url.split('?')
+  const params = new URLSearchParams(qs || '')
+  if (params.has('w') || params.has('h')) return url
+
+  params.set('w', '880')
+  params.set('h', '440')
+  params.set('fit', 'cover')
+  return `${base}?${params.toString()}`
+}
+
+const imageSource = computed(() => {
+  if (filePreview.value) return filePreview.value
+  return toPreviewUrl(props.existingImageUrl || '')
+})
+
 
 const emit = defineEmits<Emits>()
 
@@ -184,9 +204,9 @@ const showUploadArea = computed(() => {
 })
 
 // Computed property for image source
-const imageSource = computed(() => {
-  return filePreview.value || props.existingImageUrl || ''
-})
+// const imageSource = computed(() => {
+//   return filePreview.value || props.existingImageUrl || ''
+// })
 
 const triggerFileUploadHandler = () => {
   triggerFileUpload(fileInput.value)
@@ -245,26 +265,17 @@ const processFileSuccess = (file: File, previewUrl: string, wasConverted?: boole
   }
 }
 
-const processFileHandler = async (file: File) => {
-  try {
-    await processFile(
-      file,
-      processFileSuccess,
-      (error: string) => {
-        errorMessage.value = error
-        emit('error', error)
-      },
-      props.validateAspectRatio,
-      props.acceptTypes,
-      props.maxSize,
-      true, // autoConvert = true - automatically convert instead of rejecting
-      2 / 1, // targetAspectRatio = 2:1 (as shown in UI)
-    )
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Failed to process image'
-    errorMessage.value = errorMsg
-    emit('error', errorMsg)
-  }
+const processFileHandler = (file: File) => {
+  processFile(
+    file,
+    processFileSuccess,
+    (error: string) => {
+      errorMessage.value = error
+    },
+    props.validateAspectRatio,
+    props.acceptTypes,
+    props.maxSize,
+  )
 }
 
 const removeFile = () => {

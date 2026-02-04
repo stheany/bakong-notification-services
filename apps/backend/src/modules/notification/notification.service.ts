@@ -464,7 +464,7 @@ export class NotificationService {
     let requestedLang: Language | undefined = undefined
     try {
       // dto not available here; but we still prefer EN for tourist templates
-    } catch (e) {}
+    } catch (e) { }
 
     let preferredLangForPush: Language = template.bakongPlatform === BakongApp.BAKONG_TOURIST ? Language.EN : Language.KM
     let defaultTranslation = this.templateService.findBestTranslation(template, preferredLangForPush)
@@ -489,7 +489,7 @@ export class NotificationService {
         console.log(`🔄 [sendWithTemplate] Temporarily coercing translation.language -> EN for template ${template.id}`)
         try {
           // mutate in-memory only
-          ;(defaultTranslation as any).language = Language.EN
+          ; (defaultTranslation as any).language = Language.EN
         } catch (e) {
           console.warn('⚠️ [sendWithTemplate] Failed to coerce translation language in-memory:', e?.message || e)
         }
@@ -683,7 +683,7 @@ export class NotificationService {
         // Mobile app fetching specific notification (e.g., after clicking flash notification)
         const notification = await this.notiRepo.findOne({
           where: { id: dto.notificationId },
-          relations: ['template', 'template.translations', 'template.categoryTypeEntity'],
+          relations: ['template', 'template.translations', 'template.translations.image'],
         })
         if (!notification) throw new Error('Notification not found')
 
@@ -711,8 +711,13 @@ export class NotificationService {
         }
 
         const trans = this.templateService.findBestTranslation(notification.template, dto.language)
-        const imageUrl = trans?.imageId ? this.imageService.buildImageUrl(trans.imageId, req) : ''
-
+        const imageUrl = trans?.imageId
+          ? this.imageService.buildImageUrl(trans.imageId, req, undefined, {
+            width: 654,
+            height: 330,
+            fit: 'cover',
+          })
+          : ''
         const baseUrl = this.baseFunctionHelper
           ? this.baseFunctionHelper.getBaseUrl(req)
           : 'http://localhost:4005'
@@ -853,7 +858,7 @@ export class NotificationService {
         if (translation && translation.language !== Language.EN) {
           console.log(`🔄 [sendNow] Temporarily coercing translation.language -> EN for template ${template.id}`)
           try {
-            ;(translation as any).language = Language.EN
+            ; (translation as any).language = Language.EN
           } catch (e) {
             console.warn('⚠️ [sendNow] Failed to coerce translation language in-memory:', e?.message || e)
           }
@@ -1192,9 +1197,12 @@ export class NotificationService {
       // But use user's language for categoryType/date display in the response
       const responseTranslation = translation // Use the KM translation that was sent
       const imageUrl = responseTranslation?.imageId
-        ? this.imageService.buildImageUrl(responseTranslation.imageId, req)
+        ? this.imageService.buildImageUrl(responseTranslation.imageId, req, undefined, {
+          width: 654,
+          height: 330,
+          fit: 'cover',
+        })
         : ''
-
       // Only mark as published if FCM send was successful
       await this.templateService.markAsPublished(template.id, req?.user)
 
@@ -1288,7 +1296,11 @@ export class NotificationService {
       const successfulSends: Array<{ accountId: string; messageId: string }> = [] // Track successful sends with message IDs
 
       const imageUrl = translation.imageId
-        ? this.imageService.buildImageUrl(translation.imageId, req)
+        ? this.imageService.buildImageUrl(translation.imageId, req, undefined, {
+          width: 654,
+          height: 330,
+          fit: 'cover',
+        })
         : ''
       const imageUrlString = typeof imageUrl === 'string' ? imageUrl : ''
       const title = this.baseFunctionHelper.truncateText('title', translation.title)
@@ -2574,7 +2586,11 @@ export class NotificationService {
     await this.templateService.markAsPublished(selectedTemplate.id, req?.user)
 
     const imageUrl = selectedTranslation?.imageId
-      ? this.imageService.buildImageUrl(selectedTranslation.imageId, req)
+      ? this.imageService.buildImageUrl(selectedTranslation.imageId, req, undefined, {
+        width: 654,
+        height: 330,
+        fit: 'cover',
+      })
       : ''
 
     const baseUrl = this.baseFunctionHelper
@@ -2812,11 +2828,11 @@ export class NotificationService {
       // Filter notifications by user's bakongPlatform
       const filteredNotifications = []
       for (const notification of notifications) {
-        if (notification.templateId && notification.template) {
-          // Ensure translations array exists
-          if (!notification.template.translations) {
-            notification.template.translations = []
-          }
+        if (notification.templateId) {
+          notification.template = await this.templateRepo.findOne({
+            where: { id: notification.templateId },
+            relations: ['translations', 'translations.image'],
+          })
 
           // Log if categoryTypeEntity is missing for debugging
           if (!notification.template.categoryTypeEntity && notification.template.categoryTypeId) {
@@ -2858,7 +2874,7 @@ export class NotificationService {
           try {
             if (notification && notification.template && notification.template.bakongPlatform === BakongApp.BAKONG_TOURIST) {
               if (!notification.language || String(notification.language) !== String(Language.EN)) {
-                ;(notification as any).language = String(Language.EN)
+                ; (notification as any).language = String(Language.EN)
                 console.log(`🔒 [getNotificationCenter] Temporarily setting notification.language -> EN for notification ${notification.id}`)
               }
             }
@@ -2892,7 +2908,7 @@ export class NotificationService {
       const isNewUser = 'isNewUser' in syncResult ? (syncResult as any).isNewUser : false
       const filteredCount = filteredNotifications.length
 
-        return InboxResponseDto.getNotificationCenterResponse(
+      return InboxResponseDto.getNotificationCenterResponse(
         filteredNotifications.map(
           (notif) =>
             new InboxResponseDto(

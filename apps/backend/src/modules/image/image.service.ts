@@ -16,53 +16,92 @@ export class ImageService {
   constructor(
     @InjectRepository(Image) private readonly repo: Repository<Image>,
     private readonly baseFunctionHelper: BaseFunctionHelper,
-  ) {}
+  ) { }
 
-  async compressImage(
+  // async compressImage(
+  //   buffer: Buffer,
+  //   mimeType: string,
+  // ): Promise<{ buffer: Buffer; mimeType: string }> {
+  //   try {
+  //     const maxWidth = 1920
+  //     const maxHeight = 1080
+  //     const quality = 85
+
+  //     let sharpInstance = sharp(buffer)
+  //     const metadata = await sharpInstance.metadata()
+
+  //     if (metadata.width && metadata.height) {
+  //       if (metadata.width > maxWidth || metadata.height > maxHeight) {
+  //         sharpInstance = sharpInstance.resize(maxWidth, maxHeight, {
+  //           fit: 'inside',
+  //           withoutEnlargement: true,
+  //         })
+  //       }
+  //     }
+
+  //     if (mimeType === 'image/png' && metadata.hasAlpha) {
+  //       sharpInstance = sharpInstance.png({ compressionLevel: 9 })
+  //     } else {
+  //       sharpInstance = sharpInstance.jpeg({ quality, mozjpeg: true })
+  //       mimeType = 'image/jpeg'
+  //     }
+
+  //     const compressedBuffer = await sharpInstance.toBuffer()
+
+  //     this.logger.log(
+  //       `Image compressed: ${(buffer.length / 1024).toFixed(2)}KB -> ${(
+  //         compressedBuffer.length / 1024
+  //       ).toFixed(2)}KB ` +
+  //       `(${((1 - compressedBuffer.length / buffer.length) * 100).toFixed(1)}% reduction)`,
+  //     )
+
+  //     return { buffer: compressedBuffer, mimeType }
+  //   } catch (error) {
+  //     this.logger.warn(
+  //       `Failed to compress image, using original: ${error?.message || String(error)}`,
+  //     )
+  //     return { buffer, mimeType }
+  //   }
+  // }
+
+
+  async resizeImage(
     buffer: Buffer,
-    mimeType: string,
-  ): Promise<{ buffer: Buffer; mimeType: string }> {
+    width: number,
+    height: number,
+    fit: keyof sharp.FitEnum = 'cover',
+    mimeType: string = 'image/jpeg',
+    quality: number = 85,
+  ): Promise<Buffer> {
     try {
-      const maxWidth = 1920
-      const maxHeight = 1080
-      const quality = 85
-
       let sharpInstance = sharp(buffer)
       const metadata = await sharpInstance.metadata()
 
       if (metadata.width && metadata.height) {
-        if (metadata.width > maxWidth || metadata.height > maxHeight) {
-          sharpInstance = sharpInstance.resize(maxWidth, maxHeight, {
-            fit: 'inside',
-            withoutEnlargement: true,
-          })
-        }
+        sharpInstance = sharpInstance.resize(width, height, {
+          fit: fit,
+          position: 'center',
+          background: { r: 0, g: 0, b: 0, alpha: 0 }, // Transparent background for containment
+        })
       }
 
-      if (mimeType === 'image/png' && metadata.hasAlpha) {
+      if (mimeType === 'image/png') {
         sharpInstance = sharpInstance.png({ compressionLevel: 9 })
       } else {
         sharpInstance = sharpInstance.jpeg({ quality, mozjpeg: true })
-        mimeType = 'image/jpeg'
       }
 
-      const compressedBuffer = await sharpInstance.toBuffer()
-
-      this.logger.log(
-        `Image compressed: ${(buffer.length / 1024).toFixed(2)}KB -> ${(
-          compressedBuffer.length / 1024
-        ).toFixed(2)}KB ` +
-          `(${((1 - compressedBuffer.length / buffer.length) * 100).toFixed(1)}% reduction)`,
-      )
-
-      return { buffer: compressedBuffer, mimeType }
+      return await sharpInstance.toBuffer()
     } catch (error) {
-      this.logger.warn(
-        `Failed to compress image, using original: ${error?.message || String(error)}`,
-      )
-      return { buffer, mimeType }
+      this.logger.warn(`Failed to resize image: ${error?.message || String(error)}`)
+      return buffer
     }
   }
+
+  async compressImage(buffer: Buffer, mimeType: string) {
+    return { buffer, mimeType } // return exactly the same bytes
+  }
+
 
   async create(dto: UploadImageDto) {
     const fileBuffer = dto.file as Buffer
@@ -85,8 +124,7 @@ export class ImageService {
       }
     } catch (error) {
       this.logger.warn(
-        `⚠️ Error checking for duplicate image: ${
-          error?.message || String(error)
+        `⚠️ Error checking for duplicate image: ${error?.message || String(error)
         }. Creating new record.`,
       )
     }
@@ -134,7 +172,10 @@ export class ImageService {
     }
   }
 
-  async findByFileId(fileId: string) {
+  async findByFileId(
+    fileId: string,
+    resizeOptions?: { width?: number; height?: number; fit?: any },
+  ) {
     const image = await this.repo.findOneBy({ fileId })
     if (!image) {
       throw new NotFoundException(
@@ -146,10 +187,26 @@ export class ImageService {
       )
     }
 
+    if (resizeOptions?.width && resizeOptions?.height) {
+      const resizedBuffer = await this.resizeImage(
+        image.file,
+        Number(resizeOptions.width),
+        Number(resizeOptions.height),
+        resizeOptions.fit || 'cover',
+        image.mimeType,
+      )
+      image.file = resizedBuffer
+    }
+
     return image
   }
 
-  buildImageUrl(imageId: string, req?: any, baseUrl?: string): string {
+  buildImageUrl(
+    imageId: string,
+    req?: any,
+    baseUrl?: string,
+    resizeOptions?: { width?: number; height?: number; fit?: string },
+  ): string {
     if (!imageId) return ''
 
     let finalBaseUrl = baseUrl || this.baseFunctionHelper.getBaseUrl(req)
@@ -159,7 +216,21 @@ export class ImageService {
       finalBaseUrl = finalBaseUrl.replace(/^http:/, 'https:')
     }
 
-    return `${finalBaseUrl}/api/v1/image/${imageId}`
+    let url = `${finalBaseUrl}/api/v1/image/${imageId}`
+
+    if (resizeOptions) {
+      const params = new URLSearchParams()
+      if (resizeOptions.width) params.append('w', resizeOptions.width.toString())
+      if (resizeOptions.height) params.append('h', resizeOptions.height.toString())
+      if (resizeOptions.fit) params.append('fit', resizeOptions.fit)
+
+      const queryString = params.toString()
+      if (queryString) {
+        url += `?${queryString}`
+      }
+    }
+
+    return url
   }
 
   getImageUrlFromTranslation(translation: TemplateTranslation, req?: any): string {

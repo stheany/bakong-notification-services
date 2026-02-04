@@ -145,15 +145,15 @@ const parsePlatformFromErrorMessage = (backendErrorMessage: string): { osPlatfor
   // - "No users found for Using ANDROID on Bakong app."
   // - "No users found for Using IOS on Bakong Tourist app."
   // - "No users found for Using ALL on Bakong Junior app."
-  
+
   const match = backendErrorMessage.match(/No users found for Using (.+?) on (.+?) app\.?/i)
-  
+
   if (match) {
     const osPlatform = match[1].trim()
     const bakongApp = match[2].trim()
     return { osPlatform, bakongApp }
   }
-  
+
   return null
 }
 
@@ -183,21 +183,21 @@ const formatOSPlatform = (osPlatform: string): string => {
 export const formatNoUsersFoundMessage = (backendErrorMessage: string): string => {
   // Default message if parsing fails
   const defaultMessage = 'No users found matching the selected platform requirements. Please ensure there are registered users for the specified platforms before submitting.'
-  
+
   const parsed = parsePlatformFromErrorMessage(backendErrorMessage)
-  
+
   if (parsed) {
     const formattedOSPlatform = formatOSPlatform(parsed.osPlatform)
     const formattedBakongApp = formatBakongApp(parsed.bakongApp)
-    
+
     return `<strong>Cannot submit notification:</strong> No users found for <strong>${formattedOSPlatform}</strong> on <strong>${formattedBakongApp}</strong> app. The notification has been saved as draft.`
   }
-  
+
   // If parsing fails, use the backend message but format it nicely
   if (!backendErrorMessage || typeof backendErrorMessage !== 'string') {
     return `<strong>Cannot submit notification:</strong> ${defaultMessage} The notification has been saved as draft.`
   }
-  
+
   return `<strong>Cannot submit notification:</strong> ${backendErrorMessage} The notification has been saved as draft.`
 }
 
@@ -210,21 +210,21 @@ export const formatNoUsersFoundMessage = (backendErrorMessage: string): string =
 export const formatNoUsersFoundRejectionMessage = (backendErrorMessage: string): string => {
   // Default message if parsing fails
   const defaultMessage = 'No users found matching the platform requirements. Please ensure there are registered users for the specified platforms before approving.'
-  
+
   const parsed = parsePlatformFromErrorMessage(backendErrorMessage)
-  
+
   if (parsed) {
     const formattedOSPlatform = formatOSPlatform(parsed.osPlatform)
     const formattedBakongApp = formatBakongApp(parsed.bakongApp)
-    
+
     return `<strong>Notification rejected:</strong> No users found for <strong>${formattedOSPlatform}</strong> on <strong>${formattedBakongApp}</strong> app. Please ensure there are registered users for this platform before approving.`
   }
-  
+
   // If parsing fails, use the backend message but format it nicely
   if (!backendErrorMessage || typeof backendErrorMessage !== 'string') {
     return `<strong>Notification rejected:</strong> ${defaultMessage}`
   }
-  
+
   return `<strong>Notification rejected:</strong> ${backendErrorMessage}`
 }
 
@@ -260,7 +260,7 @@ export const getNotificationMessage = (
   // Get formatted platform name with bakongPlatform info
   const formattedPlatform =
     platformName || (bakongPlatform ? formatBakongApp(bakongPlatform) : 'this platform')
-  
+
   // Format device platform for display (iOS, Android, or empty for ALL)
   const formatDevicePlatform = (platform?: string): string => {
     if (!platform || platform === 'ALL' || platform.toUpperCase() === 'ALL') {
@@ -279,17 +279,17 @@ export const getNotificationMessage = (
     }
     return platform
   }
-  
+
   const formattedDevicePlatform = formatDevicePlatform(devicePlatform)
-  
+
   // Standard format: "Notification for **Bakong** sent to **iOS** to X user(s) successfully."
   // Format device platform text: " to **iOS**" or " to **Android**" or "" (for ALL)
-  const devicePlatformText = formattedDevicePlatform 
-    ? ` to <strong>${formattedDevicePlatform}</strong>` 
+  const devicePlatformText = formattedDevicePlatform
+    ? ` to <strong>${formattedDevicePlatform}</strong>`
     : ''
-  
-  const bakongPlatformText = bakongPlatform 
-    ? ` for <strong>${formattedPlatform}</strong>` 
+
+  const bakongPlatformText = bakongPlatform
+    ? ` for <strong>${formattedPlatform}</strong>`
     : ''
 
   // Case 1: No users available (only if no failures and savedAsDraftNoUsers is true)
@@ -315,7 +315,7 @@ export const getNotificationMessage = (
     } else {
       failureReason = ` Failed to send to ${failedCount} user(s).`
     }
-    
+
     return {
       title: 'Warning',
       message: `Failed to send the${bakongPlatformText} notification${devicePlatformText}.${failureReason} The notification has been saved as a draft.`,
@@ -331,8 +331,8 @@ export const getNotificationMessage = (
     // Standard format: "Notification for **Bakong** sent to **iOS** to X user(s) successfully."
     // Example: "Notification for **Bakong** sent to **iOS** to 2 user(s) successfully."
     // Format: "Notification for **Bakong** sent to X user(s) successfully." (if devicePlatform is ALL)
-    const userCountText = formattedDevicePlatform 
-      ? ` to ${successfulCount} user(s)` 
+    const userCountText = formattedDevicePlatform
+      ? ` to ${successfulCount} user(s)`
       : ` to ${successfulCount} user(s)`
     return {
       title: 'Success',
@@ -348,8 +348,8 @@ export const getNotificationMessage = (
     // Standard format: "Notification for **Bakong** sent to **iOS** to X user(s) successfully."
     // Example: "Notification for **Bakong** sent to **iOS** to 2 user(s) successfully."
     // Format: "Notification for **Bakong** sent to X user(s) successfully." (if devicePlatform is ALL)
-    const userCountText = formattedDevicePlatform 
-      ? ` to ${successfulCount} user(s)` 
+    const userCountText = formattedDevicePlatform
+      ? ` to ${successfulCount} user(s)`
       : ` to ${successfulCount} user(s)`
     return {
       title: 'Success',
@@ -577,21 +577,19 @@ export const mapLanguageToEnum = (language: string): Language => {
  */
 export const containsKhmer = (text: string | null | undefined): boolean => {
   if (!text || typeof text !== 'string') return false
-  
+
   // Khmer Unicode range: U+1780–U+17FF
   const khmerRegex = /[\u1780-\u17FF]/
   return khmerRegex.test(text)
 }
 
-export const processFile = async (
+export const processFile = (
   file: File,
-  onSuccess: (file: File, previewUrl: string, wasConverted?: boolean) => void,
+  onSuccess: (file: File, previewUrl: string) => void,
   onError: (error: string) => void,
-  validateAspectRatio: boolean = true,
+  validateAspectRatio: boolean = true, // kept for backward compatibility, but no longer enforced
   acceptTypes: string = 'image/*',
-  maxSize: number = 2 * 1024 * 1024, // 2MB default (safer for batch uploads)
-  autoConvert: boolean = true, // New parameter: automatically convert instead of rejecting
-  targetAspectRatio: number = 2 / 1, // Default to 2:1 as shown in UI
+  maxSize: number = 5 * 1024 * 1024,
 ) => {
   const acceptedTypes = acceptTypes.split(',').map((type) => type.trim())
   const isValidType = acceptedTypes.some((type) => {
@@ -603,104 +601,24 @@ export const processFile = async (
     onError(`File type ${file.type} is not supported. Please select a valid file.`)
     return
   }
-
-  // If auto-convert is enabled, process the image automatically
-  if (autoConvert && file.type.startsWith('image/')) {
-    try {
-      // Check if conversion is needed
-      const needsSizeConversion = file.size > maxSize
-      let needsAspectRatioConversion = false
-
-      if (validateAspectRatio) {
-        const imageCheck = await new Promise<{ needsConversion: boolean; aspectRatio: number }>(
-          (resolve) => {
-            const reader = new FileReader()
-            reader.onload = (e) => {
-              const img = new Image()
-              img.onload = () => {
-                const aspectRatio = img.width / img.height
-                // Only accept 2:1 aspect ratio (or 880:440 which is also 2:1)
-                const targetRatio = 2 / 1
-                const tolerance = 0.05 // 5% tolerance for rounding
-                const isAcceptable = Math.abs(aspectRatio - targetRatio) <= tolerance
-                resolve({ needsConversion: !isAcceptable, aspectRatio })
-              }
-              img.onerror = () => resolve({ needsConversion: false, aspectRatio: 1 })
-              img.src = e.target?.result as string
-            }
-            reader.readAsDataURL(file)
-          },
-        )
-        needsAspectRatioConversion = imageCheck.needsConversion
-      }
-
-      // If conversion is needed, process the image
-      if (needsSizeConversion || needsAspectRatioConversion) {
-        const {
-          file: convertedFile,
-          dataUrl,
-          wasConverted,
-        } = await compressImage(file, {
-          maxBytes: maxSize,
-          maxWidth: 2000,
-          targetAspectRatio,
-          correctAspectRatio: validateAspectRatio && needsAspectRatioConversion,
-        })
-
-        onSuccess(convertedFile, dataUrl, wasConverted)
-        return
-      } else {
-        // No conversion needed, just return the original file
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          onSuccess(file, e.target?.result as string, false)
-        }
-        reader.readAsDataURL(file)
-        return
-      }
-    } catch (error) {
-      console.error('Error processing image:', error)
-      onError('Failed to process image. Please try again.')
-      return
-    }
-  }
-
-  // If no conversion needed or auto-convert is disabled, validate normally
-  if (file.size > maxSize && !autoConvert) {
+  if (file.size > maxSize) {
     onError(
-      `File size ${(file.size / 1024 / 1024).toFixed(2)}MB exceeds the maximum limit of ${(maxSize / 1024 / 1024).toFixed(2)}MB.`,
+      `File size ${(file.size / 1024 / 1024).toFixed(2)}MB exceeds the maximum limit of ${(
+        maxSize /
+        1024 /
+        1024
+      ).toFixed(2)}MB.`,
     )
     return
   }
-
-  if (validateAspectRatio && file.type.startsWith('image/') && !autoConvert) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const aspectRatio = img.width / img.height
-        // Only accept 2:1 aspect ratio (or 880:440 which is also 2:1)
-        const targetRatio = 2 / 1
-        const tolerance = 0.05 // 5% tolerance for rounding
-        const isAcceptable = Math.abs(aspectRatio - targetRatio) <= tolerance
-        if (!isAcceptable) {
-          const errorMsg = `Image aspect ratio ${aspectRatio.toFixed(2)}:1 is not supported. Please use images with 2:1 aspect ratio (e.g., 880:440).`
-          onError(errorMsg)
-          return
-        }
-        onSuccess(file, e.target?.result as string)
-      }
-      img.src = e.target?.result as string
-    }
-    reader.readAsDataURL(file)
-  } else {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      onSuccess(file, e.target?.result as string)
-    }
-    reader.readAsDataURL(file)
+  // No aspect ratio validation - accept any image, backend will resize to fit notification frame
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    onSuccess(file, e.target?.result as string)
   }
+  reader.readAsDataURL(file)
 }
+
 
 /**
  * Corrects image aspect ratio to target ratio (default 2:1)
@@ -783,6 +701,7 @@ export const compressImage = async (
     qualityStep?: number
     targetAspectRatio?: number
     correctAspectRatio?: boolean
+    keepOriginalFile?: boolean   // ✅ add this
   },
 ): Promise<{ file: File; dataUrl: string; wasConverted?: boolean }> => {
   const maxBytes = options?.maxBytes ?? 5 * 1024 * 1024
@@ -790,6 +709,7 @@ export const compressImage = async (
   const qualityStep = options?.qualityStep ?? 0.08
   const targetAspectRatio = options?.targetAspectRatio ?? 2 / 1
   const shouldCorrectAspectRatio = options?.correctAspectRatio ?? false
+  const keepOriginalFile = options?.keepOriginalFile ?? true // ✅ ADD THIS
 
   const originalDataUrl = await new Promise<string>((resolve) => {
     const r = new FileReader()
@@ -927,7 +847,7 @@ export const compressImage = async (
   const outFile = new File([blob], file.name.replace(/\.(png|jpg|jpeg)$/i, '.jpg'), {
     type: 'image/jpeg',
   })
-  return { file: outFile, dataUrl, wasConverted }
+  return { file: keepOriginalFile ? file : outFile, dataUrl, wasConverted }
 }
 
 export const handleFileSelect = (event: Event, onFileSelect: (file: File) => void) => {
