@@ -644,7 +644,9 @@ export const processFile = async (
           maxBytes: maxSize,
           maxWidth: 2000,
           targetAspectRatio,
+          verticalBiasPx: 0, // Center the crop (no vertical bias)
           correctAspectRatio: validateAspectRatio && needsAspectRatioConversion,
+          keepOriginalFile: false, // We will return the converted file, not the original
         })
 
         onSuccess(convertedFile, dataUrl, wasConverted)
@@ -713,67 +715,71 @@ export const correctAspectRatio = async (
 ): Promise<{
   canvasWidth: number
   canvasHeight: number
-  imageDrawX: number
-  imageDrawY: number
-  imageDrawWidth: number
-  imageDrawHeight: number
-  usePadding: boolean
+  // source crop rect
+  srcX: number
+  srcY: number
+  srcW: number
+  srcH: number
+  // output draw rect
+  dstW: number
+  dstH: number
+  wasCorrected: boolean
 }> => {
   const currentRatio = img.width / img.height
-  const tolerance = 0.05 // 5% tolerance
+  const tolerance = 0.05
 
-  // If aspect ratio is already close to target, no correction needed
+  // ✅ already close enough → no crop
   if (Math.abs(currentRatio - targetRatio) <= tolerance) {
     return {
       canvasWidth: img.width,
       canvasHeight: img.height,
-      imageDrawX: 0,
-      imageDrawY: 0,
-      imageDrawWidth: img.width,
-      imageDrawHeight: img.height,
-      usePadding: false,
+      srcX: 0,
+      srcY: 0,
+      srcW: img.width,
+      srcH: img.height,
+      dstW: img.width,
+      dstH: img.height,
+      wasCorrected: false,
     }
   }
 
-  let canvasWidth: number
-  let canvasHeight: number
-  let imageDrawX: number
-  let imageDrawY: number
-  let imageDrawWidth: number
-  let imageDrawHeight: number
+  // default crop rect = full image
+  let srcX = 0
+  let srcY = 0
+  let srcW = img.width
+  let srcH = img.height
 
   if (currentRatio > targetRatio) {
-    // Image is wider than target - add vertical padding (letterboxing)
-    // Canvas width = image width, canvas height = width / targetRatio
-    // Image is drawn at full size, centered vertically
-    canvasWidth = img.width
-    canvasHeight = Math.floor(img.width / targetRatio)
-    imageDrawX = 0
-    imageDrawY = Math.floor((canvasHeight - img.height) / 2) // Center vertically
-    imageDrawWidth = img.width
-    imageDrawHeight = img.height
+    // too wide → crop left/right (center)
+    srcW = Math.floor(img.height * targetRatio)
+    srcX = Math.floor((img.width - srcW) / 2)
   } else {
-    // Image is taller than target - add horizontal padding (pillarboxing)
-    // Canvas height = image height, canvas width = height * targetRatio
-    // Image is drawn at full size, centered horizontally
-    canvasWidth = Math.floor(img.height * targetRatio)
-    canvasHeight = img.height
-    imageDrawX = Math.floor((canvasWidth - img.width) / 2) // Center horizontally
-    imageDrawY = 0
-    imageDrawWidth = img.width
-    imageDrawHeight = img.height
+    // too tall → crop top/bottom (TOP-SAFE, avoid cutting head)
+    const newH = Math.floor(img.width / targetRatio)
+
+    const topSafeRatio = 0.1 // ✅ keep more top, crop more bottom
+    srcY = Math.floor((img.height - newH) * topSafeRatio)
+    srcY = Math.max(0, Math.min(srcY, img.height - newH))
+
+    srcH = newH
   }
+
+  const canvasWidth = srcW
+  const canvasHeight = srcH
 
   return {
     canvasWidth,
     canvasHeight,
-    imageDrawX,
-    imageDrawY,
-    imageDrawWidth,
-    imageDrawHeight,
-    usePadding: true,
+    srcX,
+    srcY,
+    srcW,
+    srcH,
+    dstW: canvasWidth,
+    dstH: canvasHeight,
+    wasCorrected: true,
   }
 }
+
 
 export const compressImage = async (
   file: File,
@@ -783,6 +789,8 @@ export const compressImage = async (
     qualityStep?: number
     targetAspectRatio?: number
     correctAspectRatio?: boolean
+    keepOriginalFile?: boolean
+    verticalBiasPx?: number // optional: move content DOWN in preview
   },
 ): Promise<{ file: File; dataUrl: string; wasConverted?: boolean }> => {
   const maxBytes = options?.maxBytes ?? 5 * 1024 * 1024
@@ -790,13 +798,17 @@ export const compressImage = async (
   const qualityStep = options?.qualityStep ?? 0.08
   const targetAspectRatio = options?.targetAspectRatio ?? 2 / 1
   const shouldCorrectAspectRatio = options?.correctAspectRatio ?? false
+  const keepOriginalFile = options?.keepOriginalFile ?? true
 
-  const originalDataUrl = await new Promise<string>((resolve) => {
-    const r = new FileReader()
-    r.onload = () => resolve(String(r.result))
-    r.readAsDataURL(file)
+  // Read file -> dataURL
+  const originalDataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
   })
 
+  // dataURL -> <img>
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
     image.onload = () => resolve(image)
@@ -804,130 +816,148 @@ export const compressImage = async (
     image.src = originalDataUrl
   })
 
-  let wasConverted = false
-  let canvasWidth = img.width
-  let canvasHeight = img.height
-  let imageDrawX = 0
-  let imageDrawY = 0
-  let imageDrawWidth = img.width
-  let imageDrawHeight = img.height
-  let usePadding = false
+  // Optional: shift preview content down slightly (avoid cutting head)
+  const verticalBiasPx = options?.verticalBiasPx ?? 0
 
-  // Correct aspect ratio if needed
-  if (shouldCorrectAspectRatio) {
-    const corrected = await correctAspectRatio(img, targetAspectRatio)
-    canvasWidth = corrected.canvasWidth
-    canvasHeight = corrected.canvasHeight
-    imageDrawX = corrected.imageDrawX
-    imageDrawY = corrected.imageDrawY
-    imageDrawWidth = corrected.imageDrawWidth
-    imageDrawHeight = corrected.imageDrawHeight
-    usePadding = corrected.usePadding
+  // Decide crop rect (crop like object-cover, no white bars)
+  const crop = getCropRectForAspectRatio(
+    img.width,
+    img.height,
+    shouldCorrectAspectRatio ? targetAspectRatio : null,
+    verticalBiasPx,
+    160, // preview header height (px)
+  )
 
-    // Check if aspect ratio was actually corrected
-    const currentRatio = img.width / img.height
-    if (Math.abs(currentRatio - targetAspectRatio) > 0.05) {
-      wasConverted = true
-    }
+  // Output size (based on crop size) and clamp to maxWidth
+  let outW = crop.srcW
+  let outH = crop.srcH
+
+  if (outW > maxWidth) {
+    const scale = maxWidth / outW
+    outW = Math.round(outW * scale)
+    outH = Math.round(outH * scale)
   }
 
-  // Scale down if canvas is too wide
-  const scale = Math.min(1, maxWidth / (canvasWidth || maxWidth))
-  if (scale < 1) {
-    // Scale canvas dimensions
-    const originalCanvasWidth = canvasWidth
-    const originalCanvasHeight = canvasHeight
-    canvasWidth = Math.max(1, Math.floor(canvasWidth * scale))
-    canvasHeight = Math.max(1, Math.floor(canvasHeight * scale))
-
-    // Scale image draw dimensions proportionally
-    if (usePadding) {
-      const scaleX = canvasWidth / originalCanvasWidth
-      const scaleY = canvasHeight / originalCanvasHeight
-      imageDrawX = Math.floor(imageDrawX * scaleX)
-      imageDrawY = Math.floor(imageDrawY * scaleY)
-      imageDrawWidth = Math.floor(imageDrawWidth * scaleX)
-      imageDrawHeight = Math.floor(imageDrawHeight * scaleY)
-    } else {
-      imageDrawWidth = canvasWidth
-      imageDrawHeight = canvasHeight
-    }
-
-    wasConverted = true
-  }
-
-  // Check if size compression is needed
-  const needsSizeCompression = file.size > maxBytes
-
-  // If no conversion needed at all, return original
-  if (!wasConverted && !needsSizeCompression) {
-    return { file, dataUrl: originalDataUrl, wasConverted: false }
-  }
-
-  // Mark as converted if size compression is needed
-  if (needsSizeCompression) {
-    wasConverted = true
-  }
-
+  // Canvas render
   const canvas = document.createElement('canvas')
-  canvas.width = canvasWidth
-  canvas.height = canvasHeight
+  canvas.width = outW
+  canvas.height = outH
+
   const ctx = canvas.getContext('2d')
-  if (!ctx) return { file, dataUrl: originalDataUrl, wasConverted: false }
+  if (!ctx) throw new Error('Unable to get canvas context')
 
-  // Fill canvas with white background (for padding areas)
-  ctx.fillStyle = '#FFFFFF'
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight)
-
-  // Use high-quality image smoothing
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
 
-  // Draw the full image (with padding if aspect ratio was corrected)
-  if (usePadding) {
-    // Draw full image centered with padding (letterboxing/pillarboxing)
-    ctx.drawImage(img, imageDrawX, imageDrawY, imageDrawWidth, imageDrawHeight)
-  } else {
-    // Draw image normally (scaled if needed)
-    ctx.drawImage(img, 0, 0, imageDrawWidth, imageDrawHeight)
-  }
+  ctx.drawImage(
+    img,
+    crop.srcX,
+    crop.srcY,
+    crop.srcW,
+    crop.srcH,
+    0,
+    0,
+    outW,
+    outH,
+  )
 
-  let quality = 0.92
-  let dataUrl = canvas.toDataURL(file.type.includes('png') ? 'image/png' : 'image/jpeg', quality)
-  let blob = await (await fetch(dataUrl)).blob()
+  // Use JPEG for most cases to reduce size, keep PNG if original was PNG
+  const outMime = file.type === 'image/png' ? 'image/png' : 'image/jpeg'
+  let quality = outMime === 'image/png' ? undefined : 0.92
 
-  // Compress if still too large
-  while (blob.size > maxBytes && quality > 0.2) {
-    quality = Math.max(0.2, quality - qualityStep)
-    dataUrl = canvas.toDataURL('image/jpeg', quality)
-    blob = await (await fetch(dataUrl)).blob()
-    wasConverted = true
-  }
+  const toBlob = (q?: number) =>
+    new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error('Failed to create blob'))
+          resolve(blob)
+        },
+        outMime,
+        q,
+      )
+    })
 
-  // Further reduce size if still too large
-  if (blob.size > maxBytes) {
-    let targetW = canvasWidth
-    let targetH = canvasHeight
-    const altCanvas = document.createElement('canvas')
-    altCanvas.width = Math.max(1, Math.floor(targetW * 0.8))
-    altCanvas.height = Math.max(1, Math.floor(targetH * 0.8))
-    const altCtx = altCanvas.getContext('2d')
-    if (altCtx) {
-      altCtx.imageSmoothingEnabled = true
-      altCtx.imageSmoothingQuality = 'high'
-      altCtx.drawImage(canvas, 0, 0, altCanvas.width, altCanvas.height)
-      dataUrl = altCanvas.toDataURL('image/jpeg', 0.82)
-      blob = await (await fetch(dataUrl)).blob()
-      targetW = altCanvas.width
-      targetH = altCanvas.height
-      wasConverted = true
+  let blob = await toBlob(quality)
+
+  // Reduce JPEG quality if still too big
+  if (outMime === 'image/jpeg') {
+    while (blob.size > maxBytes && (quality ?? 0) > 0.4) {
+      quality = Math.max(0.4, (quality ?? 0.92) - qualityStep)
+      blob = await toBlob(quality)
     }
   }
 
-  const outFile = new File([blob], file.name.replace(/\.(png|jpg|jpeg)$/i, '.jpg'), {
-    type: 'image/jpeg',
-  })
-  return { file: outFile, dataUrl, wasConverted }
+  const previewDataUrl = canvas.toDataURL(
+    outMime,
+    outMime === 'image/jpeg' ? quality : undefined,
+  )
+
+  const outFile = new File(
+    [blob],
+    file.name.replace(/\.\w+$/, '') + (outMime === 'image/png' ? '.png' : '.jpg'),
+    { type: outMime },
+  )
+
+  // ✅ Correct wasConverted (no precedence bug)
+  const wasConverted =
+    (shouldCorrectAspectRatio && crop.wasCropped) ||
+    outFile.type !== file.type ||
+    blob.size !== file.size
+
+  return {
+    file: keepOriginalFile ? file : outFile, // upload original if true
+    dataUrl: previewDataUrl,                 // preview uses converted
+    wasConverted,
+  }
+}
+
+
+/**
+ * Returns a center-crop rectangle to match target aspect ratio (like object-cover).
+ * If targetRatio is null => no cropping.
+ */
+function getCropRectForAspectRatio(
+  srcW: number,
+  srcH: number,
+  targetRatio: number | null,
+  verticalBiasPx: number = 0,    // optional (can shift slightly)
+  previewHeightPx: number = 160, // mobile header height
+): { srcX: number; srcY: number; srcW: number; srcH: number; wasCropped: boolean } {
+  if (!targetRatio) {
+    return { srcX: 0, srcY: 0, srcW, srcH, wasCropped: false }
+  }
+
+  const currentRatio = srcW / srcH
+  const tolerance = 0.01
+  if (Math.abs(currentRatio - targetRatio) <= tolerance) {
+    return { srcX: 0, srcY: 0, srcW, srcH, wasCropped: false }
+  }
+
+  // 1) Too wide -> crop left/right (center)
+  if (currentRatio > targetRatio) {
+    const newW = Math.floor(srcH * targetRatio)
+    const x = Math.floor((srcW - newW) / 2)
+    return { srcX: x, srcY: 0, srcW: newW, srcH, wasCropped: true }
+  }
+
+  // 2) Too tall -> crop TOP-SAFE (cut bottom instead)
+  const newH = Math.floor(srcW / targetRatio)
+
+  // ✅ IMPORTANT: anchor to TOP (no top cut)
+  // let y = 0
+
+  // Optional: if you want tiny top cut (like 2%):
+  const topCutRatio = 0.10 // 0 = no cut top, 0.02 = cut 2% from top
+  // y = Math.floor((srcH - newH) * topCutRatio)
+
+  // Optional: allow shifting DOWN by a few px (very small)
+  // Positive verticalBiasPx should reduce y? No—because y=0 already.
+  // We keep y=0 always to protect head.
+
+  // Clamp
+  let y = Math.floor((srcH - newH) * topCutRatio)
+
+  return { srcX: 0, srcY: y, srcW, srcH: newH, wasCropped: true }
 }
 
 export const handleFileSelect = (event: Event, onFileSelect: (file: File) => void) => {

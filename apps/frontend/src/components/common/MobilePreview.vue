@@ -9,26 +9,31 @@
         role="dialog"
         aria-modal="true"
       >
-        <div
-          class="image-container absolute top-0 h-[159.5px] rounded-t-[18.1129px]"
-          :class="props.image ? 'bg-transparent' : 'bg-[#E2E2E2]'"
-          style="left: -1px; right: -1px; width: calc(100% + 5px)"
-        >
-          <div
-            class="absolute left-1/2 -translate-x-1/2 top-[5px] w-[46px] h-[6px] rounded-full bg-gray-400 z-10"
-          ></div>
-          <img
-            v-if="props.image"
-            :src="displayImage"
-            alt=""
-            class="absolute inset-0 rounded-t-[18.1129px]"
-            style="width: 100%; height: 100%; object-fit: cover"
-          />
-          <div v-else class="grid place-items-center h-full w-full">
-            <img :src="displayImage" alt="" class="w-full h-full object-contain" />
-          </div>
-          <div class="absolute bottom-0 inset-x-0 h-[1px] bg-black/10 z-10"></div>
-        </div>
+
+      <div
+  class="absolute top-0 left-0 right-0 w-full h-[159.5px] overflow-hidden rounded-t-[18.1129px]"
+  :class="props.image ? 'bg-transparent' : 'bg-[#E2E2E2]'"
+>
+  <!-- little bar handle -->
+  <div class="absolute left-1/2 -translate-x-1/2 top-[5px] w-[46px] h-[6px] rounded-full bg-gray-400 z-10"></div>
+
+  <img
+    v-if="props.image"
+    :src="displayImage"
+    alt=""
+    class="absolute inset-0 w-full h-full object-cover"
+  />
+
+  <img
+    v-else
+    :src="displayImage"
+    alt=""
+    class="absolute inset-0 w-full h-full object-cover opacity-40"
+  />
+
+  <div class="absolute bottom-0 inset-x-0 h-[1px] bg-black/10 z-10"></div>
+</div>
+
         <div
           class="scrollable-content absolute left-[12.08px] top-[170.5px] bottom-[61px] w-[307.92px] flex flex-col items-start gap-[6.04px] px-[30px] pt-[12px] pb-[20px] overflow-y-auto overflow-x-hidden"
         >
@@ -121,10 +126,25 @@ const props = withDefaults(defineProps<Props>(), {
   titleHasKhmer: false,
   descriptionHasKhmer: false,
 })
+const toPreviewUrl = (url: string) => {
+  if (!url) return ''
+  // data/blob = already preview content
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url
+
+  // server image -> add resize only for preview
+  const [base, qs] = url.split('?')
+  const params = new URLSearchParams(qs || '')
+  params.set('w', '880')
+  params.set('h', '440')
+  params.set('fit', 'cover')
+  return `${base}?${params.toString()}`
+}
 
 const displayImage = computed(() => {
-  return props.image || headerImg
+  if (props.image) return toPreviewUrl(props.image)
+  return headerImg // your default header image
 })
+
 
 const displayTitle = computed(() => {
   const title = props.title || ''
@@ -253,9 +273,6 @@ const currentDate = computed(() => {
 
 /* Ensure image container spans full width of section */
 .image-container {
-  left: 0 !important;
-  right: 0 !important;
-  width: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
 }

@@ -37,7 +37,7 @@
               :max-size="3 * 1024 * 1024"
               format-text="Supported format: PNG, JPG (2:1 W:H or 880:440)"
               size-text="Maximum size: 3MB"
-              :existing-image-url="currentImageUrlFallback || undefined"
+              :existing-image-url="currentImageUrl || undefined"
               :disabled="isReadOnly"
               @file-selected="handleLanguageImageSelected"
               @file-removed="handleLanguageImageRemoved"
@@ -495,13 +495,13 @@
       <MobilePreview
         :title="currentTitle"
         :description="currentDescription"
-        :image="currentImageUrlFallback || ''"
+        :image="languageFormData[activeLanguage]?.imageUrl || ''"
         :categoryType="
-          categoryTypes.find((ct: CategoryTypeData) => ct.id === formData.categoryTypeId)?.name ||
-          ''
+          categoryTypes.find((ct: CategoryTypeData) => ct.id === formData.categoryTypeId)?.name || ''
         "
         :title-has-khmer="titleHasKhmer"
         :description-has-khmer="descriptionHasKhmer"
+      />
       />
     </div>
   </div>
@@ -905,63 +905,45 @@ onMounted(() => {
   // ... existing onMounted code
 })
 
+
 const currentTitle = computed({
-  get: () => {
-    const active = languageFormData[activeLanguage.value]?.title
-    if (active) return active
-    // fallback: first available translation title
-    for (const langKey of Object.keys(languageFormData)) {
-      const val = (languageFormData as any)[langKey]?.title
-      if (val) return val
-    }
-    return ''
-  },
+  get: () => languageFormData[activeLanguage.value]?.title || '',
   set: (value: string) => {
     if (languageFormData[activeLanguage.value]) {
       languageFormData[activeLanguage.value].title = value
     }
-    // Validate on every change to show length limit errors immediately
     validateTitle()
   },
 })
 
 const currentDescription = computed({
-  get: () => {
-    const active = languageFormData[activeLanguage.value]?.description
-    if (active) return active
-    // fallback: first available translation description
-    for (const langKey of Object.keys(languageFormData)) {
-      const val = (languageFormData as any)[langKey]?.description
-      if (val) return val
-    }
-    return ''
-  },
+  get: () => languageFormData[activeLanguage.value]?.description || '',
   set: (value: string) => {
     if (languageFormData[activeLanguage.value]) {
       languageFormData[activeLanguage.value].description = value
     }
-    // Validate on every change to show length limit errors immediately
     validateDescription()
   },
 })
 
 const currentLinkToSeeMore = computed({
-  get: () => {
-    const active = languageFormData[activeLanguage.value]?.linkToSeeMore
-    if (active) return active
-    // fallback: first available translation link
-    for (const langKey of Object.keys(languageFormData)) {
-      const val = (languageFormData as any)[langKey]?.linkToSeeMore
-      if (val) return val
-    }
-    return ''
-  },
+  get: () => languageFormData[activeLanguage.value]?.linkToSeeMore || '',
   set: (value: string) => {
     if (languageFormData[activeLanguage.value]) {
       languageFormData[activeLanguage.value].linkToSeeMore = value
     }
   },
 })
+
+const currentImageFile = computed({
+  get: () => languageFormData[activeLanguage.value]?.imageFile || null,
+  set: (value: File | null) => {
+    if (languageFormData[activeLanguage.value]) {
+      languageFormData[activeLanguage.value].imageFile = value
+    }
+  },
+})
+
 
 // Fallbacks: when the active language has no text, use the first available
 // translation from other languages so editors/approvers can see content.
@@ -972,7 +954,7 @@ const findFirstAvailableText = (field: 'title' | 'description' | 'linkToSeeMore'
     const val = (languageFormData as any)[langKey]?.[field]
     if (val) return val
   }
-  return ''
+  return '' 
 }
 
 const currentTitleFallback = computed(() => findFirstAvailableText('title'))
@@ -980,15 +962,6 @@ const currentTitleFallback = computed(() => findFirstAvailableText('title'))
 const currentDescriptionFallback = computed(() => findFirstAvailableText('description'))
 
 const currentLinkFallback = computed(() => findFirstAvailableText('linkToSeeMore'))
-
-const currentImageFile = computed({
-  get: () => languageFormData[activeLanguage.value]?.imageFile || null,
-  set: (value: File | null) => {
-    if (languageFormData[activeLanguage.value]) {
-      languageFormData[activeLanguage.value].imageFile = value
-    }
-  },
-})
 
 const currentImageUrl = computed({
   get: () => languageFormData[activeLanguage.value]?.imageUrl || null,
@@ -2508,6 +2481,7 @@ const handlePublishNowInternal = async () => {
               maxWidth: 2000,
               targetAspectRatio: 2 / 1, // 2:1 aspect ratio as shown in UI
               correctAspectRatio: true, // Automatically correct aspect ratio
+              keepOriginalFile: false,
             })
             imagesToUpload.push({ file: compressed, language: langKey })
             if (languageFormData[langKey]) {
@@ -3460,6 +3434,7 @@ const handleSaveDraft = async (forceDraft: boolean = false, suppressNotification
             maxWidth: 2000,
             targetAspectRatio: 2 / 1,
             correctAspectRatio: true,
+            keepOriginalFile: true,
           })
           imagesToUpload.push({ file: compressed, language: langKey })
           if (languageFormData[langKey]) {
