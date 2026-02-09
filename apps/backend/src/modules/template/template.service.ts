@@ -739,6 +739,11 @@ export class TemplateService implements OnModuleInit {
   }
 
   async update(id: number, dto: UpdateTemplateDto, currentUser?: any, req?: any) {
+        // --- BAKONG_TOURIST: Remove all non-EN translations if requested ---
+        if (dto.removeOtherTranslations && dto.bakongPlatform === 'BAKONG_TOURIST') {
+          console.log(`🟢 [UPDATE] removeOtherTranslations flag detected for Bakong Tourist. Deleting all non-EN translations for template ${id}`);
+          await this.translationRepo.delete({ templateId: id, language: Not(Language.EN) });
+        }
     console.log(`\n🔵 [UPDATE] ========== START UPDATE REQUEST ==========`)
     console.log(`🔵 [UPDATE] Template ID: ${id}`)
     console.log(`🔵 [UPDATE] Current User: ${currentUser?.username || 'NO USER'} (Role: ${currentUser?.role || 'NO ROLE'})`)

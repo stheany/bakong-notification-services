@@ -1009,9 +1009,10 @@ const handleRejectClick = async (notification: Notification) => {
       
       ElNotification({
         title: 'Success',
-        message: 'Template rejected successfully and moved to Draft tab',
+        message: 'Template <strong>rejected<strong> successfully and moved to <strong>Draft tab</strong>',
         type: 'success',
         duration: 2000,
+        dangerouslyUseHTMLString: true,
       })
       
       // Set localStorage immediately to ensure tab switches instantly

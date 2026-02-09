@@ -90,4 +90,8 @@ export class UpdateTemplateDto {
     return isNaN(num) ? undefined : Math.max(1, Math.min(30, num)) // Clamp between 1-30
   })
   maxDayShowing?: number
+  
+  @IsOptional()
+  @IsBoolean()
+  removeOtherTranslations?: boolean
 }

@@ -49,9 +49,8 @@
             <label class="form-label">Bakong Platform <span class="required">*</span></label>
             <el-dropdown
               @command="(command: BakongApp) => {
-                if (!isReadOnly && !isEditingRestrictedFields) {
+                if ((!isEditMode && !isViewMode && !isEditingRestrictedFields) || (isEditMode && (fromTab === 'draft' || fromTab === 'pending' || fromTab === 'scheduled') && !isEditingRestrictedFields)) {
                   formData.platform = command
-                  // Immediately force English tab when selecting Bakong Tourist
                   if (command === BakongApp.BAKONG_TOURIST) {
                     activeLanguage = Language.EN as Language
                   }
@@ -59,8 +58,8 @@
               }"
               trigger="click"
               class="custom-dropdown full-width-dropdown"
-              :class="{ 'is-disabled': isReadOnly || isEditingRestrictedFields }"
-              :disabled="isReadOnly || isEditingRestrictedFields"
+              :class="{ 'is-disabled': (isEditMode && fromTab !== 'draft' && fromTab !== 'pending' && fromTab !== 'scheduled') || isViewMode || isEditingRestrictedFields }"
+              :disabled="(isEditMode && fromTab !== 'draft' && fromTab !== 'pending' && fromTab !== 'scheduled') || isViewMode || isEditingRestrictedFields"
             >
               <span 
                 class="dropdown-trigger full-width-trigger"
@@ -414,7 +413,7 @@
               :text="publishButtonText"
               variant="primary"
               size="medium"
-              width="123px"
+              
               height="56px"
               @click="handlePublishNow"
             />
@@ -424,7 +423,7 @@
               text="Cancel now"
               variant="secondary"
               size="medium"
-              width="116px"
+              
               height="56px"
               @click="handleCancel"
               />
@@ -434,7 +433,7 @@
               text="Update now"
               variant="secondary"
               size="medium"
-              width="116px"
+              
               height="56px"
               @click="() => handleSaveDraft(false)"
               />
@@ -444,7 +443,7 @@
               text="Save draft"
               variant="secondary"
               size="medium"
-              width="116px"
+              
               height="56px"
               @click="handleFinishLater"
               />
@@ -452,10 +451,10 @@
             <!-- Back button for read-only view mode -->
             <Button
               v-if="isReadOnly && !isApprovalViewMode"
-              text="Back now"
+              text="Cancel now"
               variant="secondary"
               size="medium"
-              width="116px"
+              
               height="56px"
               @click="handleBack"
             />
@@ -466,7 +465,7 @@
                 :text="approvalButtonText"
                 variant="primary"
                 size="medium"
-                width="180px"
+                
                 height="56px"
                 @click="handleApprovalFromView"
               />
@@ -474,15 +473,15 @@
                 text="Reject Now"
                 variant="danger"
                 size="medium"
-                width="130px"
+                
                 height="56px"
                 @click="handleRejectFromView"
               />
               <Button
-                text="Back now"
+                text="Cancel now"
                 variant="secondary"
                 size="medium"
-                width="116px"
+                
                 height="56px"
                 @click="handleBack"
               />
@@ -495,13 +494,12 @@
       <MobilePreview
         :title="currentTitle"
         :description="currentDescription"
-        :image="languageFormData[activeLanguage]?.imageUrl || ''"
+        :image="(typeof languageFormData[activeLanguage]?.imageUrl === 'string' && languageFormData[activeLanguage]?.imageUrl) || undefined"
         :categoryType="
           categoryTypes.find((ct: CategoryTypeData) => ct.id === formData.categoryTypeId)?.name || ''
         "
         :title-has-khmer="titleHasKhmer"
         :description-has-khmer="descriptionHasKhmer"
-      />
       />
     </div>
   </div>
@@ -870,9 +868,28 @@ const languageTabs = computed(() => {
 // When platform changes to BAKONG_TOURIST, force active language to English
 watch(
   () => formData.platform,
-  (newPlatform) => {
+  (newPlatform, oldPlatform) => {
     if (newPlatform === BakongApp.BAKONG_TOURIST) {
       activeLanguage.value = Language.EN
+      Object.keys(languageFormData).forEach((lang) => {
+        if (lang !== Language.EN) {
+          delete languageFormData[lang]
+        }
+      })
+    } else {
+      // Restore all language tabs and fields dynamically (no API call)
+      const allLangs = [Language.KM, Language.EN, Language.JP]
+      allLangs.forEach((lang) => {
+        if (!languageFormData[lang]) {
+          languageFormData[lang] = {
+            title: '',
+            description: '',
+            linkToSeeMore: '',
+            imageFile: null,
+            imageUrl: '',
+          }
+        }
+      })
     }
   },
 )
@@ -1478,6 +1495,25 @@ onMounted(async () => {
   // Load notification data for both edit mode and view mode
   if (isEditMode.value || isViewMode.value) {
     await loadNotificationData()
+    // After loading, filter translations for Bakong Tourist
+    if (formData.platform === BakongApp.BAKONG_TOURIST) {
+      activeLanguage.value = Language.EN
+      Object.keys(languageFormData).forEach((lang) => {
+        if (lang !== Language.EN) {
+          delete languageFormData[lang]
+        }
+      })
+      Object.keys(existingImageIds).forEach((lang) => {
+        if (lang !== Language.EN) {
+          delete existingImageIds[lang]
+        }
+      })
+      Object.keys(existingTranslationIds).forEach((lang) => {
+        if (lang !== Language.EN) {
+          delete existingTranslationIds[lang]
+        }
+      })
+    }
   }
 })
 
@@ -1644,52 +1680,17 @@ watch(
 
 // Watch scheduleDate to ensure it's always today for new notifications when schedule is enabled
 watch(
+  // Removed watcher logic that forcibly resets scheduleDate to today for new notifications
+  // Users can now freely select any date
   () => formData.scheduleDate,
   (newDate, oldDate) => {
-    // Only enforce for new notifications (not editing) when schedule is enabled
-    if (!isEditMode.value && !isViewMode.value && formData.scheduleEnabled && !hasLoadedScheduleTime.value && !isLoadingData.value) {
-      const todayDate = getTodayDateString()
-      // If the date is not today, correct it to today
-      if (newDate && newDate !== todayDate) {
-        console.log('⚠️ [Schedule Date Watcher] Date changed from today, correcting:', {
-          oldDate,
-          newDate,
-          todayDate,
-          isEditMode: isEditMode.value,
-          isViewMode: isViewMode.value,
-          scheduleEnabled: formData.scheduleEnabled,
-          hasLoadedScheduleTime: hasLoadedScheduleTime.value,
-          isLoadingData: isLoadingData.value,
-        })
-        // Use nextTick to avoid infinite loop
-        nextTick(() => {
-          formData.scheduleDate = todayDate
-          console.log('✅ [Schedule Date Watcher] Corrected date to today:', todayDate)
-        })
-      }
-    }
+    // No-op: allow all date changes
   },
   { immediate: false },
 )
 
 // Handler for date picker change event
 const handleDatePickerChange = (val: string | null) => {
-  // For new notifications, ensure date is always today
-  if (!isEditMode.value && !isViewMode.value && formData.scheduleEnabled) {
-    const todayDate = getTodayDateString()
-    if (val && val !== todayDate) {
-      console.log('⚠️ [Date Picker Change] Date changed from today, correcting:', {
-        selected: val,
-        today: todayDate,
-      })
-      // Use nextTick to avoid infinite loop
-      nextTick(() => {
-        formData.scheduleDate = todayDate
-        console.log('✅ [Date Picker Change] Corrected date to today:', todayDate)
-      })
-      return
-    }
-  }
   formData.scheduleDate = val ?? ''
   console.log('Date changed:', val)
 }
@@ -2642,15 +2643,24 @@ const handlePublishNowInternal = async () => {
       translations.push(fallbackTranslationData)
     }
 
+    // Enforce only EN translation for Bakong Tourist before sending to backend
+    let filteredTranslations = translations
+    if (formData.platform === BakongApp.BAKONG_TOURIST) {
+      filteredTranslations = translations.filter(t => t.language === 'EN' || t.language === Language.EN)
+    }
     const templateData: CreateTemplateRequest = {
       platforms: [mapPlatformToEnum(formData.pushToPlatforms)],
       bakongPlatform: formData.platform,
       sendType: sendType,
       isSent: isSent, // Always include isSent (use original value when preserving status)
-      translations: translations,
+      translations: filteredTranslations,
       notificationType: mapTypeToNotificationType(formData.notificationType),
       categoryTypeId: formData.categoryTypeId ?? undefined,
       priority: 1,
+    }
+    // Instruct backend to remove non-EN translations for Bakong Tourist
+    if (formData.platform === BakongApp.BAKONG_TOURIST) {
+      (templateData as any).removeOtherTranslations = true;
     }
 
     // Handle schedule: explicitly set or clear based on scheduleEnabled
@@ -3409,15 +3419,39 @@ const handleSaveDraft = async (forceDraft: boolean = false, suppressNotification
     const imagesToUpload: { file: File; language: string }[] = []
     const translations: any[] = []
 
-    // 1. Collect all translation data and identify images to upload
-    for (const [langKey, langData] of Object.entries(languageFormData)) {
+    // Strictly enforce only English translation for Bakong Tourist
+    let allowedLanguages = Object.keys(languageFormData)
+    if (formData.platform === BakongApp.BAKONG_TOURIST) {
+      allowedLanguages = [Language.EN]
+      // Remove all other languages from UI state
+      Object.keys(languageFormData).forEach((lang) => {
+        if (lang !== Language.EN) {
+          delete languageFormData[lang]
+        }
+      })
+      Object.keys(existingImageIds).forEach((lang) => {
+        if (lang !== Language.EN) {
+          delete existingImageIds[lang]
+        }
+      })
+      Object.keys(existingTranslationIds).forEach((lang) => {
+        if (lang !== Language.EN) {
+          delete existingTranslationIds[lang]
+        }
+      })
+      // Remove all non-EN translations from the backend by sending only EN
+      // This will ensure the backend deletes KM and JP
+      // Optionally, add a flag if backend supports it
+      // templateData.removeOtherTranslations = true;
+    }
+
+    for (const langKey of allowedLanguages) {
+      const langData = languageFormData[langKey]
       const lang = langKey as Language
-      // Prioritize current reactive state for the active tab, otherwise use stored tab data
       const title =
         (lang === activeLanguage.value ? currentTitle.value : langData.title)?.trim() || ''
       const content =
-        (lang === activeLanguage.value ? currentDescription.value : langData.description)?.trim() ||
-        ''
+        (lang === activeLanguage.value ? currentDescription.value : langData.description)?.trim() || ''
       const linkPreview =
         (lang === activeLanguage.value
           ? currentLinkToSeeMore.value
@@ -3450,10 +3484,6 @@ const handleSaveDraft = async (forceDraft: boolean = false, suppressNotification
       }
 
       // Check if this translation should be included
-      // Only include translations that have:
-      // 1. Title OR content (not both empty), OR
-      // 2. Existing image, OR
-      // 3. New image file to upload
       const hasTitle = title && title.trim() !== ''
       const hasContent = content && content.trim() !== ''
       const hasExistingImage = existingImageIds[langKey] && existingImageIds[langKey].trim() !== ''
@@ -3462,8 +3492,6 @@ const handleSaveDraft = async (forceDraft: boolean = false, suppressNotification
       const shouldIncludeTranslation = hasTitle || hasContent || hasExistingImage || hasNewImage
 
       if (!shouldIncludeTranslation) {
-        // Skip empty translations to prevent backend from creating empty records
-        // or applying fallback logic that copies data from other languages
         console.log(`⏭️ [Save Draft] Skipping empty translation for ${langKey}`)
         continue
       }
@@ -3476,12 +3504,20 @@ const handleSaveDraft = async (forceDraft: boolean = false, suppressNotification
         image: existingImageIds[langKey] || '',
       }
 
-      // Preserve existing translation ID if editing
       if (existingTranslationIds[langKey]) {
         translationData.id = existingTranslationIds[langKey]
       }
 
       translations.push(translationData)
+    }
+
+    // If Bakong Tourist, filter translations to only EN before submit
+    if (formData.platform === BakongApp.BAKONG_TOURIST) {
+      for (let i = translations.length - 1; i >= 0; i--) {
+        if (translations[i].language !== 'EN') {
+          translations.splice(i, 1);
+        }
+      }
     }
 
     // 2. Upload images if needed
@@ -3935,9 +3971,10 @@ const handleRejectFromViewConfirm = async (reason?: string) => {
     
     ElNotification({
       title: 'Success',
-      message: 'Template rejected successfully and moved to Draft tab',
+      message: 'Template <strong>rejected</strong> successfully and moved to <strong>Draft tab</strong>',
       type: 'success',
       duration: 2000,
+      dangerouslyUseHTMLString: true,
     })
     
     // Set localStorage immediately to ensure tab switches instantly
