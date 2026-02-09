@@ -1,19 +1,19 @@
-import { UserRole } from '@bakong/shared'
+import { UserRole } from '@bakong/shared';
 
 /**
  * Permission utility functions for role-based access control
  */
 
 export interface PermissionCheck {
-  canCreateTemplates: boolean
-  canEditTemplates: boolean
-  canDeleteTemplates: boolean
-  canApproveTemplates: boolean
-  canSendNotifications: boolean
-  canManageCategoryTypes: boolean
-  canViewCategoryTypes: boolean
-  canManageUsers: boolean
-  canViewUsers: boolean
+  canCreateTemplates: boolean;
+  canEditTemplates: boolean;
+  canDeleteTemplates: boolean;
+  canApproveTemplates: boolean;
+  canSendNotifications: boolean;
+  canManageCategoryTypes: boolean;
+  canViewCategoryTypes: boolean;
+  canManageUsers: boolean;
+  canViewUsers: boolean;
 }
 
 /**
@@ -31,7 +31,7 @@ export function getPermissions(role: UserRole | undefined): PermissionCheck {
       canViewCategoryTypes: false,
       canManageUsers: false,
       canViewUsers: false,
-    }
+    };
   }
 
   switch (role) {
@@ -46,7 +46,7 @@ export function getPermissions(role: UserRole | undefined): PermissionCheck {
         canViewCategoryTypes: true,
         canManageUsers: true,
         canViewUsers: true,
-      }
+      };
 
     case UserRole.APPROVAL:
       return {
@@ -59,7 +59,7 @@ export function getPermissions(role: UserRole | undefined): PermissionCheck {
         canViewCategoryTypes: true,
         canManageUsers: false,
         canViewUsers: true,
-      }
+      };
 
     case UserRole.EDITOR:
       return {
@@ -72,7 +72,7 @@ export function getPermissions(role: UserRole | undefined): PermissionCheck {
         canViewCategoryTypes: true,
         canManageUsers: false,
         canViewUsers: true,
-      }
+      };
 
     case UserRole.VIEW_ONLY:
       return {
@@ -85,7 +85,7 @@ export function getPermissions(role: UserRole | undefined): PermissionCheck {
         canViewCategoryTypes: true,
         canManageUsers: false,
         canViewUsers: true,
-      }
+      };
 
     default:
       return {
@@ -98,7 +98,7 @@ export function getPermissions(role: UserRole | undefined): PermissionCheck {
         canViewCategoryTypes: false,
         canManageUsers: false,
         canViewUsers: false,
-      }
+      };
   }
 }
 
@@ -107,8 +107,8 @@ export function getPermissions(role: UserRole | undefined): PermissionCheck {
  */
 export function hasPermission(
   role: UserRole | undefined,
-  permission: keyof PermissionCheck,
+  permission: keyof PermissionCheck
 ): boolean {
-  const permissions = getPermissions(role)
-  return permissions[permission]
+  const permissions = getPermissions(role);
+  return permissions[permission];
 }

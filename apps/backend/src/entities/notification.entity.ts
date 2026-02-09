@@ -6,37 +6,36 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
-} from 'typeorm'
-import { Template } from './template.entity'
-
+} from 'typeorm';
+import { Template } from './template.entity';
 @Entity()
 export class Notification {
   @PrimaryGeneratedColumn({ type: 'bigint' })
-  id: number
+  id: number;
 
   @Column({ nullable: false, length: 32 })
   @Index()
-  accountId: string
+  accountId: string;
 
   @Column({ nullable: false, length: 255 })
-  fcmToken: string
+  fcmToken: string;
 
   @Column({ nullable: false, type: 'bigint' })
-  templateId: number
+  templateId: number;
 
   @ManyToOne(() => Template, { eager: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'templateId' })
-  template: Template
+  template: Template;
 
   @CreateDateColumn({ nullable: false, type: 'timestamp' })
-  createdAt: Date
+  createdAt: Date;
 
   @Column({ nullable: true, type: 'bigint' })
-  firebaseMessageId?: number
+  firebaseMessageId?: number;
 
   @Column({ nullable: false, type: 'int', default: 1 })
-  sendCount: number
+  sendCount: number;
 
   @Column({ nullable: true, length: 10 })
-  language?: string
+  language?: string;
 }

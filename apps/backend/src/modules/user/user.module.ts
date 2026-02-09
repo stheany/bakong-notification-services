@@ -1,12 +1,11 @@
-import { Module, forwardRef } from '@nestjs/common'
-import { TypeOrmModule } from '@nestjs/typeorm'
-import { User } from 'src/entities/user.entity'
-import { VerificationToken } from 'src/entities/verification-token.entity'
-import { AuthModule } from '../auth/auth.module'
-import { AppModule } from '../app.module'
-import { UserService } from './user.service'
-import { UserController } from './user.controller'
-
+import { Module, forwardRef } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from 'src/entities/user.entity';
+import { VerificationToken } from 'src/entities/verification-token.entity';
+import { AuthModule } from '../auth/auth.module';
+import { AppModule } from '../app.module';
+import { UserService } from './user.service';
+import { UserController } from './user.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, VerificationToken]),

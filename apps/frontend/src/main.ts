@@ -1,74 +1,80 @@
-import './assets/main.css'
+import './assets/main.css';
 
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
+import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import ElementPlus from 'element-plus';
+import 'element-plus/dist/index.css';
 
-import App from './App.vue'
-import router from './router'
-import { useAuthStore } from './stores/auth'
-import { setupErrorHandler } from './plugins/errorHandler'
+import App from './App.vue';
+import router from './router';
+import { useAuthStore } from './stores/auth';
+import { setupErrorHandler } from './plugins/errorHandler';
 
 // Suppress extension-related console errors
-const originalError = console.error
+const originalError = console.error;
 console.error = function (...args: any[]) {
-  const errorMessage = String(args[0] || '').toLowerCase()
-  
+  const errorMessage = String(args[0] || '').toLowerCase();
+
   // Ignore browser extension message errors
   if (
     errorMessage.includes('a listener indicated an asynchronous response') ||
     errorMessage.includes('message channel closed') ||
     errorMessage.includes('the message port closed')
   ) {
-    return
+    return;
   }
 
-  originalError.apply(console, args)
-}
+  originalError.apply(console, args);
+};
 
-const app = createApp(App)
-const pinia = createPinia()
+const app = createApp(App);
+const pinia = createPinia();
 
-app.use(pinia)
-app.use(router)
-app.use(ElementPlus)
-setupErrorHandler(app)
-const authStore = useAuthStore()
-authStore.initializeAuth()
+app.use(pinia);
+app.use(router);
+app.use(ElementPlus);
+setupErrorHandler(app);
+const authStore = useAuthStore();
+authStore.initializeAuth();
 
 const setupTokenRefresh = () => {
   document.addEventListener('visibilitychange', async () => {
     if (!document.hidden && authStore.isAuthenticated) {
-      await authStore.checkAndRefreshToken()
+      await authStore.checkAndRefreshToken();
     }
-  })
+  });
 
   window.addEventListener('focus', async () => {
     if (authStore.isAuthenticated) {
-      await authStore.checkAndRefreshToken()
+      await authStore.checkAndRefreshToken();
     }
-  })
+  });
 
-  const userInteractionEvents = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart']
-  let lastInteractionTime = Date.now()
+  const userInteractionEvents = [
+    'click',
+    'keydown',
+    'mousemove',
+    'scroll',
+    'touchstart',
+  ];
+  let lastInteractionTime = Date.now();
 
   userInteractionEvents.forEach((event) => {
     document.addEventListener(
       event,
       async () => {
-        const now = Date.now()
+        const now = Date.now();
 
         if (now - lastInteractionTime > 30000 && authStore.isAuthenticated) {
-          lastInteractionTime = now
-          await authStore.checkAndRefreshToken()
+          lastInteractionTime = now;
+          await authStore.checkAndRefreshToken();
         }
       },
-      { passive: true },
-    )
-  })
-}
+      { passive: true }
+    );
+  });
+};
 
-setupTokenRefresh()
+setupTokenRefresh();
 
-app.mount('#app')
+app.mount('#app');

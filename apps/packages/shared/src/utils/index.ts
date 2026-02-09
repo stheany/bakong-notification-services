@@ -23,8 +23,7 @@ export const API_ENDPOINTS = {
     UPDATE: '/api/v1/users/:id',
     DELETE: '/api/v1/users/:id',
   },
-} as const
-
+} as const;
 export const HTTP_STATUS = {
   OK: 200,
   CREATED: 201,
@@ -33,4 +32,4 @@ export const HTTP_STATUS = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   INTERNAL_SERVER_ERROR: 500,
-} as const
+} as const;

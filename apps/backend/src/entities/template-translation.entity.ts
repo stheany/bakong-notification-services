@@ -6,47 +6,46 @@ import {
   JoinColumn,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm'
-import { Language } from '@bakong/shared'
-import { Template } from './template.entity'
-import { Image } from './image.entity'
-
+} from 'typeorm';
+import { Language } from '@bakong/shared';
+import { Template } from './template.entity';
+import { Image } from './image.entity';
 @Entity()
 export class TemplateTranslation {
   @PrimaryGeneratedColumn()
-  id: number
+  id: number;
 
   @ManyToOne(() => Template, (template) => template.translations, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'templateId' })
-  template: Template
+  template: Template;
 
   @Column({ type: 'integer', nullable: false })
-  templateId: number
+  templateId: number;
 
   @Column({ nullable: false, type: 'enum', enum: Language })
-  language?: Language
+  language?: Language;
 
   @Column({ length: 1024, nullable: false, default: '' })
-  title?: string
+  title?: string;
 
   @Column({ type: 'text', nullable: false, default: '' })
-  content?: string
+  content?: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  imageId?: string
+  imageId?: string;
 
   @ManyToOne(() => Image, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'imageId', referencedColumnName: 'fileId' })
-  image?: Image
+  image?: Image;
 
   @CreateDateColumn({ type: 'timestamp' })
-  createdAt: Date
+  createdAt: Date;
 
   @UpdateDateColumn({ type: 'timestamp' })
-  updatedAt?: Date
+  updatedAt?: Date;
 
   @Column({ type: 'text', nullable: true })
-  linkPreview?: string
+  linkPreview?: string;
 }

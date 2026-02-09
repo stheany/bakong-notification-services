@@ -1,102 +1,126 @@
-import { ElNotification } from 'element-plus'
-import { ErrorCode } from '@bakong/shared'
+import { ElNotification } from 'element-plus';
+import { ErrorCode } from '@bakong/shared';
 
 export interface ApiError {
-  responseCode: number
-  responseMessage: string
-  errorCode: number
-  data?: any
+  responseCode: number;
+  responseMessage: string;
+  errorCode: number;
+  data?: any;
 }
 
 export interface ErrorContext {
-  operation?: string
-  component?: string
-  userId?: string
-  timestamp?: Date
+  operation?: string;
+  component?: string;
+  userId?: string;
+  timestamp?: Date;
 }
 
 export class ErrorHandler {
-  private static instance: ErrorHandler
-  private errorLog: Array<{ error: any; context: ErrorContext; timestamp: Date }> = []
-  private lastErrorTime: number = 0
-  private lastErrorMessage: string = ''
+  private static instance: ErrorHandler;
+  private errorLog: Array<{
+    error: any;
+    context: ErrorContext;
+    timestamp: Date;
+  }> = [];
+  private lastErrorTime: number = 0;
+  private lastErrorMessage: string = '';
 
   static getInstance(): ErrorHandler {
     if (!ErrorHandler.instance) {
-      ErrorHandler.instance = new ErrorHandler()
+      ErrorHandler.instance = new ErrorHandler();
     }
-    return ErrorHandler.instance
+    return ErrorHandler.instance;
   }
 
   handleApiError(error: any, context: ErrorContext = {}): string {
-    const timestamp = new Date()
-    this.errorLog.push({ error, context: { ...context, timestamp }, timestamp })
+    const timestamp = new Date();
+    this.errorLog.push({
+      error,
+      context: { ...context, timestamp },
+      timestamp,
+    });
 
-    const apiError = this.extractApiError(error)
-    const userMessage = this.getUserFriendlyMessage(apiError, context)
-    const shouldShowNotification = this.shouldShowNotification(apiError.errorCode)
+    const apiError = this.extractApiError(error);
+    const userMessage = this.getUserFriendlyMessage(apiError, context);
+    const shouldShowNotification = this.shouldShowNotification(
+      apiError.errorCode
+    );
 
-    const now = Date.now()
-    if (now - this.lastErrorTime < 1000 && this.lastErrorMessage === userMessage) {
-      return userMessage
+    const now = Date.now();
+    if (
+      now - this.lastErrorTime < 1000 &&
+      this.lastErrorMessage === userMessage
+    ) {
+      return userMessage;
     }
 
-    this.lastErrorTime = now
-    this.lastErrorMessage = userMessage
+    this.lastErrorTime = now;
+    this.lastErrorMessage = userMessage;
 
     if (shouldShowNotification) {
-      this.showErrorNotification(userMessage, apiError.errorCode)
+      this.showErrorNotification(userMessage, apiError.errorCode);
     } else {
       ElNotification({
         title: 'Error',
         message: userMessage,
         type: 'error',
         duration: 2000,
-      })
+      });
     }
 
-    return userMessage
+    return userMessage;
   }
 
   getApiErrorMessage(error: any, context: ErrorContext = {}): string {
-    const apiError = this.extractApiError(error)
-    return this.getUserFriendlyMessage(apiError, context)
+    const apiError = this.extractApiError(error);
+    return this.getUserFriendlyMessage(apiError, context);
   }
 
   handleGeneralError(error: any, context: ErrorContext = {}): string {
-    const timestamp = new Date()
-    this.errorLog.push({ error, context: { ...context, timestamp }, timestamp })
-    const userMessage = this.getGeneralErrorMessage(error, context)
+    const timestamp = new Date();
+    this.errorLog.push({
+      error,
+      context: { ...context, timestamp },
+      timestamp,
+    });
+    const userMessage = this.getGeneralErrorMessage(error, context);
 
-    const now = Date.now()
-    if (now - this.lastErrorTime < 1000 && this.lastErrorMessage === userMessage) {
-      return userMessage
+    const now = Date.now();
+    if (
+      now - this.lastErrorTime < 1000 &&
+      this.lastErrorMessage === userMessage
+    ) {
+      return userMessage;
     }
 
-    this.lastErrorTime = now
-    this.lastErrorMessage = userMessage
+    this.lastErrorTime = now;
+    this.lastErrorMessage = userMessage;
 
     ElNotification({
       title: 'Error',
       message: userMessage,
       type: 'error',
       duration: 2000,
-    })
-    return userMessage
+    });
+    return userMessage;
   }
 
   handleValidationError(errors: any[], context: ErrorContext = {}): string {
-    const timestamp = new Date()
-    this.errorLog.push({ error: errors, context: { ...context, timestamp }, timestamp })
+    const timestamp = new Date();
+    this.errorLog.push({
+      error: errors,
+      context: { ...context, timestamp },
+      timestamp,
+    });
 
-    const userMessage = this.getValidationErrorMessage(errors)
+    const userMessage = this.getValidationErrorMessage(errors);
     ElNotification({
       title: 'Validation Error',
       message: userMessage,
       type: 'error',
       duration: 2000,
-    })
-    return userMessage
+    });
+    return userMessage;
   }
 
   private extractApiError(error: any): ApiError {
@@ -104,162 +128,177 @@ export class ErrorHandler {
       return {
         responseCode: error.response.data.responseCode ?? 1,
         responseMessage: error.response.data.responseMessage ?? 'Unknown error',
-        errorCode: error.response.data.errorCode ?? ErrorCode.INTERNAL_SERVER_ERROR,
+        errorCode:
+          error.response.data.errorCode ?? ErrorCode.INTERNAL_SERVER_ERROR,
         data: error.response.data.data,
-      }
+      };
     }
     return {
       responseCode: 1,
       responseMessage: error?.message ?? 'Network error',
       errorCode: this.getErrorCodeFromStatus(error?.response?.status),
       data: null,
-    }
+    };
   }
 
-  private getUserFriendlyMessage(apiError: ApiError, context: ErrorContext): string {
-    const { errorCode, responseMessage } = apiError
+  private getUserFriendlyMessage(
+    apiError: ApiError,
+    context: ErrorContext
+  ): string {
+    const { errorCode, responseMessage } = apiError;
 
     // Prioritize the actual responseMessage from the API when it's available and specific
     // This ensures backend-specific messages (like "Invalid password. 2 attempts remain") are shown
-    if (responseMessage && responseMessage.trim() && responseMessage !== 'Unknown error') {
+    if (
+      responseMessage &&
+      responseMessage.trim() &&
+      responseMessage !== 'Unknown error'
+    ) {
       // For certain error codes, use the API responseMessage directly as it contains specific details
       const useApiMessageDirectly = [
         ErrorCode.INVALID_USERNAME_OR_PASSWORD,
         ErrorCode.ACCOUNT_TIMEOUT,
         ErrorCode.VALIDATION_FAILED,
-      ]
+      ];
 
       if (useApiMessageDirectly.includes(errorCode)) {
-        return this.getUserMessage(apiError)
+        return this.getUserMessage(apiError);
       }
     }
 
     switch (errorCode) {
       case ErrorCode.REQUEST_SUCCESS:
-        return 'Operation completed successfully'
+        return 'Operation completed successfully';
 
       case ErrorCode.INVALID_USERNAME_OR_PASSWORD:
         return (
           responseMessage ||
           'Invalid username or password. Please check your credentials and try again.'
-        )
+        );
 
       case ErrorCode.FAILED_AUTHENTICATION:
-        return 'Authentication failed. Please log in again.'
+        return 'Authentication failed. Please log in again.';
 
       case ErrorCode.JWT_EXPIRE:
-        return 'Your session has expired. Please log in again.'
+        return 'Your session has expired. Please log in again.';
 
       case ErrorCode.NO_PERMISSION:
-        return 'You do not have permission to perform this action.'
+        return 'You do not have permission to perform this action.';
 
       case ErrorCode.ACCOUNT_TIMEOUT:
         return (
-          responseMessage || 'Your account has been temporarily locked. Please contact support.'
-        )
+          responseMessage ||
+          'Your account has been temporarily locked. Please contact support.'
+        );
 
       case ErrorCode.VALIDATION_FAILED:
-        return responseMessage || 'Please check your input and try again.'
+        return responseMessage || 'Please check your input and try again.';
 
       case ErrorCode.RECORD_NOT_FOUND:
-        return 'The requested item was not found.'
+        return 'The requested item was not found.';
 
       case ErrorCode.USER_NOT_FOUND:
-        return responseMessage || 'User not found.'
+        return responseMessage || 'User not found.';
 
       case ErrorCode.TEMPLATE_NOT_FOUND:
-        return 'Template not found.'
+        return 'Template not found.';
 
       case ErrorCode.NOTIFICATION_NOT_FOUND:
-        return 'Notification not found.'
+        return 'Notification not found.';
 
       case ErrorCode.IMAGE_NOT_FOUND:
-        return 'Image not found.'
+        return 'Image not found.';
 
       case ErrorCode.FILE_NOT_FOUND:
-        return 'File not found.'
+        return 'File not found.';
 
       case ErrorCode.DATABASE_UNIQUE_CONSTRAINT_VIOLATION:
-        return apiError?.responseMessage || 'Email already exists. Please use a different email.'
-        
+        return (
+          apiError?.responseMessage ||
+          'Email already exists. Please use a different email.'
+        );
+
       case ErrorCode.DATABASE_FOREIGN_KEY_VIOLATION:
-        return 'Cannot delete this item as it is being used elsewhere.'
+        return 'Cannot delete this item as it is being used elsewhere.';
 
       case ErrorCode.DATABASE_NOT_NULL_VIOLATION:
-        return 'Required fields cannot be empty.'
+        return 'Required fields cannot be empty.';
 
       case ErrorCode.DATABASE_CONNECTION_ERROR:
-        return 'Database connection error. Please try again later.'
+        return 'Database connection error. Please try again later.';
 
       case ErrorCode.FLASH_LIMIT_REACHED_IN_TODAY:
-        return 'Daily flash notification limit reached. Please try again tomorrow.'
+        return 'Daily flash notification limit reached. Please try again tomorrow.';
 
       case ErrorCode.NO_FLASH_NOTIFICATION_TEMPLATE_AVAILABLE:
-        return 'No flash notification template is available, we will notify you when we have a new template.'
+        return 'No flash notification template is available, we will notify you when we have a new template.';
 
       case ErrorCode.INVALID_FCM_TOKEN:
-        return 'Invalid push notification token. Please refresh the page.'
+        return 'Invalid push notification token. Please refresh the page.';
 
       case ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST:
-        return 'Cannot schedule notification in the past. Please select a future date.'
+        return 'Cannot schedule notification in the past. Please select a future date.';
 
       case ErrorCode.TEMPLATE_SEND_INTERVAL_INVAILD_DURATION:
-        return 'Invalid send interval duration. Please check your settings.'
+        return 'Invalid send interval duration. Please check your settings.';
 
       case ErrorCode.API_NOT_FOUND:
-        return 'The requested service is not available.'
+        return 'The requested service is not available.';
 
       case ErrorCode.SERVICE_UNHEALTHY:
-        return 'Service is temporarily unavailable. Please try again later.'
+        return 'Service is temporarily unavailable. Please try again later.';
 
       case ErrorCode.INTERNAL_SERVER_ERROR:
       default:
-        return responseMessage || 'An unexpected error occurred. Please try again later.'
+        return (
+          responseMessage ||
+          'An unexpected error occurred. Please try again later.'
+        );
     }
   }
 
   private getGeneralErrorMessage(error: any, context: ErrorContext): string {
     if (error?.message) {
-      return error.message
+      return error.message;
     }
     if (context.operation) {
-      return `Failed to ${context.operation}. Please try again.`
+      return `Failed to ${context.operation}. Please try again.`;
     }
-    return 'An unexpected error occurred. Please try again.'
+    return 'An unexpected error occurred. Please try again.';
   }
 
   private getValidationErrorMessage(errors: any[]): string {
     if (errors.length === 0) {
-      return 'Validation failed. Please check your input.'
+      return 'Validation failed. Please check your input.';
     }
     if (errors.length === 1) {
-      return errors[0].message || 'Please check your input.'
+      return errors[0].message || 'Please check your input.';
     }
-    return `Please fix ${errors.length} validation errors.`
+    return `Please fix ${errors.length} validation errors.`;
   }
 
   private getErrorCodeFromStatus(status?: number): number {
-    if (!status) return ErrorCode.INTERNAL_SERVER_ERROR
+    if (!status) return ErrorCode.INTERNAL_SERVER_ERROR;
 
     switch (status) {
       case 400:
-        return ErrorCode.VALIDATION_FAILED
+        return ErrorCode.VALIDATION_FAILED;
       case 401:
-        return ErrorCode.FAILED_AUTHENTICATION
+        return ErrorCode.FAILED_AUTHENTICATION;
       case 403:
-        return ErrorCode.NO_PERMISSION
+        return ErrorCode.NO_PERMISSION;
       case 404:
-        return ErrorCode.API_NOT_FOUND
+        return ErrorCode.API_NOT_FOUND;
       case 409:
-        return ErrorCode.DATABASE_UNIQUE_CONSTRAINT_VIOLATION
+        return ErrorCode.DATABASE_UNIQUE_CONSTRAINT_VIOLATION;
       case 422:
-        return ErrorCode.VALIDATION_FAILED
+        return ErrorCode.VALIDATION_FAILED;
       case 500:
-        return ErrorCode.INTERNAL_SERVER_ERROR
+        return ErrorCode.INTERNAL_SERVER_ERROR;
       case 503:
-        return ErrorCode.SERVICE_UNHEALTHY
+        return ErrorCode.SERVICE_UNHEALTHY;
       default:
-        return ErrorCode.INTERNAL_SERVER_ERROR
+        return ErrorCode.INTERNAL_SERVER_ERROR;
     }
   }
 
@@ -269,13 +308,13 @@ export class ErrorHandler {
       ErrorCode.ACCOUNT_TIMEOUT,
       ErrorCode.SERVICE_UNHEALTHY,
       ErrorCode.DATABASE_CONNECTION_ERROR,
-    ]
-    return notificationErrors.includes(errorCode)
+    ];
+    return notificationErrors.includes(errorCode);
   }
 
   private showErrorNotification(message: string, errorCode: number): void {
-    const type = this.getNotificationType(errorCode)
-    const duration = this.getNotificationDuration(errorCode)
+    const type = this.getNotificationType(errorCode);
+    const duration = this.getNotificationDuration(errorCode);
 
     ElNotification({
       title: 'Error',
@@ -284,55 +323,67 @@ export class ErrorHandler {
       duration,
       showClose: true,
       position: 'top-right',
-    })
+    });
   }
 
   private getNotificationType(errorCode: number): 'error' | 'warning' | 'info' {
-    const warningErrors = [ErrorCode.JWT_EXPIRE, ErrorCode.ACCOUNT_TIMEOUT]
+    const warningErrors = [ErrorCode.JWT_EXPIRE, ErrorCode.ACCOUNT_TIMEOUT];
 
     if (warningErrors.includes(errorCode)) {
-      return 'warning'
+      return 'warning';
     }
 
-    return 'error'
+    return 'error';
   }
 
   private getNotificationDuration(errorCode: number): number {
-    const persistentErrors = [ErrorCode.ACCOUNT_TIMEOUT, ErrorCode.SERVICE_UNHEALTHY]
+    const persistentErrors = [
+      ErrorCode.ACCOUNT_TIMEOUT,
+      ErrorCode.SERVICE_UNHEALTHY,
+    ];
 
     if (persistentErrors.includes(errorCode)) {
-      return 0
+      return 0;
     }
 
-    return 5000
+    return 5000;
   }
 
   private getUniqueConstraintMessage(apiError: ApiError): string {
-    const constraint = String(apiError?.data?.constraint || '').toLowerCase()
-    const detail = String(apiError?.data?.detail || '').toLowerCase()
-  
+    const constraint = String(apiError?.data?.constraint || '').toLowerCase();
+    const detail = String(apiError?.data?.detail || '').toLowerCase();
+
     // User table
     if (constraint.includes('user_email') || detail.includes('(email)=(')) {
-      return 'Email already exists. Please use another email.'
+      return 'Email already exists. Please use another email.';
     }
-    if (constraint.includes('user_username') || detail.includes('(username)=(')) {
-      return 'Username already exists. Please use another username.'
+    if (
+      constraint.includes('user_username') ||
+      detail.includes('(username)=(')
+    ) {
+      return 'Username already exists. Please use another username.';
     }
-    if (constraint.includes('user_phonenumber') || detail.includes('(phonenumber)=(')) {
-      return 'Phone number already exists. Please use another phone number.'
+    if (
+      constraint.includes('user_phonenumber') ||
+      detail.includes('(phonenumber)=(')
+    ) {
+      return 'Phone number already exists. Please use another phone number.';
     }
-  
-    // fallback
-    return 'This value already exists. Please use a different one.'
-  }
-  
 
-  getErrorLogs(): Array<{ error: any; context: ErrorContext; timestamp: Date }> {
-    return [...this.errorLog]
+    // fallback
+    return 'This value already exists. Please use a different one.';
+  }
+
+  getErrorLogs(): Array<{
+    error: any;
+    context: ErrorContext;
+    timestamp: Date;
+  }> {
+    return [...this.errorLog];
   }
 
   clearErrorLogs(): void {
-    this.errorLog = []
+    this.errorLog = [];
   }
 
   showSuccess(message: string, context: ErrorContext = {}): void {
@@ -341,7 +392,7 @@ export class ErrorHandler {
       message: message,
       type: 'success',
       duration: 2000,
-    })
+    });
   }
 
   showInfo(message: string, context: ErrorContext = {}): void {
@@ -350,7 +401,7 @@ export class ErrorHandler {
       message: message,
       type: 'info',
       duration: 2000,
-    })
+    });
   }
 
   showWarning(message: string, context: ErrorContext = {}): void {
@@ -359,55 +410,57 @@ export class ErrorHandler {
       message: message,
       type: 'warning',
       duration: 2000,
-    })
+    });
   }
 
-  private getUserMessage(apiError: { errorCode: number; responseMessage?: string | null }): string {
-    const responseMessage = apiError?.responseMessage?.trim()
-  
+  private getUserMessage(apiError: {
+    errorCode: number;
+    responseMessage?: string | null;
+  }): string {
+    const responseMessage = apiError?.responseMessage?.trim();
+
     // ✅ ALWAYS prefer backend message if available
     if (responseMessage && responseMessage !== 'Unknown error') {
-      return responseMessage
+      return responseMessage;
     }
-  
-    const errorCode = apiError?.errorCode
-  
+
+    const errorCode = apiError?.errorCode;
+
     // ✅ fallback messages only when backend message is missing
     switch (errorCode) {
       case ErrorCode.NO_PERMISSION:
-        return 'You do not have permission to perform this action.'
+        return 'You do not have permission to perform this action.';
       case ErrorCode.ACCOUNT_DEACTIVATED:
-        return 'Your account has been deactivated. Please contact administrator to reactivate your account.'
+        return 'Your account has been deactivated. Please contact administrator to reactivate your account.';
       case ErrorCode.VALIDATION_FAILED:
-        return 'Please check your input and try again.'
+        return 'Please check your input and try again.';
       case ErrorCode.USER_NOT_FOUND:
-        return 'User not found.'
+        return 'User not found.';
       default:
-        return 'An unexpected error occurred. Please try again later.'
+        return 'An unexpected error occurred. Please try again later.';
     }
   }
-  
 }
 
-export const errorHandler = ErrorHandler.getInstance()
+export const errorHandler = ErrorHandler.getInstance();
 
 export const handleApiError = (error: any, context?: ErrorContext) =>
-  errorHandler.handleApiError(error, context)
+  errorHandler.handleApiError(error, context);
 
 export const getApiErrorMessage = (error: any, context?: ErrorContext) =>
-  errorHandler.getApiErrorMessage(error, context)
+  errorHandler.getApiErrorMessage(error, context);
 
 export const handleGeneralError = (error: any, context?: ErrorContext) =>
-  errorHandler.handleGeneralError(error, context)
+  errorHandler.handleGeneralError(error, context);
 
 export const handleValidationError = (errors: any[], context?: ErrorContext) =>
-  errorHandler.handleValidationError(errors, context)
+  errorHandler.handleValidationError(errors, context);
 
 export const showSuccess = (message: string, context?: ErrorContext) =>
-  errorHandler.showSuccess(message, context)
+  errorHandler.showSuccess(message, context);
 
 export const showInfo = (message: string, context?: ErrorContext) =>
-  errorHandler.showInfo(message, context)
+  errorHandler.showInfo(message, context);
 
 export const showWarning = (message: string, context?: ErrorContext) =>
-  errorHandler.showWarning(message, context)
+  errorHandler.showWarning(message, context);

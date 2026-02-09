@@ -1,32 +1,24 @@
-// apps/backend/src/common/services/email.service.ts
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common'
-import * as nodemailer from 'nodemailer'
-import { ConfigService } from './config.service'
-import { API_BASE_URL } from '@/constant'
-
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import * as nodemailer from 'nodemailer';
+import { ConfigService } from './config.service';
+import { API_BASE_URL } from '@/constant';
 @Injectable()
 export class EmailService implements OnModuleInit {
-  private readonly logger = new Logger(EmailService.name)
-  private transporter: nodemailer.Transporter
-  private isConfigured = false
-
+  private readonly logger = new Logger(EmailService.name);
+  private transporter: nodemailer.Transporter;
+  private isConfigured = false;
   constructor(private configService: ConfigService) {}
-
   async onModuleInit() {
-    // Validate SMTP configuration
-    const smtpHost = process.env.SMTP_HOST
-    const smtpUser = process.env.SMTP_USER
-    const smtpPassword = process.env.SMTP_PASSWORD
-
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPassword = process.env.SMTP_PASSWORD;
     if (!smtpHost || !smtpUser || !smtpPassword) {
       this.logger.warn(
-        '⚠️  SMTP configuration incomplete. Email sending will fail. Please set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD in your .env file.',
-      )
-      this.isConfigured = false
-      return
+        '⚠️  SMTP configuration incomplete. Email sending will fail. Please set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD in your .env file.'
+      );
+      this.isConfigured = false;
+      return;
     }
-
-    // Create transporter from config
     try {
       this.transporter = nodemailer.createTransport({
         host: smtpHost,
@@ -36,15 +28,13 @@ export class EmailService implements OnModuleInit {
           user: smtpUser,
           pass: smtpPassword,
         },
-      })
-
-      // Verify connection
-      await this.transporter.verify()
-      this.isConfigured = true
-      this.logger.log('✅ Email service configured successfully')
+      });
+      await this.transporter.verify();
+      this.isConfigured = true;
+      this.logger.log('✅ Email service configured successfully');
     } catch (error) {
-      this.logger.error('❌ Failed to configure email service:', error.message)
-      this.isConfigured = false
+      this.logger.error('❌ Failed to configure email service:', error.message);
+      this.isConfigured = false;
     }
   }
 
@@ -54,13 +44,16 @@ export class EmailService implements OnModuleInit {
    * @param verificationLink - Full URL to verification endpoint
    * @param displayName - User's display name
    */
-  async sendVerificationEmail(email: string, verificationLink: string, displayName: string) {
+  async sendVerificationEmail(
+    email: string,
+    verificationLink: string,
+    displayName: string
+  ) {
     if (!this.isConfigured) {
       throw new Error(
-        'Email service is not configured. Please set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD in your .env file.',
-      )
+        'Email service is not configured. Please set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD in your .env file.'
+      );
     }
-
     const mailOptions = {
       from: process.env.SMTP_FROM || 'noreply@bakong.com',
       to: email,
@@ -179,18 +172,17 @@ export class EmailService implements OnModuleInit {
             </div>
             <div class="content">
               <h1 class="title">Account verification required</h1>
-
               <div class="account-info">
-                <div class="account-icon">${displayName.charAt(0).toUpperCase()}</div>
+                <div class="account-icon">${displayName
+                  .charAt(0)
+                  .toUpperCase()}</div>
                 <div class="account-email">${email}</div>
               </div>
-
               <div class="message">
                 <p>Welcome to <strong>Bakong Notification Service</strong>!</p>
                 <p>An account has been created for you. Please verify your account to activate it and set your password.</p>
                 <p>If you didn't request this account, you can safely ignore this email.</p>
               </div>
-
               <div class="button-container">
                 <a href="${verificationLink}" class="verify-button">Verify Account</a>
               </div>
@@ -207,15 +199,19 @@ export class EmailService implements OnModuleInit {
         </body>
         </html>
       `,
-    }
-
+    };
     try {
-      const info = await this.transporter.sendMail(mailOptions)
-      this.logger.log(`📧 Verification email sent to ${email} (Message ID: ${info.messageId})`)
-      return info
+      const info = await this.transporter.sendMail(mailOptions);
+      this.logger.log(
+        `📧 Verification email sent to ${email} (Message ID: ${info.messageId})`
+      );
+      return info;
     } catch (error) {
-      this.logger.error(`❌ Failed to send verification email to ${email}:`, error.message)
-      throw error
+      this.logger.error(
+        `❌ Failed to send verification email to ${email}:`,
+        error.message
+      );
+      throw error;
     }
   }
 }

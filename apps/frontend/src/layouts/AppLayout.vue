@@ -147,550 +147,551 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { UserRole } from '@bakong/shared'
-import { useRouter, useRoute } from 'vue-router'
-import { ElNotification, ElDialog } from 'element-plus'
-import {
-  Plus,
-  ArrowLeft,
-  ArrowRight,
-  Warning,
-  CirclePlus,
-  Tools,
-  User,
-} from '@element-plus/icons-vue'
-import Breadcrumb from '@/components/common/Breadcrumb.vue'
+  import { ref, computed, watch } from 'vue';
+  import { useAuthStore } from '@/stores/auth';
+  import { UserRole } from '@bakong/shared';
+  import { useRouter, useRoute } from 'vue-router';
+  import { ElNotification, ElDialog } from 'element-plus';
+  import {
+    Plus,
+    ArrowLeft,
+    ArrowRight,
+    Warning,
+    CirclePlus,
+    Tools,
+    User,
+  } from '@element-plus/icons-vue';
+  import Breadcrumb from '@/components/common/Breadcrumb.vue';
 
-// Import images properly for production builds
-// Use fallback to public folder if LogoNBC.svg is missing (handled at build time)
-import nbcLogoImg from '@/assets/image/LogoNBC.svg'
-import homeIconImg from '@/assets/image/Home.svg'
-import calendarIconImg from '@/assets/image/Schedule.svg'
-import typeIconImg from '@/assets/image/type-pattern.svg'
-import chartIconImg from '@/assets/image/chart--bar-target.svg'
-import settingsIconImg from '@/assets/image/settings_16.svg'
-import avatarImageImg from '@/assets/image/avatar.svg'
-import userIconImg from '@/assets/image/user--multiple.svg'
+  // Import images properly for production builds
+  // Use fallback to public folder if LogoNBC.svg is missing (handled at build time)
+  import nbcLogoImg from '@/assets/image/LogoNBC.svg';
+  import homeIconImg from '@/assets/image/Home.svg';
+  import calendarIconImg from '@/assets/image/Schedule.svg';
+  import typeIconImg from '@/assets/image/type-pattern.svg';
+  import chartIconImg from '@/assets/image/chart--bar-target.svg';
+  import settingsIconImg from '@/assets/image/settings_16.svg';
+  import avatarImageImg from '@/assets/image/avatar.svg';
+  import userIconImg from '@/assets/image/user--multiple.svg';
 
-// Explicitly declare const variables for TypeScript
-const nbcLogo = nbcLogoImg
-const homeIcon = homeIconImg
-const calendarIcon = calendarIconImg
-const typeIcon = typeIconImg
-const chartIcon = chartIconImg
-const settingsIcon = settingsIconImg
-const avatarImage = avatarImageImg
-const userIcon = userIconImg
-const authStore = useAuthStore()
-const router = useRouter()
-const route = useRoute()
+  // Explicitly declare const variables for TypeScript
+  const nbcLogo = nbcLogoImg;
+  const homeIcon = homeIconImg;
+  const calendarIcon = calendarIconImg;
+  const typeIcon = typeIconImg;
+  const chartIcon = chartIconImg;
+  const settingsIcon = settingsIconImg;
+  const avatarImage = avatarImageImg;
+  const userIcon = userIconImg;
+  const authStore = useAuthStore();
+  const router = useRouter();
+  const route = useRoute();
 
-const { user } = authStore
-const logoutDialogVisible = ref(false)
-const isSidebarCollapsed = ref(false)
-const avatarLoadError = ref(false)
+  const { user } = authStore;
+  const logoutDialogVisible = ref(false);
+  const isSidebarCollapsed = ref(false);
+  const avatarLoadError = ref(false);
 
-const toggleSidebar = () => {
-  isSidebarCollapsed.value = !isSidebarCollapsed.value
-}
+  const toggleSidebar = () => {
+    isSidebarCollapsed.value = !isSidebarCollapsed.value;
+  };
 
-const avatarUrl = computed(() => {
-  // If there was an error loading the avatar, use default
-  if (avatarLoadError.value) {
-    return avatarImage
-  }
-  return authStore.userAvatar || avatarImage
-})
-
-const handleImageError = (event: Event) => {
-  try {
-    const img = event.target as HTMLImageElement | null
-    if (!img) return
-
-    console.warn('Avatar image failed to load:', img.src)
-    // Set error flag to trigger computed property update
-    avatarLoadError.value = true
-    // Clear the invalid URL from store
-    const currentAvatar = authStore.userAvatar
-    if (currentAvatar) {
-      authStore.updateUserAvatar(null)
+  const avatarUrl = computed(() => {
+    // If there was an error loading the avatar, use default
+    if (avatarLoadError.value) {
+      return avatarImage;
     }
-  } catch (error) {
-    console.error('Error in handleImageError:', error)
-  }
-}
+    return authStore.userAvatar || avatarImage;
+  });
 
-// Reset error flag when avatar changes
-watch(
-  () => authStore.userAvatar,
-  () => {
-    avatarLoadError.value = false
-  },
-)
+  const handleImageError = (event: Event) => {
+    try {
+      const img = event.target as HTMLImageElement | null;
+      if (!img) return;
 
-const pageTitle = computed(() => {
-  switch (route.name) {
-    case 'home':
-      return 'Notification'
-    case 'notifications':
-      return 'Notifications'
-    case 'schedule':
-      return 'Schedule'
-    case 'types':
-      return 'Types'
-    case 'users':
-      return 'Users'
-    default:
-      return 'Home'
-  }
-})
-
-// Check if we're in development environment (not production/SIT)
-const isDevelopment = computed(() => {
-  // In Vite, import.meta.env.DEV is true in development mode
-  // import.meta.env.PROD is true in production/SIT builds
-  return import.meta.env.DEV || import.meta.env.MODE === 'development'
-})
-
-// Check if user has admin role (ADMINISTRATOR has full access)
-const isAdmin = computed(() => {
-  return authStore.user?.role === UserRole.ADMINISTRATOR
-})
-
-// Show User Management menu only for ADMINISTRATOR role
-const showUserManagement = computed(() => {
-  return authStore.user?.role === UserRole.ADMINISTRATOR
-  return isDevelopment.value && isAdmin.value
-})
-
-// Check if user can create notifications (disabled for Viewer and Approver)
-const canCreateNotification = computed(() => {
-  const role = authStore.user?.role as any
-  return role !== UserRole.VIEW_ONLY && role !== UserRole.APPROVAL
-})
-
-const handleCreateNotification = () => {
-  if (!canCreateNotification.value) return
-  router.push('/notifications/create')
-}
-
-const handleGoToSettings = () => {
-  router.push('/settings')
-}
-
-const handleUserManagementClick = () => {
-  // Use route name instead of path for better reliability
-  router.push({ name: 'user-management' }).catch((err) => {
-    // Ignore navigation errors (e.g., already on the same route)
-    if (err.name !== 'NavigationDuplicated') {
-      console.error('Navigation error:', err)
+      console.warn('Avatar image failed to load:', img.src);
+      // Set error flag to trigger computed property update
+      avatarLoadError.value = true;
+      // Clear the invalid URL from store
+      const currentAvatar = authStore.userAvatar;
+      if (currentAvatar) {
+        authStore.updateUserAvatar(null);
+      }
+    } catch (error) {
+      console.error('Error in handleImageError:', error);
     }
-  })
-}
+  };
 
-const confirmLogout = () => {
-  logoutDialogVisible.value = false
-  authStore.logout()
-  ElNotification({
-    title: 'Success',
-    type: 'success',
-    message: 'Logged out successfully',
-  })
-  router.push('/login')
-}
+  // Reset error flag when avatar changes
+  watch(
+    () => authStore.userAvatar,
+    () => {
+      avatarLoadError.value = false;
+    }
+  );
+
+  const pageTitle = computed(() => {
+    switch (route.name) {
+      case 'home':
+        return 'Notification';
+      case 'notifications':
+        return 'Notifications';
+      case 'schedule':
+        return 'Schedule';
+      case 'types':
+        return 'Types';
+      case 'users':
+        return 'Users';
+      default:
+        return 'Home';
+    }
+  });
+
+  // Check if we're in development environment (not production/SIT)
+  const isDevelopment = computed(() => {
+    // In Vite, import.meta.env.DEV is true in development mode
+    // import.meta.env.PROD is true in production/SIT builds
+    return import.meta.env.DEV || import.meta.env.MODE === 'development';
+  });
+
+  // Check if user has admin role (ADMINISTRATOR has full access)
+  const isAdmin = computed(() => {
+    return authStore.user?.role === UserRole.ADMINISTRATOR;
+  });
+
+  // Show User Management menu only for ADMINISTRATOR role
+  const showUserManagement = computed(() => {
+    return authStore.user?.role === UserRole.ADMINISTRATOR;
+    return isDevelopment.value && isAdmin.value;
+  });
+
+  // Check if user can create notifications (disabled for Viewer and Approver)
+  const canCreateNotification = computed(() => {
+    const role = authStore.user?.role as any;
+    return role !== UserRole.VIEW_ONLY && role !== UserRole.APPROVAL;
+  });
+
+  const handleCreateNotification = () => {
+    if (!canCreateNotification.value) return;
+    router.push('/notifications/create');
+  };
+
+  const handleGoToSettings = () => {
+    router.push('/settings');
+  };
+
+  const handleUserManagementClick = () => {
+    // Use route name instead of path for better reliability
+    router.push({ name: 'user-management' }).catch((err) => {
+      // Ignore navigation errors (e.g., already on the same route)
+      if (err.name !== 'NavigationDuplicated') {
+        console.error('Navigation error:', err);
+      }
+    });
+  };
+
+  const confirmLogout = () => {
+    logoutDialogVisible.value = false;
+    authStore.logout();
+    ElNotification({
+      title: 'Success',
+      type: 'success',
+      message: 'Logged out successfully',
+    });
+    router.push('/login');
+  };
 </script>
 
 <style scoped>
-.app-layout {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: #fff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  overflow: hidden;
-}
-
-.header {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0px 32px;
-  position: fixed;
-  width: calc(100vw - 200px);
-  height: 90px;
-  left: 200px;
-  top: 0;
-  border-bottom: 1px solid rgba(0, 19, 70, 0.05);
-  background: #fff;
-  z-index: 1000;
-  transition:
-    left 0.3s ease,
-    width 0.3s ease;
-}
-
-.header.expanded {
-  left: 64px;
-  width: calc(100vw - 64px);
-}
-
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.page-title h1 {
-  font-size: 24px;
-  font-weight: 700;
-  color: #001346;
-  margin: 0;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.create-notification-btn {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  padding: 8px 16px;
-  gap: 4px;
-  width: 234px;
-  height: 56px;
-  background: rgba(0, 19, 70, 0.05);
-  backdrop-filter: blur(64px);
-  border-radius: 32px;
-  flex: none;
-  flex-grow: 0;
-  color: #001346;
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-weight: 600;
-  font-size: 16px;
-  line-height: 150%;
-  letter-spacing: 0;
-  border: none;
-  transition: all 0.3s ease;
-}
-
-.create-notification-btn:disabled,
-.create-notification-btn.is-disabled {
-  background: #d6d7d8 !important;
-  color: #6b7280 !important;
-  cursor: not-allowed !important;
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.create-notification-btn:disabled:hover,
-.create-notification-btn.is-disabled:hover {
-  background: #9ca3af !important;
-  color: #6b7280 !important;
-}
-
-.create-notification-btn:disabled .plus-icon .el-icon,
-.create-notification-btn.is-disabled .plus-icon .el-icon {
-  color: #6b7280 !important;
-}
-
-/* Override Element Plus button disabled styles */
-.create-notification-btn:deep(.el-button.is-disabled),
-.create-notification-btn:deep(.el-button:disabled) {
-  background: #9ca3af !important;
-  color: #6b7280 !important;
-  border-color: #9ca3af !important;
-  cursor: not-allowed !important;
-  opacity: 0.6 !important;
-  pointer-events: none !important;
-}
-
-.create-notification-btn:deep(.el-button.is-disabled:hover),
-.create-notification-btn:deep(.el-button:disabled:hover) {
-  background: #9ca3af !important;
-  color: #6b7280 !important;
-  border-color: #9ca3af !important;
-}
-
-.plus-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  margin-left: 8px;
-}
-
-.plus-icon .el-icon {
-  font-size: 24px;
-  color: #001346;
-}
-
-.plus-circle {
-  width: 21px;
-  height: 21px;
-  border-radius: 50%;
-  background: #001346;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.plus-symbol {
-  color: white;
-  font-size: 14px;
-  font-weight: bold;
-  line-height: 1;
-}
-
-.user-avatar {
-  cursor: pointer;
-}
-
-.user-image {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.sidebar {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 0px;
-  position: fixed;
-  width: 200px;
-  height: 100vh;
-  left: 0px;
-  top: 0px;
-  border-right: 1px solid rgba(0, 19, 70, 0.1);
-  background: #fff;
-  z-index: 999;
-  transition: width 0.3s ease;
-}
-
-.sidebar.collapsed {
-  width: 48px;
-}
-
-.sidebar-content {
-  flex: 1;
-  width: 100%;
-  overflow: hidden;
-  transition:
-    opacity 0.3s ease,
-    visibility 0.3s ease;
-}
-
-.sidebar-content.collapsed {
-  opacity: 0;
-  visibility: hidden;
-}
-
-.sidebar-header {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  padding: 0px;
-  gap: 8px;
-  width: 200px;
-  height: 90px;
-  border-bottom: 1px solid rgba(0, 19, 70, 0.1);
-  flex: none;
-  order: 0;
-  align-self: stretch;
-  flex-grow: 0;
-}
-
-.logo {
-  position: relative;
-  width: 90px;
-  height: 90px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  order: 0;
-  flex-grow: 0;
-}
-
-.logo-image {
-  position: absolute;
-  width: 48.63px;
-  height: 52.33px;
-  left: calc(50% - 48.63px / 2 - 0.31px);
-  top: calc(50% - 52.33px / 2 + 0.11px);
-  object-fit: contain;
-}
-
-.sidebar-nav {
-  flex: 1;
-  padding: 0;
-  width: 100%;
-}
-
-.nav-section {
-  margin-bottom: 24px;
-}
-
-.nav-section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #001346;
-  padding: 8px 16px;
-  margin-bottom: 8px;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  color: #666;
-  font-weight: 500;
-  font-size: 14px;
-  position: relative;
-  margin: 4px 0;
-}
-
-.nav-item:hover {
-  background: rgba(102, 153, 255, 0.05);
-  color: #001346;
-}
-
-.nav-item.active {
-  background: var(--opacity-secondary-opacity-5, #0013460d);
-  color: #001346;
-  font-weight: 600;
-}
-
-.nav-item.active::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  opacity: 70%;
-  background: #001346;
-  border-radius: 2px 0 0 2px;
-}
-
-.nav-icon {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-}
-
-.sidebar-footer {
-  padding: 16px;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  cursor: pointer;
-  width: 100%;
-  min-height: 64px;
-  box-sizing: border-box;
-  flex-shrink: 0;
-}
-
-.sidebar.collapsed .sidebar-footer {
-  justify-content: center;
-  padding: 16px;
-}
-
-.collapse-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.3s ease;
-}
-
-.collapse-btn:hover {
-  background: rgba(0, 19, 70, 0.1);
-}
-
-.collapse-icon {
-  font-size: 16px;
-  color: #001346;
-}
-
-.main-content {
-  position: fixed;
-  left: 200px;
-  top: 89px;
-  width: calc(100vw - 200px);
-  height: calc(100vh - 90px);
-  padding: 25px 25px 0px 32px;
-  overflow: hidden;
-  background: #fff;
-  transition:
-    left 0.3s ease,
-    width 0.3s ease;
-}
-
-.main-content.expanded {
-  left: 64px;
-  width: calc(100vw - 64px);
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.custom-logout-dialog .el-dialog__body {
-  padding: 0;
-}
-
-.dialog-content {
-  display: flex;
-  align-items: center;
-  font-size: 14px;
-  padding: 0;
-}
-
-@media (max-width: 768px) {
-  .header {
+  .app-layout {
+    position: fixed;
+    top: 0;
     left: 0;
     width: 100vw;
-    padding: 0 16px;
+    height: 100vh;
+    background-color: #fff;
+    font-family:
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+  }
+
+  .header {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0px 32px;
+    position: fixed;
+    width: calc(100vw - 200px);
+    height: 90px;
+    left: 200px;
+    top: 0;
+    border-bottom: 1px solid rgba(0, 19, 70, 0.05);
+    background: #fff;
+    z-index: 1000;
+    transition:
+      left 0.3s ease,
+      width 0.3s ease;
+  }
+
+  .header.expanded {
+    left: 64px;
+    width: calc(100vw - 64px);
+  }
+
+  .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .page-title h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #001346;
+    margin: 0;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .create-notification-btn {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    padding: 8px 16px;
+    gap: 4px;
+    width: 234px;
+    height: 56px;
+    background: rgba(0, 19, 70, 0.05);
+    backdrop-filter: blur(64px);
+    border-radius: 32px;
+    flex: none;
+    flex-grow: 0;
+    color: #001346;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 150%;
+    letter-spacing: 0;
+    border: none;
+    transition: all 0.3s ease;
+  }
+
+  .create-notification-btn:disabled,
+  .create-notification-btn.is-disabled {
+    background: #d6d7d8 !important;
+    color: #6b7280 !important;
+    cursor: not-allowed !important;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .create-notification-btn:disabled:hover,
+  .create-notification-btn.is-disabled:hover {
+    background: #9ca3af !important;
+    color: #6b7280 !important;
+  }
+
+  .create-notification-btn:disabled .plus-icon .el-icon,
+  .create-notification-btn.is-disabled .plus-icon .el-icon {
+    color: #6b7280 !important;
+  }
+
+  /* Override Element Plus button disabled styles */
+  .create-notification-btn:deep(.el-button.is-disabled),
+  .create-notification-btn:deep(.el-button:disabled) {
+    background: #9ca3af !important;
+    color: #6b7280 !important;
+    border-color: #9ca3af !important;
+    cursor: not-allowed !important;
+    opacity: 0.6 !important;
+    pointer-events: none !important;
+  }
+
+  .create-notification-btn:deep(.el-button.is-disabled:hover),
+  .create-notification-btn:deep(.el-button:disabled:hover) {
+    background: #9ca3af !important;
+    color: #6b7280 !important;
+    border-color: #9ca3af !important;
+  }
+
+  .plus-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-left: 8px;
+  }
+
+  .plus-icon .el-icon {
+    font-size: 24px;
+    color: #001346;
+  }
+
+  .plus-circle {
+    width: 21px;
+    height: 21px;
+    border-radius: 50%;
+    background: #001346;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .plus-symbol {
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1;
+  }
+
+  .user-avatar {
+    cursor: pointer;
+  }
+
+  .user-image {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
   }
 
   .sidebar {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0px;
     position: fixed;
-    left: -200px;
-    transition: left 0.3s ease;
+    width: 200px;
+    height: 100vh;
+    left: 0px;
+    top: 0px;
+    border-right: 1px solid rgba(0, 19, 70, 0.1);
+    background: #fff;
+    z-index: 999;
+    transition: width 0.3s ease;
   }
 
-  .sidebar.open {
-    left: 0;
+  .sidebar.collapsed {
+    width: 48px;
+  }
+
+  .sidebar-content {
+    flex: 1;
+    width: 100%;
+    overflow: hidden;
+    transition:
+      opacity 0.3s ease,
+      visibility 0.3s ease;
+  }
+
+  .sidebar-content.collapsed {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .sidebar-header {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 0px;
+    gap: 8px;
+    width: 200px;
+    height: 90px;
+    border-bottom: 1px solid rgba(0, 19, 70, 0.1);
+    flex: none;
+    order: 0;
+    align-self: stretch;
+    flex-grow: 0;
+  }
+
+  .logo {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    order: 0;
+    flex-grow: 0;
+  }
+
+  .logo-image {
+    position: absolute;
+    width: 48.63px;
+    height: 52.33px;
+    left: calc(50% - 48.63px / 2 - 0.31px);
+    top: calc(50% - 52.33px / 2 + 0.11px);
+    object-fit: contain;
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 0;
+    width: 100%;
+  }
+
+  .nav-section {
+    margin-bottom: 24px;
+  }
+
+  .nav-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #001346;
+    padding: 8px 16px;
+    margin-bottom: 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #666;
+    font-weight: 500;
+    font-size: 14px;
+    position: relative;
+    margin: 4px 0;
+  }
+
+  .nav-item:hover {
+    background: rgba(102, 153, 255, 0.05);
+    color: #001346;
+  }
+
+  .nav-item.active {
+    background: var(--opacity-secondary-opacity-5, #0013460d);
+    color: #001346;
+    font-weight: 600;
+  }
+
+  .nav-item.active::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    opacity: 70%;
+    background: #001346;
+    border-radius: 2px 0 0 2px;
+  }
+
+  .nav-icon {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+  }
+
+  .sidebar-footer {
+    padding: 16px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    cursor: pointer;
+    width: 100%;
+    min-height: 64px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+  }
+
+  .sidebar.collapsed .sidebar-footer {
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .collapse-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+  }
+
+  .collapse-btn:hover {
+    background: rgba(0, 19, 70, 0.1);
+  }
+
+  .collapse-icon {
+    font-size: 16px;
+    color: #001346;
   }
 
   .main-content {
-    left: 0;
-    width: 100vw;
-    padding: 16px;
+    position: fixed;
+    left: 200px;
+    top: 89px;
+    width: calc(100vw - 200px);
+    height: calc(100vh - 90px);
+    padding: 25px 25px 0px 32px;
+    overflow: hidden;
+    background: #fff;
+    transition:
+      left 0.3s ease,
+      width 0.3s ease;
   }
-}
+
+  .main-content.expanded {
+    left: 64px;
+    width: calc(100vw - 64px);
+  }
+
+  .dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  .custom-logout-dialog .el-dialog__body {
+    padding: 0;
+  }
+
+  .dialog-content {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    padding: 0;
+  }
+
+  @media (max-width: 768px) {
+    .header {
+      left: 0;
+      width: 100vw;
+      padding: 0 16px;
+    }
+
+    .sidebar {
+      position: fixed;
+      left: -200px;
+      transition: left 0.3s ease;
+    }
+
+    .sidebar.open {
+      left: 0;
+    }
+
+    .main-content {
+      left: 0;
+      width: 100vw;
+      padding: 16px;
+    }
+  }
 </style>

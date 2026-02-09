@@ -1,26 +1,25 @@
-import { IsNotEmpty, IsString, IsOptional } from 'class-validator'
-
+import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
 export class CreateCategoryTypeDto {
   @IsNotEmpty()
   @IsString()
-  name: string
+  name: string;
 
   @IsOptional()
   @IsString()
-  namekh?: string
+  namekh?: string;
 
   @IsOptional()
   @IsString()
-  namejp?: string
+  namejp?: string;
 
   @IsNotEmpty()
-  icon: Buffer
+  icon: Buffer;
 
   @IsOptional()
   @IsString()
-  mimeType?: string
+  mimeType?: string;
 
   @IsOptional()
   @IsString()
-  originalFileName?: string
+  originalFileName?: string;
 }

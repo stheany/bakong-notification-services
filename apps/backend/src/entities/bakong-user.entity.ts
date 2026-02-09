@@ -5,45 +5,44 @@ import {
   Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm'
-import { BakongApp } from '@bakong/shared'
-
+} from 'typeorm';
+import { BakongApp } from '@bakong/shared';
 @Entity({ name: 'bakong_user' })
 export class BakongUser {
   @PrimaryGeneratedColumn({ type: 'bigint' })
-  id: number
+  id: number;
 
   @Column({ nullable: false, length: 32, unique: true })
   @Index()
-  accountId: string
+  accountId: string;
 
   @Column({ nullable: false, length: 255 })
-  fcmToken: string
+  fcmToken: string;
 
   @Column({ nullable: true, length: 32 })
-  participantCode?: string
+  participantCode?: string;
 
   @Column({ nullable: true, length: 32 })
-  platform?: string
+  platform?: string;
 
   @Column({ nullable: true, length: 2 })
-  language?: string
+  language?: string;
 
   @Column({ nullable: true, type: 'enum', enum: BakongApp })
   @Index()
-  bakongPlatform?: BakongApp
+  bakongPlatform?: BakongApp;
 
   @CreateDateColumn({ nullable: false, type: 'timestamp' })
   @Index()
-  createdAt: Date
+  createdAt: Date;
 
   @UpdateDateColumn({ nullable: true, type: 'timestamp' })
-  updatedAt?: Date
+  updatedAt?: Date;
 
   @Column({ nullable: true, type: 'jsonb' })
   syncStatus?: {
-    status: 'SUCCESS' | 'FAILED'
-    lastSyncAt: string | null
-    lastSyncMessage: string | null
-  }
+    status: 'SUCCESS' | 'FAILED';
+    lastSyncAt: string | null;
+    lastSyncMessage: string | null;
+  };
 }

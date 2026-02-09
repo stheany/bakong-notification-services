@@ -5,42 +5,41 @@ import {
   Entity,
   OneToMany,
   PrimaryGeneratedColumn,
-} from 'typeorm'
-import { TemplateTranslation } from './template-translation.entity'
-import { Exclude } from 'class-transformer'
-import { randomUUID } from 'crypto'
-
+} from 'typeorm';
+import { TemplateTranslation } from './template-translation.entity';
+import { Exclude } from 'class-transformer';
+import { randomUUID } from 'crypto';
 @Entity()
 export class Image {
   @PrimaryGeneratedColumn({ type: 'bigint' })
-  id: number
+  id: number;
 
   @Column({ nullable: false, type: 'varchar', length: 255, unique: true })
-  fileId: string
+  fileId: string;
 
   @BeforeInsert()
   generateFileId() {
     if (!this.fileId) {
-      this.fileId = randomUUID()
+      this.fileId = randomUUID();
     }
   }
 
   @Exclude()
   @Column({ nullable: false, type: 'bytea' })
-  file: Buffer
+  file: Buffer;
 
   @Column({ nullable: true, type: 'varchar', length: 32, unique: true })
-  fileHash: string
+  fileHash: string;
 
   @Column({ nullable: false, length: 255 })
-  mimeType: string
+  mimeType: string;
 
   @Column({ nullable: true, length: 255 })
-  originalFileName: string
+  originalFileName: string;
 
   @CreateDateColumn({ nullable: false, type: 'timestamp' })
-  createdAt: Date
+  createdAt: Date;
 
   @OneToMany(() => TemplateTranslation, (translation) => translation.image)
-  translations: TemplateTranslation[]
+  translations: TemplateTranslation[];
 }

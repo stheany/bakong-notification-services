@@ -1,10 +1,19 @@
 <template>
   <div class="home-page">
     <div class="main-content">
-      <Tabs v-model="activeTab" :tabs="filterTabs" @tab-changed="handleTabChanged" />
+      <Tabs
+        v-model="activeTab"
+        :tabs="filterTabs"
+        @tab-changed="handleTabChanged"
+      />
       <div class="search-filter-bar">
         <div class="filter-dropdown">
-          <el-select v-model="selectedFilter" placeholder="ALL" size="large" class="filter-select">
+          <el-select
+            v-model="selectedFilter"
+            placeholder="ALL"
+            size="large"
+            class="filter-select"
+          >
             <el-option
               v-for="option in filterOptions"
               :key="option.value"
@@ -42,7 +51,9 @@
           >
             <template #trigger>
               <div class="custom-date-range">
-                <span class="date-text"> {{ selectedLabel }} ({{ formattedRange }}) </span>
+                <span class="date-text">
+                  {{ selectedLabel }} ({{ formattedRange }})
+                </span>
                 <div class="calendar-icon-container">
                   <el-icon>
                     <Calendar />
@@ -58,7 +69,10 @@
           <div v-if="loading" class="loading-container">
             <div class="loading-spinner">Loading notifications...</div>
           </div>
-          <div v-else-if="filteredNotifications.length === 0" class="empty-state">
+          <div
+            v-else-if="filteredNotifications.length === 0 || fetchError"
+            class="empty-state"
+          >
             <div class="empty-state-container">
               <img
                 :src="emptyStateImage"
@@ -75,7 +89,9 @@
             :active-tab="activeTab"
             :notifications="filteredNotifications"
             :loading="loading"
-            @refresh="(forceRefresh) => fetchNotifications(forceRefresh || false)"
+            @refresh="
+              (forceRefresh) => fetchNotifications(forceRefresh || false)
+            "
             @delete="handleDeleteNotification"
             @publish="handlePublishNotification"
             @switch-tab="handleSwitchTab"
@@ -88,661 +104,463 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import dayjs from 'dayjs'
-import { Search, Calendar } from '@element-plus/icons-vue'
-import NotificationCard from '@/components/common/NotificationCard.vue'
-import { Tabs } from '@/components/common'
-import { notificationApi } from '@/services/notificationApi'
-import type { Notification } from '@/types/notification'
-import { ElNotification } from 'element-plus'
-import emptyStateImage from '@/assets/image/jomreadsur.png'
-import {
-  NotificationType,
-  SendType,
-  Platform,
-  formatNotificationType,
-  formatBakongApp,
-  getFormattedPlatformName,
-  getNoUsersAvailableMessage,
-  getNotificationMessage,
-  formatPlatform,
-} from '@/utils/helpers'
-import { DateUtils, ErrorCode } from '@bakong/shared'
-import { mapBackendStatusToFrontend } from '../utils/helpers'
-import { api } from '@/services/api'
-import { useAuthStore } from '@/stores/auth'
+  import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+  import { useRoute } from 'vue-router';
+  import dayjs from 'dayjs';
+  import { Search, Calendar } from '@element-plus/icons-vue';
+  import NotificationCard from '@/components/common/NotificationCard.vue';
+  import { Tabs } from '@/components/common';
+  import { notificationApi } from '@/services/notificationApi';
+  import type { Notification } from '@/types/notification';
+  import { ElNotification } from 'element-plus';
+  import emptyStateImage from '@/assets/image/jomreadsur.png';
+  import {
+    NotificationType,
+    SendType,
+    Platform,
+    formatNotificationType,
+    formatBakongApp,
+    getFormattedPlatformName,
+    getNoUsersAvailableMessage,
+    getNotificationMessage,
+    formatPlatform,
+  } from '@/utils/helpers';
+  import { DateUtils, ErrorCode } from '@bakong/shared';
+  import { mapBackendStatusToFrontend } from '../utils/helpers';
+  import { api } from '@/services/api';
+  import { useAuthStore } from '@/stores/auth';
 
-const route = useRoute()
-const authStore = useAuthStore()
+  const route = useRoute();
+  const authStore = useAuthStore();
 
-// Helper function to correct notification status based on isSent flag
-const correctNotificationStatus = (notification: Notification): Notification => {
-  let status = notification.status
-  // Don't override status for rejected/expired notifications - they should appear in Draft tab
-  if (notification.isSent === true && notification.approvalStatus !== 'REJECTED' && notification.approvalStatus !== 'EXPIRED') {  
-    status = 'published'
-  }
-  // For rejected/expired notifications, ensure they can appear in Draft tab
-  // If status is "published" or "scheduled" but approvalStatus is "REJECTED" or "EXPIRED", change status to "draft"
-  if ((notification.approvalStatus === 'REJECTED' || notification.approvalStatus === 'EXPIRED') && 
-      (status === 'published' || status === 'scheduled')) {
-    status = 'draft'
-  }
-  // For scheduled notifications that are still drafts (approvalStatus is null), change status to "draft"
-  // This ensures drafts with schedule enabled appear in Draft tab, not Scheduled tab
-  if (status === 'scheduled' && (notification.approvalStatus === null || notification.approvalStatus === undefined)) {
-    status = 'draft'
-  }
-  return {
-    ...notification,
-    status: status,
-  }
-}
+  const correctNotificationStatus = (
+    notification: Notification
+  ): Notification => {
+    let status = notification.status;
 
-// Load active tab from localStorage or default to 'published'
-const getStoredTab = (): 'published' | 'scheduled' | 'draft' | 'pending' => {
-  try {
-    const stored = localStorage.getItem('notification_active_tab')
-    if (stored && ['published', 'scheduled', 'draft', 'pending'].includes(stored)) {
-      return stored as 'published' | 'scheduled' | 'draft' | 'pending'
+    if (
+      notification.isSent === true &&
+      notification.approvalStatus !== 'REJECTED' &&
+      notification.approvalStatus !== 'EXPIRED'
+    ) {
+      status = 'published';
     }
-  } catch (error) {
-    console.warn('Failed to read active tab from localStorage:', error)
-  }
-  return 'published'
-}
 
-const activeTab = ref<'published' | 'scheduled' | 'draft' | 'pending'>(getStoredTab())
+    if (
+      (notification.approvalStatus === 'REJECTED' ||
+        notification.approvalStatus === 'EXPIRED') &&
+      (status === 'published' || status === 'scheduled')
+    ) {
+      status = 'draft';
+    }
 
-// Save active tab to localStorage whenever it changes
-watch(activeTab, (newTab) => {
-  try {
-    localStorage.setItem('notification_active_tab', newTab)
-  } catch (error) {
-    console.warn('Failed to save active tab to localStorage:', error)
-  }
-}, { immediate: false })
-const selectedFilter = ref('ALL')
-const searchQuery = ref('')
-const loading = ref(false)
-const notifications = ref<Notification[]>([])
-const filteredNotifications = ref<Notification[]>([])
+    if (
+      status === 'scheduled' &&
+      (notification.approvalStatus === null ||
+        notification.approvalStatus === undefined)
+    ) {
+      status = 'draft';
+    }
+    return {
+      ...notification,
+      status: status,
+    };
+  };
 
-const filterTabs = [
-  { value: 'published', label: 'Published' },
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'pending', label: 'Pending Approval' },
-  { value: 'draft', label: 'Draft' },
-]
+  const getStoredTab = (): 'published' | 'scheduled' | 'draft' | 'pending' => {
+    try {
+      const stored = localStorage.getItem('notification_active_tab');
+      if (
+        stored &&
+        ['published', 'scheduled', 'draft', 'pending'].includes(stored)
+      ) {
+        return stored as 'published' | 'scheduled' | 'draft' | 'pending';
+      }
+    } catch (error) {}
+    return 'published';
+  };
 
-const handleTabChanged = (tab: { value: string; label: string }) => {}
+  const activeTab = ref<'published' | 'scheduled' | 'draft' | 'pending'>(
+    getStoredTab()
+  );
 
-const filterOptions = computed(() => {
-  const options = [{ label: 'ALL', value: 'ALL' }]
+  watch(
+    activeTab,
+    (newTab) => {
+      try {
+        localStorage.setItem('notification_active_tab', newTab);
+      } catch (error) {}
+    },
+    { immediate: false }
+  );
+  const selectedFilter = ref('ALL');
+  const searchQuery = ref('');
+  const loading = ref(false);
+  const notifications = ref<Notification[]>([]);
+  const filteredNotifications = ref<Notification[]>([]);
 
-  Object.values(NotificationType).forEach((type) => {
-    const label = formatNotificationType(String(type))
-    options.push({ label, value: String(type) })
-  })
-  return options
-})
+  const filterTabs = [
+    { value: 'published', label: 'Published' },
+    { value: 'scheduled', label: 'Scheduled' },
+    { value: 'pending', label: 'Pending Approval' },
+    { value: 'draft', label: 'Draft' },
+  ];
 
-const selectedLabel = ref('Last 30 days')
-const dateRange = ref<[Date, Date]>([
-  dayjs().subtract(29, 'day').startOf('day').toDate(),
-  dayjs().endOf('day').toDate(),
-])
+  const handleTabChanged = (tab: { value: string; label: string }) => {};
 
-const mockDateRange = ref<[Date, Date]>([
-  dayjs().subtract(29, 'day').startOf('day').toDate(),
-  dayjs().endOf('day').toDate(),
-])
+  const filterOptions = computed(() => {
+    const options = [{ label: 'ALL', value: 'ALL' }];
 
-const formattedRange = computed(() => {
-  const [s, e] = dateRange.value
-  return `${dayjs(s).format('MM/DD/YY')} - ${dayjs(e).format('MM/DD/YY')}`
-})
+    Object.values(NotificationType).forEach((type) => {
+      const label = formatNotificationType(String(type));
+      options.push({ label, value: String(type) });
+    });
+    return options;
+  });
 
-const shortcuts = [
-  {
-    text: 'Last 30 days',
-    value: [dayjs().subtract(29, 'day').startOf('day').toDate(), dayjs().endOf('day').toDate()],
-  },
-  {
-    text: 'Last 7 days',
-    value: [dayjs().subtract(6, 'day').startOf('day').toDate(), dayjs().endOf('day').toDate()],
-  },
-  { text: 'Today', value: [dayjs().startOf('day').toDate(), dayjs().endOf('day').toDate()] },
-  {
-    text: 'Yesterday',
-    value: [
-      dayjs().subtract(1, 'day').startOf('day').toDate(),
-      dayjs().subtract(1, 'day').endOf('day').toDate(),
-    ],
-  },
-  {
-    text: 'This month',
-    value: [dayjs().startOf('month').toDate(), dayjs().endOf('month').toDate()],
-  },
-  {
-    text: 'Last month',
-    value: [
-      dayjs().subtract(1, 'month').startOf('month').toDate(),
-      dayjs().subtract(1, 'month').endOf('month').toDate(),
-    ],
-  },
-  {
-    text: 'All time',
-    value: [dayjs().subtract(1, 'year').startOf('day').toDate(), dayjs().endOf('day').toDate()],
-  },
-]
+  const selectedLabel = ref('Last 30 days');
+  const dateRange = ref<[Date, Date]>([
+    dayjs().subtract(29, 'day').startOf('day').toDate(),
+    dayjs().endOf('day').toDate(),
+  ]);
 
-const mockNotifications: Notification[] = [
-  {
-    id: 1,
-    author: 'Bopha',
-    title: 'Thailand, Cambodia officials meet in Malaysia to cement ceasefire details',
-    description:
-      'Officials from Thailand and Cambodia have met in Malaysia for the start of border talks, a week after a fragile ceasefire brought an end to an eruption of five days of deadly clashes between the two countries.',
-    content:
-      'Officials from Thailand and Cambodia have met in Malaysia for the start of border talks, a week after a fragile ceasefire brought an end to an eruption of five days of deadly clashes between the two countries.',
-    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=200&fit=crop',
-    date: dayjs().subtract(1, 'day').format('D MMMM YYYY | HH:mm'),
-    status: 'published',
-    type: 'ANNOUNCEMENT',
-    createdAt: dayjs().subtract(1, 'day').toDate(),
-    templateId: 1,
-    isSent: true,
-    sendType: 'SEND_NOW',
-    linkPreview: 'https://www.google.com',
-  },
-  {
-    id: 1,
-    author: 'Bopha',
-    title: 'Notification Test',
-    description: 'Notification Test',
-    content:
-      'Officials from Thailand and Cambodia have met in Malaysia for the start of border talks, a week after a fragile ceasefire brought an end to an eruption of five days of deadly clashes between the two countries.',
-    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=200&fit=crop',
-    date: dayjs().subtract(1, 'day').format('D MMMM YYYY | HH:mm'),
-    status: 'published',
-    type: 'NOTIFICATION',
-    createdAt: dayjs().subtract(1, 'day').toDate(),
-    templateId: 1,
-    isSent: true,
-    sendType: 'SEND_NOW',
-    linkPreview: 'https://www.google.com',
-  },
-  {
-    id: 2,
-    author: 'Sokha',
-    title: 'New Bakong System Update Available',
-    description:
-      'We are pleased to announce that a new system update is now available for all Bakong users. This update includes improved security features and enhanced user experience.',
-    content:
-      'We are pleased to announce that a new system update is now available for all Bakong users. This update includes improved security features and enhanced user experience.',
-    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=200&fit=crop',
-    date: dayjs().subtract(2, 'day').format('D MMMM YYYY | HH:mm'),
-    status: 'published',
-    type: 'ANNOUNCEMENT',
-    createdAt: dayjs().subtract(2, 'day').toDate(),
-    templateId: 2,
-    isSent: true,
-    sendType: 'SEND_NOW',
-    linkPreview: 'https://www.google.com',
-  },
-  {
-    id: 3,
-    author: 'Ratanak',
-    title: 'Scheduled Maintenance Notice',
-    description:
-      'Please be informed that our system will undergo scheduled maintenance on August 10th, 2025 from 2:00 AM to 4:00 AM. During this time, some services may be temporarily unavailable.',
-    content:
-      'Please be informed that our system will undergo scheduled maintenance on August 10th, 2025 from 2:00 AM to 4:00 AM. During this time, some services may be temporarily unavailable.',
-    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=200&fit=crop',
-    date: dayjs().subtract(3, 'day').format('D MMMM YYYY | HH:mm'),
-    status: 'scheduled',
-    type: 'NOTIFICATION',
-    createdAt: dayjs().subtract(3, 'day').toDate(),
-    templateId: 3,
-    isSent: false,
-    sendType: 'SEND_SCHEDULE',
-    scheduledTime: '16:00',
-    linkPreview: 'https://www.google.com',
-  },
-  {
-    id: 7,
-    author: 'Theany',
-    title: 'Upcoming System Upgrade',
-    description:
-      'We will be performing a major system upgrade this weekend. The upgrade will include new features and performance improvements.',
-    content:
-      'We will be performing a major system upgrade this weekend. The upgrade will include new features and performance improvements.',
-    image: '',
-    date: dayjs().add(1, 'day').format('D MMMM YYYY | HH:mm'),
-    status: 'scheduled',
-    type: 'NOTIFICATION',
-    createdAt: dayjs().add(1, 'day').toDate(),
-    templateId: 7,
-    isSent: false,
-    sendType: 'SEND_SCHEDULE',
-    scheduledTime: '20:00',
-    linkPreview: 'https://www.google.com',
-  },
-  {
-    id: 4,
-    author: 'Sophea',
-    title: 'Welcome New Bakong Members',
-    description:
-      'We would like to extend a warm welcome to all new members who have joined our Bakong community this month. Your participation helps strengthen our digital payment ecosystem.',
-    content:
-      'We would like to extend a warm welcome to all new members who have joined our Bakong community this month. Your participation helps strengthen our digital payment ecosystem.',
-    image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=200&fit=crop',
-    date: dayjs().subtract(4, 'day').format('D MMMM YYYY | HH:mm'),
-    status: 'published',
-    type: 'ANNOUNCEMENT',
-    createdAt: dayjs().subtract(4, 'day').toDate(),
-    templateId: 4,
-    isSent: true,
-    sendType: 'SEND_NOW',
-    linkPreview: 'https://www.google.com',
-  },
-  {
-    id: 5,
-    author: 'Channary',
-    title: 'Security Alert: Phishing Attempts',
-    description:
-      'We have detected increased phishing attempts targeting Bakong users. Please be cautious of suspicious emails and always verify the sender before clicking any links.',
-    content:
-      'We have detected increased phishing attempts targeting Bakong users. Please be cautious of suspicious emails and always verify the sender before clicking any links.',
-    image: 'https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&h=200&fit=crop',
-    date: dayjs().subtract(5, 'day').format('D MMMM YYYY | HH:mm'),
-    status: 'draft',
-    type: 'NOTIFICATION',
-    createdAt: dayjs().subtract(5, 'day').toDate(),
-    templateId: 5,
-    isSent: false,
-    sendType: 'SEND_SCHEDULE',
-    linkPreview: 'https://www.google.com',
-  },
-  {
-    id: 6,
-    author: 'Vicheka',
-    title: 'Mobile App Update Released',
-    description:
-      'The latest version of the Bakong mobile app is now available for download. This update includes bug fixes, performance improvements, and new features.',
-    content:
-      'The latest version of the Bakong mobile app is now available for download. This update includes bug fixes, performance improvements, and new features.',
-    image: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=200&fit=crop',
-    date: dayjs().subtract(6, 'day').format('D MMMM YYYY | HH:mm'),
-    status: 'published',
-    type: 'ANNOUNCEMENT',
-    createdAt: dayjs().subtract(6, 'day').toDate(),
-    templateId: 6,
-    isSent: true,
-    sendType: 'SEND_NOW',
-    linkPreview: 'https://www.google.com',
-  },
-  {
-    id: 8,
-    author: 'Bopha',
-    title: 'New Feature Announcement',
-    description:
-      'We are excited to announce a new feature that will enhance your Bakong experience. This feature will be available in the next update.',
-    content:
-      'We are excited to announce a new feature that will enhance your Bakong experience. This feature will be available in the next update.',
-    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=200&fit=crop',
-    date: dayjs().add(2, 'day').format('D MMMM YYYY | HH:mm'),
-    status: 'draft',
-    type: 'ANNOUNCEMENT',
-    createdAt: dayjs().add(2, 'day').toDate(),
-    templateId: 8,
-    isSent: false,
-    sendType: 'SEND_SCHEDULE',
-    linkPreview: 'https://www.google.com',
-  },
-  {
-    id: 9,
-    author: 'Vicheka',
-    title: 'Flash Alert: System Update',
-    description: 'Important: System will be updated in 5 minutes. Please save your work.',
-    content: 'Important: System will be updated in 5 minutes. Please save your work.',
-    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=200&fit=crop',
-    date: dayjs().subtract(6, 'day').format('D MMMM YYYY | HH:mm'),
-    status: 'published',
-    type: 'FLASH_NOTIFICATION',
-    createdAt: dayjs().subtract(6, 'day').toDate(),
-    templateId: 9,
-    isSent: true,
-    sendType: 'SEND_NOW',
-    linkPreview: 'https://www.google.com',
-  },
-]
+  const mockDateRange = ref<[Date, Date]>([
+    dayjs().subtract(29, 'day').startOf('day').toDate(),
+    dayjs().endOf('day').toDate(),
+  ]);
 
-const USE_MOCK_DATA = false
-let fetchNotificationTimeout: ReturnType<typeof setTimeout> | null = null
-let isFetching = false
-let lastFetchTime = 0
-const MIN_FETCH_INTERVAL = 1000
-const DATA_CACHE_DURATION = 30000 // 30 seconds (reduced for faster updates)
-const SCHEDULED_TAB_CACHE_DURATION = 270000 // 4.5 minutes (more frequent for scheduled items)
-const PUBLISHED_TAB_CACHE_DURATION = 10000 // 10 seconds (very short for published tab to show updates quickly)
-const DUE_NOTIFICATION_CHECK_INTERVAL = 60000
-const CACHE_STORAGE_KEY = 'notifications_cache'
-const CACHE_TIMESTAMP_KEY = 'notifications_cache_timestamp'
-const loadCacheFromStorage = (): { notifications: Notification[] | null; timestamp: number } => {
-  try {
-    const cachedData = localStorage.getItem(CACHE_STORAGE_KEY)
-    const cachedTime = localStorage.getItem(CACHE_TIMESTAMP_KEY)
+  const formattedRange = computed(() => {
+    const [s, e] = dateRange.value;
+    return `${dayjs(s).format('MM/DD/YY')} - ${dayjs(e).format('MM/DD/YY')}`;
+  });
 
-    if (cachedData && cachedTime) {
-      const timestamp = parseInt(cachedTime, 10)
-      const now = Date.now()
-      if (now - timestamp < DATA_CACHE_DURATION) {
-        return {
-          notifications: JSON.parse(cachedData) as Notification[],
-          timestamp,
+  const shortcuts = [
+    {
+      text: 'Last 30 days',
+      value: [
+        dayjs().subtract(29, 'day').startOf('day').toDate(),
+        dayjs().endOf('day').toDate(),
+      ],
+    },
+    {
+      text: 'Last 7 days',
+      value: [
+        dayjs().subtract(6, 'day').startOf('day').toDate(),
+        dayjs().endOf('day').toDate(),
+      ],
+    },
+    {
+      text: 'Today',
+      value: [dayjs().startOf('day').toDate(), dayjs().endOf('day').toDate()],
+    },
+    {
+      text: 'Yesterday',
+      value: [
+        dayjs().subtract(1, 'day').startOf('day').toDate(),
+        dayjs().subtract(1, 'day').endOf('day').toDate(),
+      ],
+    },
+    {
+      text: 'This month',
+      value: [
+        dayjs().startOf('month').toDate(),
+        dayjs().endOf('month').toDate(),
+      ],
+    },
+    {
+      text: 'Last month',
+      value: [
+        dayjs().subtract(1, 'month').startOf('month').toDate(),
+        dayjs().subtract(1, 'month').endOf('month').toDate(),
+      ],
+    },
+    {
+      text: 'All time',
+      value: [
+        dayjs().subtract(1, 'year').startOf('day').toDate(),
+        dayjs().endOf('day').toDate(),
+      ],
+    },
+  ];
+
+  const USE_MOCK_DATA = true;
+  const fetchError = ref(false);
+  let fetchNotificationTimeout: ReturnType<typeof setTimeout> | null = null;
+  let isFetching = false;
+  let lastFetchTime = 0;
+  const MIN_FETCH_INTERVAL = 1000;
+  const DATA_CACHE_DURATION = 30000;
+  const SCHEDULED_TAB_CACHE_DURATION = 270000;
+  const PUBLISHED_TAB_CACHE_DURATION = 10000;
+  const DUE_NOTIFICATION_CHECK_INTERVAL = 60000;
+  const CACHE_STORAGE_KEY = 'notifications_cache';
+  const CACHE_TIMESTAMP_KEY = 'notifications_cache_timestamp';
+  const loadCacheFromStorage = (): {
+    notifications: Notification[] | null;
+    timestamp: number;
+  } => {
+    try {
+      const cachedData = localStorage.getItem(CACHE_STORAGE_KEY);
+      const cachedTime = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+
+      if (cachedData && cachedTime) {
+        const timestamp = parseInt(cachedTime, 10);
+        const now = Date.now();
+        if (now - timestamp < DATA_CACHE_DURATION) {
+          return {
+            notifications: JSON.parse(cachedData) as Notification[],
+            timestamp,
+          };
+        } else {
+          localStorage.removeItem(CACHE_STORAGE_KEY);
+          localStorage.removeItem(CACHE_TIMESTAMP_KEY);
         }
-      } else {
-        localStorage.removeItem(CACHE_STORAGE_KEY)
-        localStorage.removeItem(CACHE_TIMESTAMP_KEY)
       }
+    } catch (error) {
+      localStorage.removeItem(CACHE_STORAGE_KEY);
+      localStorage.removeItem(CACHE_TIMESTAMP_KEY);
     }
-  } catch (error) {
-    console.warn('Failed to load cache from localStorage:', error)
-    localStorage.removeItem(CACHE_STORAGE_KEY)
-    localStorage.removeItem(CACHE_TIMESTAMP_KEY)
-  }
-  return { notifications: null, timestamp: 0 }
-}
-const saveCacheToStorage = (notifications: Notification[], timestamp: number) => {
-  try {
-    localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(notifications))
-    localStorage.setItem(CACHE_TIMESTAMP_KEY, timestamp.toString())
-  } catch (error) {
-    console.warn('Failed to save cache to localStorage:', error)
+    return { notifications: null, timestamp: 0 };
+  };
+  const saveCacheToStorage = (
+    notifications: Notification[],
+    timestamp: number
+  ) => {
     try {
-      localStorage.removeItem(CACHE_STORAGE_KEY)
-      localStorage.removeItem(CACHE_TIMESTAMP_KEY)
-      localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(notifications))
-      localStorage.setItem(CACHE_TIMESTAMP_KEY, timestamp.toString())
-    } catch (e) {
-      console.error('Could not save cache even after clearing:', e)
+      localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(notifications));
+      localStorage.setItem(CACHE_TIMESTAMP_KEY, timestamp.toString());
+    } catch (error) {
+      try {
+        localStorage.removeItem(CACHE_STORAGE_KEY);
+        localStorage.removeItem(CACHE_TIMESTAMP_KEY);
+        localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(notifications));
+        localStorage.setItem(CACHE_TIMESTAMP_KEY, timestamp.toString());
+      } catch (e) {}
     }
-  }
-}
-const clearCacheFromStorage = () => {
-  localStorage.removeItem(CACHE_STORAGE_KEY)
-  localStorage.removeItem(CACHE_TIMESTAMP_KEY)
-}
+  };
+  const clearCacheFromStorage = () => {
+    localStorage.removeItem(CACHE_STORAGE_KEY);
+    localStorage.removeItem(CACHE_TIMESTAMP_KEY);
+  };
 
-let cachedNotifications: Notification[] | null = null
-let cacheTimestamp = 0
-const initialCache = loadCacheFromStorage()
-if (initialCache.notifications && initialCache.notifications.length > 0) {
-  // Apply isSent check to cached notifications
-  const correctedNotifications = initialCache.notifications.map(correctNotificationStatus)
-  cachedNotifications = correctedNotifications
-  cacheTimestamp = initialCache.timestamp
-  notifications.value = correctedNotifications
-  let tempFiltered = [...correctedNotifications]
-  // For pending tab, filter by approvalStatus instead of status
-  if (activeTab.value === 'pending') {
-    // Show notifications that are pending approval (submitted for immediate send or scheduled time arrived)
-    tempFiltered = tempFiltered.filter((notification) => notification.approvalStatus === 'PENDING')
-  } else if (activeTab.value === 'published') {
-    // Published tab should only show approved notifications that are published
-    tempFiltered = tempFiltered.filter(
-      (notification) =>
-        notification.status === 'published' &&
-        (notification.approvalStatus === 'APPROVED' || !notification.approvalStatus),
-    )
-  } else if (activeTab.value === 'scheduled') {
-    // Scheduled tab shows only APPROVED scheduled notifications
-    // PENDING scheduled notifications should appear in Pending tab, not Scheduled tab
-    tempFiltered = tempFiltered.filter(
-      (notification) =>
-        notification.status === 'scheduled' &&
-        (notification.approvalStatus === 'APPROVED' || !notification.approvalStatus), // Only approved or legacy (no approvalStatus)
-    )
-  } else if (activeTab.value === 'draft') {
-    // Draft tab shows:
-    // 1. Drafts with no approvalStatus (not submitted yet)
-    // 2. Drafts that are not pending (approved/rejected/expired drafts can still be in draft status)
-    // 3. Rejected notifications (regardless of status - they should be editable in Draft)
-    // 4. Expired notifications (regardless of status - they should be editable in Draft)
-    // 5. Scheduled notifications that are still drafts (approvalStatus is null) - these are drafts with schedule enabled
-    // 6. Exclude pending notifications (they're awaiting approval in Pending tab)
-    tempFiltered = tempFiltered.filter(
-      (notification) =>
-        // Drafts with no approvalStatus (null) - includes both status='draft' and status='scheduled' with approvalStatus=null
-        (notification.approvalStatus === null || notification.approvalStatus === undefined) ||
-        // Rejected or expired notifications (regardless of status)
-        notification.approvalStatus === 'REJECTED' ||
-        notification.approvalStatus === 'EXPIRED',
-  )
+  let cachedNotifications: Notification[] | null = null;
+  let cacheTimestamp = 0;
+  const initialCache = loadCacheFromStorage();
+  if (initialCache.notifications && initialCache.notifications.length > 0) {
+    const correctedNotifications = initialCache.notifications.map(
+      correctNotificationStatus
+    );
+    cachedNotifications = correctedNotifications;
+    cacheTimestamp = initialCache.timestamp;
+    notifications.value = correctedNotifications;
+    let tempFiltered = [...correctedNotifications];
+    if (activeTab.value === 'pending') {
+      tempFiltered = tempFiltered.filter(
+        (notification) => notification.approvalStatus === 'PENDING'
+      );
+    } else if (activeTab.value === 'published') {
+      tempFiltered = tempFiltered.filter(
+        (notification) =>
+          notification.status === 'published' &&
+          (notification.approvalStatus === 'APPROVED' ||
+            !notification.approvalStatus)
+      );
+    } else if (activeTab.value === 'scheduled') {
+      tempFiltered = tempFiltered.filter(
+        (notification) =>
+          notification.status === 'scheduled' &&
+          (notification.approvalStatus === 'APPROVED' ||
+            !notification.approvalStatus)
+      );
+    } else if (activeTab.value === 'draft') {
+      tempFiltered = tempFiltered.filter(
+        (notification) =>
+          notification.approvalStatus === null ||
+          notification.approvalStatus === undefined ||
+          notification.approvalStatus === 'REJECTED' ||
+          notification.approvalStatus === 'EXPIRED'
+      );
+    }
+    if (selectedFilter.value !== 'ALL') {
+      tempFiltered = tempFiltered.filter(
+        (notification) => notification.type === selectedFilter.value
+      );
+    }
+    if (dateRange.value && dateRange.value.length === 2) {
+      const [startDate, endDate] = dateRange.value;
+      tempFiltered = tempFiltered.filter((notification) => {
+        const notificationDate = new Date(
+          notification.createdAt || notification.date || ''
+        );
+        if (isNaN(notificationDate.getTime())) {
+          return false;
+        }
+        const startOfDay = new Date(startDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        return notificationDate >= startOfDay && notificationDate <= endOfDay;
+      });
+    }
+    filteredNotifications.value = tempFiltered;
   }
-  if (selectedFilter.value !== 'ALL') {
-    tempFiltered = tempFiltered.filter((notification) => notification.type === selectedFilter.value)
-  }
-  if (dateRange.value && dateRange.value.length === 2) {
-    const [startDate, endDate] = dateRange.value
-    tempFiltered = tempFiltered.filter((notification) => {
-      const notificationDate = new Date(notification.createdAt || notification.date || '')
-      if (isNaN(notificationDate.getTime())) {
-        console.warn('Invalid date for notification during cache init:', notification.id)
-        return false
-      }
-      const startOfDay = new Date(startDate)
-      startOfDay.setHours(0, 0, 0, 0)
-      const endOfDay = new Date(endDate)
-      endOfDay.setHours(23, 59, 59, 999)
-      return notificationDate >= startOfDay && notificationDate <= endOfDay
-    })
-  }
-  filteredNotifications.value = tempFiltered
-}
-let lastDueCheckTime = 0
-const checkForDueScheduledNotifications = (): boolean => {
-  if (activeTab.value !== 'scheduled') {
-    return false
-  }
+  let lastDueCheckTime = 0;
+  const checkForDueScheduledNotifications = (): boolean => {
+    if (activeTab.value !== 'scheduled') {
+      return false;
+    }
 
-  const now = Date.now()
-  if (now - lastDueCheckTime < DUE_NOTIFICATION_CHECK_INTERVAL) {
-    return false
-  }
-  lastDueCheckTime = now
-  const scheduledNotifications = notifications.value.filter((n) => n.status === 'scheduled')
-  if (scheduledNotifications.length === 0) {
-    return false
-  }
+    const now = Date.now();
+    if (now - lastDueCheckTime < DUE_NOTIFICATION_CHECK_INTERVAL) {
+      return false;
+    }
+    lastDueCheckTime = now;
+    const scheduledNotifications = notifications.value.filter(
+      (n) => n.status === 'scheduled'
+    );
+    if (scheduledNotifications.length === 0) {
+      return false;
+    }
 
-  const currentDate = new Date()
-  const hasDueNotifications = scheduledNotifications.some((notification) => {
-    if (!notification.scheduledTime) return false
+    const currentDate = new Date();
+    const hasDueNotifications = scheduledNotifications.some((notification) => {
+      if (!notification.scheduledTime) return false;
 
-    try {
-      let scheduledDate: Date | null = null
-      const [datePart, timePart] = notification.scheduledTime.split('|').map((s) => s.trim())
-      if (datePart && timePart) {
-        const dateMatch = datePart.match(/(\d+)\s+(\w+)\s+(\d+)/)
-        if (dateMatch) {
-          const [, day, monthName, year] = dateMatch
-          const monthNames = [
-            'january',
-            'february',
-            'march',
-            'april',
-            'may',
-            'june',
-            'july',
-            'august',
-            'september',
-            'october',
-            'november',
-            'december',
-          ]
-          const monthIndex = monthNames.findIndex(
-            (m) => m.toLowerCase() === monthName.toLowerCase(),
-          )
-          if (monthIndex !== -1) {
-            const [hours, minutes] = timePart.split(':').map(Number)
-            if (!isNaN(hours) && !isNaN(minutes)) {
-              const dateStr = `${monthIndex + 1}/${parseInt(day)}/${parseInt(year)}`
-              scheduledDate = DateUtils.parseScheduleDateTime(dateStr, timePart)
+      try {
+        let scheduledDate: Date | null = null;
+        const [datePart, timePart] = notification.scheduledTime
+          .split('|')
+          .map((s) => s.trim());
+        if (datePart && timePart) {
+          const dateMatch = datePart.match(/(\d+)\s+(\w+)\s+(\d+)/);
+          if (dateMatch) {
+            const [, day, monthName, year] = dateMatch;
+            const monthNames = [
+              'january',
+              'february',
+              'march',
+              'april',
+              'may',
+              'june',
+              'july',
+              'august',
+              'september',
+              'october',
+              'november',
+              'december',
+            ];
+            const monthIndex = monthNames.findIndex(
+              (m) => m.toLowerCase() === monthName.toLowerCase()
+            );
+            if (monthIndex !== -1) {
+              const [hours, minutes] = timePart.split(':').map(Number);
+              if (!isNaN(hours) && !isNaN(minutes)) {
+                const dateStr = `${monthIndex + 1}/${parseInt(day)}/${parseInt(year)}`;
+                scheduledDate = DateUtils.parseScheduleDateTime(
+                  dateStr,
+                  timePart
+                );
+              }
             }
           }
         }
+
+        if (!scheduledDate || isNaN(scheduledDate.getTime())) {
+          return false;
+        }
+
+        const threeMinutesAgo = new Date(currentDate.getTime() - 3 * 60 * 1000);
+        return scheduledDate <= threeMinutesAgo;
+      } catch (error) {
+        return false;
       }
+    });
 
-      if (!scheduledDate || isNaN(scheduledDate.getTime())) {
-        return false
+    return hasDueNotifications;
+  };
+
+  const fetchNotifications = async (forceRefresh = false) => {
+    if (fetchNotificationTimeout) {
+      clearTimeout(fetchNotificationTimeout);
+      fetchNotificationTimeout = null;
+    }
+
+    if (forceRefresh) {
+      cachedNotifications = null;
+      cacheTimestamp = 0;
+      clearCacheFromStorage();
+    }
+
+    if (isFetching) {
+      return;
+    }
+    const now = Date.now();
+    const cacheDuration =
+      activeTab.value === 'scheduled'
+        ? SCHEDULED_TAB_CACHE_DURATION
+        : activeTab.value === 'published'
+          ? PUBLISHED_TAB_CACHE_DURATION
+          : DATA_CACHE_DURATION;
+
+    if (
+      !forceRefresh &&
+      cachedNotifications &&
+      now - cacheTimestamp < cacheDuration
+    ) {
+      if (checkForDueScheduledNotifications()) {
+        forceRefresh = true;
+        cachedNotifications = null;
+        cacheTimestamp = 0;
+        clearCacheFromStorage();
+      } else {
+        const correctedNotifications = cachedNotifications.map(
+          correctNotificationStatus
+        );
+        notifications.value = correctedNotifications;
+        applyFilters();
+        return;
       }
-
-      const threeMinutesAgo = new Date(currentDate.getTime() - 3 * 60 * 1000)
-      return scheduledDate <= threeMinutesAgo
-    } catch (error) {
-      console.warn('Error checking scheduled notification:', notification.id, error)
-      return false
     }
-  })
-
-  return hasDueNotifications
-}
-
-const fetchNotifications = async (forceRefresh = false) => {
-  if (fetchNotificationTimeout) {
-    clearTimeout(fetchNotificationTimeout)
-    fetchNotificationTimeout = null
-  }
-  
-  // If forceRefresh is true, clear cache immediately to ensure fresh data
-  if (forceRefresh) {
-    cachedNotifications = null
-    cacheTimestamp = 0
-    clearCacheFromStorage()
-  }
-  
-  if (isFetching) {
-    return
-  }
-  const now = Date.now()
-  // Use shorter cache duration for published tab to show updates faster
-  const cacheDuration =
-    activeTab.value === 'scheduled'
-      ? SCHEDULED_TAB_CACHE_DURATION
-      : activeTab.value === 'published'
-        ? PUBLISHED_TAB_CACHE_DURATION
-        : DATA_CACHE_DURATION
-
-  if (!forceRefresh && cachedNotifications && now - cacheTimestamp < cacheDuration) {
-    if (checkForDueScheduledNotifications()) {
-      forceRefresh = true
-      // Clear cache when forcing refresh due to due notifications
-      cachedNotifications = null
-      cacheTimestamp = 0
-      clearCacheFromStorage()
-    } else {
-      // Apply isSent check to cached notifications before using them
-      const correctedNotifications = cachedNotifications.map(correctNotificationStatus)
-      notifications.value = correctedNotifications
-      applyFilters()
-      return
+    if (!forceRefresh && now - lastFetchTime < MIN_FETCH_INTERVAL) {
+      if (cachedNotifications) {
+        const correctedNotifications = cachedNotifications.map(
+          correctNotificationStatus
+        );
+        notifications.value = correctedNotifications;
+        applyFilters();
+      }
+      return;
     }
-  }
-  if (!forceRefresh && now - lastFetchTime < MIN_FETCH_INTERVAL) {
-    if (cachedNotifications) {
-      // Apply isSent check to cached notifications before using them
-      const correctedNotifications = cachedNotifications.map(correctNotificationStatus)
-      notifications.value = correctedNotifications
-      applyFilters()
-    }
-    return
-  }
 
-  try {
-    isFetching = true
-    lastFetchTime = Date.now()
-    loading.value = true
-    console.log(
-      `📡 [API] Fetching notifications (forceRefresh: ${forceRefresh}, tab: ${activeTab.value})`,
-    )
-    if (USE_MOCK_DATA) {
-      dateRange.value = mockDateRange.value
-      selectedLabel.value = 'All Time (Mock Data)'
-
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      const mappedMockNotifications = mockNotifications.map((notification: any) => {
-        // Determine status: if isSent is true, it's always published regardless of status field
-        // But don't override for rejected/expired notifications - they should appear in Draft tab
-        let status = mapBackendStatusToFrontend(notification.status)
-        if (notification.isSent === true && notification.approvalStatus !== 'REJECTED' && notification.approvalStatus !== 'EXPIRED') {
-          status = 'published'
-        }
-        // For rejected/expired notifications, ensure they appear in Draft tab
-        // Convert any status (published, scheduled, etc.) to draft for rejected/expired
-        if (notification.approvalStatus === 'REJECTED' || notification.approvalStatus === 'EXPIRED') {
-          status = 'draft'
-        }
-
-        return {
-          ...notification,
-          id: Number(notification.id),
-          status: status,
-          author: notification.author,
-          description: notification.content || '',
-          image: notification.image || '',
-          date: notification.date,
-          linkPreview: notification.linkPreview,
-        }
-      })
-      notifications.value = mappedMockNotifications
-      cachedNotifications = mappedMockNotifications
-      cacheTimestamp = Date.now()
-      saveCacheToStorage(mappedMockNotifications, cacheTimestamp)
-    } else {
-      const token = localStorage.getItem('auth_token')
+    try {
+      isFetching = true;
+      lastFetchTime = Date.now();
+      loading.value = true;
+      fetchError.value = false;
+      const token = localStorage.getItem('auth_token');
       if (!token) {
-        throw new Error('No authentication token found')
+        throw new Error('No authentication token found');
       }
-
       const response = await notificationApi.getAllNotifications({
         page: 1,
         pageSize: 100,
         language: 'KM',
-      })
-
+      });
       const mappedNotifications = response.data.map((notification: any) => {
-        // Determine status: if isSent is true, it's always published regardless of status field
-        // But don't override for rejected/expired notifications - they should appear in Draft tab
-        let status = mapBackendStatusToFrontend(notification.status)
-        if (notification.isSent === true && notification.approvalStatus !== 'REJECTED' && notification.approvalStatus !== 'EXPIRED') {
-          status = 'published'
+        let status = mapBackendStatusToFrontend(notification.status);
+        if (
+          notification.isSent === true &&
+          notification.approvalStatus !== 'REJECTED' &&
+          notification.approvalStatus !== 'EXPIRED'
+        ) {
+          status = 'published';
         }
-        // For rejected/expired notifications, ensure they appear in Draft tab
-        // Convert any status (published, scheduled, etc.) to draft for rejected/expired
-        if (notification.approvalStatus === 'REJECTED' || notification.approvalStatus === 'EXPIRED') {
-          status = 'draft'
+        if (
+          notification.approvalStatus === 'REJECTED' ||
+          notification.approvalStatus === 'EXPIRED'
+        ) {
+          status = 'draft';
         }
-
-        // Log date field for debugging (especially for template 305)
-        if (notification.templateId === 305 || notification.id === 305) {
-          console.log('📅 [API] Template 305 date field:', {
-            templateId: notification.templateId,
-            id: notification.id,
-            date: notification.date,
-            scheduledTime: notification.scheduledTime,
-            sendSchedule: notification.sendSchedule,
-            approvalStatus: notification.approvalStatus,
-            status: status,
-            isSent: notification.isSent,
-          })
-        }
-
         const corrected = correctNotificationStatus({
           ...notification,
           id: Number(notification.id),
@@ -751,573 +569,519 @@ const fetchNotifications = async (forceRefresh = false) => {
           description: notification.content || '',
           image: notification.image || '',
           date: notification.date,
-          // Preserve approvalStatus and related fields
           approvalStatus: (notification as any).approvalStatus,
           approvedBy: (notification as any).approvedBy,
           approvedAt: (notification as any).approvedAt,
-        })
+        });
+        return corrected;
+      });
+      notifications.value = mappedNotifications;
+      cachedNotifications = mappedNotifications;
+      cacheTimestamp = Date.now();
+      saveCacheToStorage(mappedNotifications, cacheTimestamp);
+      // [console.log removed]
+      applyFilters();
+    } catch (error) {
+      fetchError.value = true;
+      ElNotification({
+        title: 'Error',
+        message: 'Failed to load notifications',
+        type: 'error',
+        duration: 2000,
+      });
+    } finally {
+      loading.value = false;
+      isFetching = false;
+    }
+  };
+  const debouncedFetchNotifications = () => {
+    if (fetchNotificationTimeout) {
+      clearTimeout(fetchNotificationTimeout);
+    }
+    fetchNotificationTimeout = setTimeout(() => {
+      fetchNotifications();
+    }, 300);
+  };
 
-        // Debug logging for status correction
-        if (notification.isSent === true && corrected.status !== 'published') {
-          console.warn(`⚠️ [Status Correction] Notification ${corrected.id} has isSent=true but status=${corrected.status}`)
-        }
+  const applyFilters = () => {
+    let filtered = [...notifications.value];
 
-        // Log final corrected date for template 305
-        if (corrected.templateId === 305 || corrected.id === 305) {
-          console.log('📅 [API] Template 305 corrected date:', {
-            templateId: corrected.templateId,
-            id: corrected.id,
-            date: corrected.date,
-            status: corrected.status,
-            approvalStatus: corrected.approvalStatus,
-          })
-        }
-
-        return corrected
-      })
-      notifications.value = mappedNotifications
-      cachedNotifications = mappedNotifications
-      cacheTimestamp = Date.now()
-      saveCacheToStorage(mappedNotifications, cacheTimestamp)
-      console.log(`✅ [API] Successfully fetched ${mappedNotifications.length} notifications`)
+    if (activeTab.value === 'pending') {
+      filtered = filtered.filter(
+        (notification) => notification.approvalStatus === 'PENDING'
+      );
+    } else if (activeTab.value === 'published') {
+      filtered = filtered.filter(
+        (notification) =>
+          notification.status === 'published' &&
+          (notification.approvalStatus === 'APPROVED' ||
+            !notification.approvalStatus)
+      );
+    } else if (activeTab.value === 'scheduled') {
+      filtered = filtered.filter(
+        (notification) =>
+          notification.status === 'scheduled' &&
+          (notification.approvalStatus === 'APPROVED' ||
+            !notification.approvalStatus)
+      );
+    } else if (activeTab.value === 'draft') {
+      filtered = filtered.filter(
+        (notification) =>
+          notification.approvalStatus === null ||
+          notification.approvalStatus === undefined ||
+          notification.approvalStatus === 'REJECTED' ||
+          notification.approvalStatus === 'EXPIRED'
+      );
     }
 
-    applyFilters()
-  } catch (error) {
-    console.error('Failed to fetch notifications:', error)
-    ElNotification({
-      title: 'Error',
-      message: 'Failed to load notifications',
-      type: 'error',
-      duration: 2000,
-    })
-  } finally {
-    loading.value = false
-    isFetching = false
-  }
-}
-const debouncedFetchNotifications = () => {
-  if (fetchNotificationTimeout) {
-    clearTimeout(fetchNotificationTimeout)
-  }
-  fetchNotificationTimeout = setTimeout(() => {
-    fetchNotifications()
-  }, 300)
-}
+    if (selectedFilter.value !== 'ALL') {
+      filtered = filtered.filter(
+        (notification) => notification.type === selectedFilter.value
+      );
+    }
 
-const applyFilters = () => {
-  let filtered = [...notifications.value]
+    if (searchQuery.value.trim()) {
+      const query = searchQuery.value.toLowerCase();
+      filtered = filtered.filter(
+        (notification) =>
+          notification.title.toLowerCase().includes(query) ||
+          (notification.content &&
+            notification.content.toLowerCase().includes(query)) ||
+          notification.description.toLowerCase().includes(query)
+      );
+    }
 
-  // For pending tab, filter by approvalStatus instead of status
-  if (activeTab.value === 'pending') {
-    // Show notifications that are pending approval (submitted for immediate send or scheduled time arrived)
-    filtered = filtered.filter((notification) => notification.approvalStatus === 'PENDING')
-  } else if (activeTab.value === 'published') {
-    // Published tab should only show approved notifications that are published
-    filtered = filtered.filter(
-      (notification) =>
-        notification.status === 'published' &&
-        (notification.approvalStatus === 'APPROVED' || !notification.approvalStatus),
-    )
-  } else if (activeTab.value === 'scheduled') {
-    // Scheduled tab shows only APPROVED scheduled notifications
-    // PENDING scheduled notifications should appear in Pending tab, not Scheduled tab
-    filtered = filtered.filter(
-      (notification) =>
-        notification.status === 'scheduled' &&
-        (notification.approvalStatus === 'APPROVED' || !notification.approvalStatus), // Only approved or legacy (no approvalStatus)
-    )
-  } else if (activeTab.value === 'draft') {
-    // Draft tab shows:
-    // 1. Drafts with no approvalStatus (not submitted yet) - regardless of status (draft or scheduled)
-    // 2. Drafts that are not pending (approved/rejected/expired drafts can still be in draft status)
-    // 3. Rejected notifications (regardless of status - they should be editable in Draft)
-    // 4. Expired notifications (regardless of status - they should be editable in Draft)
-    // 5. Scheduled notifications that are still drafts (approvalStatus is null) - these are drafts with schedule enabled
-    // 6. Exclude pending notifications (they're awaiting approval in Pending tab)
-    filtered = filtered.filter(
-      (notification) =>
-        // Drafts with no approvalStatus (null) - includes both status='draft' and status='scheduled' with approvalStatus=null
-        (notification.approvalStatus === null || notification.approvalStatus === undefined) ||
-        // Rejected or expired notifications (regardless of status)
-        notification.approvalStatus === 'REJECTED' ||
-        notification.approvalStatus === 'EXPIRED',
-    )
-  }
+    if (dateRange.value && dateRange.value.length === 2) {
+      const [startDate, endDate] = dateRange.value;
+      filtered = filtered.filter((notification) => {
+        const notificationDate = new Date(
+          notification.createdAt || notification.date || ''
+        );
 
-  if (selectedFilter.value !== 'ALL') {
-    filtered = filtered.filter((notification) => notification.type === selectedFilter.value)
-  }
+        if (isNaN(notificationDate.getTime())) {
+          return false;
+        }
+        const startOfDay = new Date(startDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
 
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(
-      (notification) =>
-        notification.title.toLowerCase().includes(query) ||
-        (notification.content && notification.content.toLowerCase().includes(query)) ||
-        notification.description.toLowerCase().includes(query),
-    )
-  }
+        return notificationDate >= startOfDay && notificationDate <= endOfDay;
+      });
+    }
 
-  if (dateRange.value && dateRange.value.length === 2) {
-    const [startDate, endDate] = dateRange.value
-    filtered = filtered.filter((notification) => {
-      const notificationDate = new Date(notification.createdAt || notification.date || '')
+    filteredNotifications.value = filtered;
+  };
 
-      if (isNaN(notificationDate.getTime())) {
-        return false
-      }
-      const startOfDay = new Date(startDate)
-      startOfDay.setHours(0, 0, 0, 0)
-      const endOfDay = new Date(endDate)
-      endOfDay.setHours(23, 59, 59, 999)
+  watch(
+    [activeTab, selectedFilter, searchQuery, dateRange],
+    () => {
+      applyFilters();
+    },
+    { deep: true }
+  );
 
-      return notificationDate >= startOfDay && notificationDate <= endOfDay
-    })
-  }
-
-  filteredNotifications.value = filtered
-}
-
-watch(
-  [activeTab, selectedFilter, searchQuery, dateRange],
-  () => {
-    applyFilters()
-  },
-  { deep: true },
-)
-
-const handleDeleteNotification = async (notificationId: number | string) => {
-  try {
-    if (USE_MOCK_DATA) {
-      const index = notifications.value.findIndex((n) => n.id === notificationId)
-      if (index > -1) {
-        notifications.value.splice(index, 1)
-        applyFilters()
+  const handleDeleteNotification = async (notificationId: number | string) => {
+    try {
+      if (USE_MOCK_DATA) {
+        const index = notifications.value.findIndex(
+          (n) => n.id === notificationId
+        );
+        if (index > -1) {
+          notifications.value.splice(index, 1);
+          applyFilters();
+          ElNotification({
+            title: 'Success',
+            message: 'Notification deleted successfully',
+            type: 'success',
+            duration: 2000,
+          });
+        }
+      } else {
+        await notificationApi.deleteNotification(Number(notificationId));
         ElNotification({
           title: 'Success',
           message: 'Notification deleted successfully',
           type: 'success',
           duration: 2000,
-        })
+        });
+        cachedNotifications = null;
+        cacheTimestamp = 0;
+        clearCacheFromStorage();
+        await fetchNotifications(true);
       }
-    } else {
-      await notificationApi.deleteNotification(Number(notificationId))
-      ElNotification({
-        title: 'Success',
-        message: 'Notification deleted successfully',
-        type: 'success',
-        duration: 2000,
-      })
-      cachedNotifications = null
-      cacheTimestamp = 0
-      clearCacheFromStorage()
-      await fetchNotifications(true)
-    }
-  } catch (error: any) {
-    console.error('Failed to delete notification:', error)
-
-    if (error.response?.data?.responseMessage) {
-      ElNotification({
-        title: 'Error',
-        message: error.response.data.responseMessage,
-        type: 'error',
-        duration: 2000,
-      })
-    } else if (error.message) {
-      ElNotification({
-        title: 'Error',
-        message: error.message,
-        type: 'error',
-        duration: 2000,
-      })
-    } else {
-      ElNotification({
-        title: 'Error',
-        message: 'Failed to delete notification',
-        type: 'error',
-        duration: 2000,
-      })
-    }
-  }
-}
-
-const publishingNotifications = new Set<number | string>()
-
-const handleSwitchTab = (tab: 'published' | 'scheduled' | 'draft' | 'pending') => {
-  activeTab.value = tab
-  // Save to localStorage when tab is switched
-  try {
-    localStorage.setItem('notification_active_tab', tab)
-    // Clear cache to force immediate refresh when switching tabs from actions
-    localStorage.removeItem('notifications_cache')
-    localStorage.removeItem('notifications_cache_timestamp')
-    cachedNotifications = null
-    cacheTimestamp = 0
-  } catch (error) {
-    console.warn('Failed to save active tab to localStorage:', error)
-  }
-  // Force refresh to get latest data immediately
-  fetchNotifications(true).then(() => {
-  applyFilters()
-  }).catch(() => {
-    // If fetch fails, still apply filters with existing data
-    applyFilters()
-  })
-}
-
-const handleUpdateNotification = (updatedNotification: Notification) => {
-  // Find and update the notification in the local state immediately
-  const index = notifications.value.findIndex(
-    (n) => (n.templateId || n.id) === (updatedNotification.templateId || updatedNotification.id)
-  )
-  
-  if (index !== -1) {
-    // Update the notification with new approvalStatus
-    notifications.value[index] = {
-      ...notifications.value[index],
-      ...updatedNotification,
-    }
-    // Apply filters to update the displayed list
-    applyFilters()
-  } else {
-    // If not found, add it to the list (shouldn't happen, but just in case)
-    notifications.value.push(updatedNotification)
-    applyFilters()
-  }
-}
-
-const handlePublishNotification = async (notification: Notification) => {
-  const notificationId = notification.templateId || notification.id
-  const key = Number(notificationId)
-
-  // Prevent duplicate sends
-  if (publishingNotifications.has(key)) {
-    ElNotification({
-      title: 'Info',
-      message: 'Notification is already being published. Please wait...',
-      type: 'info',
-      duration: 2000,
-    })
-    return
-  }
-
-  publishingNotifications.add(key)
-
-  // Declare loadingNotification at function scope so it's accessible in catch block
-  let loadingNotification: any = null
-
-  try {
-    if (USE_MOCK_DATA) {
-      const notificationIndex = notifications.value.findIndex((n) => n.id === notification.id)
-      if (notificationIndex !== -1) {
-        notifications.value[notificationIndex].status = 'published'
-        notifications.value[notificationIndex].isSent = true
-        activeTab.value = 'published'
-        applyFilters()
+    } catch (error: any) {
+      if (error.response?.data?.responseMessage) {
         ElNotification({
-          title: 'Success',
-          message: 'Notification published successfully',
-          type: 'success',
+          title: 'Error',
+          message: error.response.data.responseMessage,
+          type: 'error',
           duration: 2000,
-        })
+        });
+      } else if (error.message) {
+        ElNotification({
+          title: 'Error',
+          message: error.message,
+          type: 'error',
+          duration: 2000,
+        });
+      } else {
+        ElNotification({
+          title: 'Error',
+          message: 'Failed to delete notification',
+          type: 'error',
+          duration: 2000,
+        });
       }
+    }
+  };
+
+  const publishingNotifications = new Set<number | string>();
+
+  const handleSwitchTab = (
+    tab: 'published' | 'scheduled' | 'draft' | 'pending'
+  ) => {
+    activeTab.value = tab;
+    try {
+      localStorage.setItem('notification_active_tab', tab);
+      localStorage.removeItem('notifications_cache');
+      localStorage.removeItem('notifications_cache_timestamp');
+      cachedNotifications = null;
+      cacheTimestamp = 0;
+    } catch (error) {}
+    fetchNotifications(true)
+      .then(() => {
+        applyFilters();
+      })
+      .catch(() => {
+        applyFilters();
+      });
+  };
+
+  const handleUpdateNotification = (updatedNotification: Notification) => {
+    const index = notifications.value.findIndex(
+      (n) =>
+        (n.templateId || n.id) ===
+        (updatedNotification.templateId || updatedNotification.id)
+    );
+
+    if (index !== -1) {
+      notifications.value[index] = {
+        ...notifications.value[index],
+        ...updatedNotification,
+      };
+      applyFilters();
     } else {
-      // Publish the template by updating it with sendType=SEND_NOW and isSent=true
-      // This will trigger the backend to send the notification and mark it as published
-      // Clear sendSchedule if it exists since we're publishing immediately
-      try {
-        // First, fetch the full template data to get platforms and translations
-        const fullTemplate = await api.get(`/api/v1/template/${notificationId}`)
-        const template = fullTemplate.data?.data || fullTemplate.data
+      notifications.value.push(updatedNotification);
+      applyFilters();
+    }
+  };
 
-        // Check if notification is already sent
-        const isAlreadySent = template?.isSent === true || notification.isSent === true
+  const handlePublishNotification = async (notification: Notification) => {
+    const notificationId = notification.templateId || notification.id;
+    const key = Number(notificationId);
 
-        if (isAlreadySent) {
-          // Notification is already sent - just move it to published tab and show info message
+    if (publishingNotifications.has(key)) {
+      ElNotification({
+        title: 'Info',
+        message: 'Notification is already being published. Please wait...',
+        type: 'info',
+        duration: 2000,
+      });
+      return;
+    }
+
+    publishingNotifications.add(key);
+    let loadingNotification: any = null;
+
+    try {
+      if (USE_MOCK_DATA) {
+        const notificationIndex = notifications.value.findIndex(
+          (n) => n.id === notification.id
+        );
+        if (notificationIndex !== -1) {
+          notifications.value[notificationIndex].status = 'published';
+          notifications.value[notificationIndex].isSent = true;
+          activeTab.value = 'published';
+          applyFilters();
           ElNotification({
-            title: 'Info',
+            title: 'Success',
+            message: 'Notification published successfully',
+            type: 'success',
+            duration: 2000,
+          });
+        }
+      } else {
+        try {
+          const fullTemplate = await api.get(
+            `/api/v1/template/${notificationId}`
+          );
+          const template = fullTemplate.data?.data || fullTemplate.data;
+
+          const isAlreadySent =
+            template?.isSent === true || notification.isSent === true;
+
+          if (isAlreadySent) {
+            ElNotification({
+              title: 'Info',
+              message:
+                'This notification has already been sent to users. It has been moved to the Published tab.',
+              type: 'info',
+              duration: 3000,
+            });
+
+            const notificationIndex = notifications.value.findIndex(
+              (n) => n.id === notification.id
+            );
+            if (notificationIndex !== -1) {
+              notifications.value[notificationIndex].status = 'published';
+              notifications.value[notificationIndex].isSent = true;
+            }
+            activeTab.value = 'published';
+            cachedNotifications = null;
+            cacheTimestamp = 0;
+            clearCacheFromStorage();
+            await fetchNotifications(true);
+            applyFilters();
+            return;
+          }
+          const translations = template?.translations || [];
+          let hasValidData = false;
+
+          for (const translation of translations) {
+            const hasTitle =
+              translation?.title && translation.title.trim() !== '';
+            const hasContent =
+              translation?.content && translation.content.trim() !== '';
+
+            if (hasTitle && hasContent) {
+              hasValidData = true;
+              break;
+            }
+          }
+
+          if (!hasValidData) {
+            publishingNotifications.delete(key);
+            ElNotification({
+              title: 'Error',
+              message:
+                'This record cannot be sent. Please review the <strong>title</strong> and <strong>content</strong> and other fields, then try again.',
+              type: 'error',
+              duration: 4000,
+              dangerouslyUseHTMLString: true,
+            });
+            return;
+          }
+
+          loadingNotification = ElNotification({
+            title: 'Sending Notification',
             message:
-              'This notification has already been sent to users. It has been moved to the Published tab.',
+              'Please wait while we send the notification to all users. This may take a moment if there are many recipients...',
             type: 'info',
-            duration: 3000,
-          })
+            duration: 0,
+          });
 
-          // Update local state and move to published tab
-          const notificationIndex = notifications.value.findIndex((n) => n.id === notification.id)
-          if (notificationIndex !== -1) {
-            notifications.value[notificationIndex].status = 'published'
-            notifications.value[notificationIndex].isSent = true
-          }
-          activeTab.value = 'published'
-          cachedNotifications = null
-          cacheTimestamp = 0
-          clearCacheFromStorage()
-          await fetchNotifications(true)
-          applyFilters()
-          return
-        }
+          const updatePayload: any = {
+            sendType: SendType.SEND_NOW,
+            isSent: true,
+            sendSchedule: null,
+          };
 
-        // Validate that draft has enough data to send (both title and content required)
-        const translations = template?.translations || []
-        let hasValidData = false
-
-        for (const translation of translations) {
-          const hasTitle = translation?.title && translation.title.trim() !== ''
-          const hasContent = translation?.content && translation.content.trim() !== ''
-
-          if (hasTitle && hasContent) {
-            hasValidData = true
-            break
-          }
-        }
-
-        if (!hasValidData) {
-          publishingNotifications.delete(key)
-          ElNotification({
-            title: 'Error',
-            message: 'This record cannot be sent. Please review the <strong>title</strong> and <strong>content</strong> and other fields, then try again.',
-            type: 'error',
-            duration: 4000,
-            dangerouslyUseHTMLString: true,
-          })
-          return
-        }
-
-        // Show loading notification immediately
-        loadingNotification = ElNotification({
-          title: 'Sending Notification',
-          message: 'Please wait while we send the notification to all users. This may take a moment if there are many recipients...',
-          type: 'info',
-          duration: 0, // Keep it open until we close it manually
-        })
-
-        // Prepare update payload with existing template data
-        const updatePayload: any = {
-          sendType: SendType.SEND_NOW,
-          isSent: true,
-          sendSchedule: null, // Clear schedule when publishing immediately
-        }
-
-        // Include platforms from template (default to [IOS, ANDROID] if not set)
-        if (
-          template?.platforms &&
-          Array.isArray(template.platforms) &&
-          template.platforms.length > 0
-        ) {
-          updatePayload.platforms = template.platforms
-        } else {
-          // Default to both platforms if not set (ALL)
-          updatePayload.platforms = [Platform.IOS, Platform.ANDROID]
-        }
-
-        // Include translations from template
-        if (
-          template?.translations &&
-          Array.isArray(template.translations) &&
-          template.translations.length > 0
-        ) {
-          updatePayload.translations = template.translations.map((t: any) => ({
-            language: t.language,
-            title: t.title,
-            content: t.content,
-            image: t.image?.fileId || t.imageId || t.image?.id || '',
-            linkPreview: t.linkPreview || undefined,
-          }))
-        }
-
-        const result = await notificationApi.updateTemplate(Number(notificationId), updatePayload)
-        
-        // Close loading notification
-        loadingNotification.close()
-
-        // Check if error response (no users found or approval required)
-        if (result?.responseCode !== 0 || result?.errorCode !== 0) {
-          const errorMessage =
-            result?.responseMessage || result?.message || 'Failed to publish notification'
-          const errorCode = result?.errorCode
-
-          // Handle approval required error specifically
           if (
-            errorCode === ErrorCode.NO_PERMISSION &&
-            errorMessage.includes('Template must be approved')
+            template?.platforms &&
+            Array.isArray(template.platforms) &&
+            template.platforms.length > 0
           ) {
-            const templateId = result?.data?.templateId || notificationId
-            const canApprove = authStore.isAdmin || authStore.isApproval
+            updatePayload.platforms = template.platforms;
+          } else {
+            updatePayload.platforms = [Platform.IOS, Platform.ANDROID];
+          }
+
+          if (
+            template?.translations &&
+            Array.isArray(template.translations) &&
+            template.translations.length > 0
+          ) {
+            updatePayload.translations = template.translations.map(
+              (t: any) => ({
+                language: t.language,
+                title: t.title,
+                content: t.content,
+                image: t.image?.fileId || t.imageId || t.image?.id || '',
+                linkPreview: t.linkPreview || undefined,
+              })
+            );
+          }
+
+          const result = await notificationApi.updateTemplate(
+            Number(notificationId),
+            updatePayload
+          );
+
+          loadingNotification.close();
+
+          if (result?.responseCode !== 0 || result?.errorCode !== 0) {
+            const errorMessage =
+              result?.responseMessage ||
+              result?.message ||
+              'Failed to publish notification';
+            const errorCode = result?.errorCode;
+
+            if (
+              errorCode === ErrorCode.NO_PERMISSION &&
+              errorMessage.includes('Template must be approved')
+            ) {
+              const templateId = result?.data?.templateId || notificationId;
+              const canApprove = authStore.isAdmin || authStore.isApproval;
+
+              ElNotification({
+                title: 'Approval Required',
+                message: canApprove
+                  ? `This notification requires approval before sending. You can approve it from the Pending tab.`
+                  : `This notification requires approval before sending. Please wait for an administrator to approve it.`,
+                type: 'warning',
+                duration: 5000,
+                dangerouslyUseHTMLString: true,
+              });
+
+              activeTab.value = 'pending';
+              cachedNotifications = null;
+              cacheTimestamp = 0;
+              clearCacheFromStorage();
+              await fetchNotifications(true);
+              applyFilters();
+              return;
+            }
+
+            const platformName = getFormattedPlatformName({
+              platformName: result?.data?.platformName,
+              bakongPlatform: result?.data?.bakongPlatform,
+              notification: notification as any,
+            });
 
             ElNotification({
-              title: 'Approval Required',
-              message: canApprove
-                ? `This notification requires approval before sending. You can approve it from the Pending tab.`
-                : `This notification requires approval before sending. Please wait for an administrator to approve it.`,
-              type: 'warning',
-              duration: 5000,
+              title: 'Info',
+              message: errorMessage.includes('No users found')
+                ? getNoUsersAvailableMessage(platformName)
+                : errorMessage,
+              type: 'info',
+              duration: 3000,
               dangerouslyUseHTMLString: true,
-            })
-
-            // Redirect to pending tab where user can approve if they have permission
-            activeTab.value = 'pending'
-            cachedNotifications = null
-            cacheTimestamp = 0
-            clearCacheFromStorage()
-            await fetchNotifications(true)
-            applyFilters()
-            return
+            });
+            activeTab.value = 'draft';
+            cachedNotifications = null;
+            cacheTimestamp = 0;
+            clearCacheFromStorage();
+            await fetchNotifications(true);
+            applyFilters();
+            return;
           }
 
-          // Get platform name from response data or notification
           const platformName = getFormattedPlatformName({
             platformName: result?.data?.platformName,
             bakongPlatform: result?.data?.bakongPlatform,
             notification: notification as any,
-          })
+          });
 
-          ElNotification({
-            title: 'Info',
-            message: errorMessage.includes('No users found')
-              ? getNoUsersAvailableMessage(platformName)
-              : errorMessage,
-            type: 'info',
-            duration: 3000,
-            dangerouslyUseHTMLString: true,
-          })
-          // Keep in draft tab
-          activeTab.value = 'draft'
-          cachedNotifications = null
-          cacheTimestamp = 0
-          clearCacheFromStorage()
-          await fetchNotifications(true)
-          applyFilters()
-          return
-        }
+          const bakongPlatform =
+            result?.data?.bakongPlatform ||
+            (notification as any)?.bakongPlatform;
 
-        // Use unified message handler for draft/failure cases
-        const platformName = getFormattedPlatformName({
-          platformName: result?.data?.platformName,
-          bakongPlatform: result?.data?.bakongPlatform,
-          notification: notification as any,
-        })
-
-        const bakongPlatform = result?.data?.bakongPlatform || (notification as any)?.bakongPlatform
-
-        // Get device platform from result data or template
-        const platforms = result?.data?.platforms || template?.platforms || []
-        let devicePlatform = 'ALL'
-        if (Array.isArray(platforms) && platforms.length > 0) {
-          // If platforms array contains only one platform, use it; otherwise use 'ALL'
-          if (platforms.length === 1) {
-            devicePlatform = String(platforms[0])
-          } else {
-            devicePlatform = 'ALL'
-          }
-        }
-
-        const devicePlatformFormatted = formatPlatform(devicePlatform )
-
-        const messageConfig = getNotificationMessage(result?.data, platformName, bakongPlatform, devicePlatformFormatted)
-        const successfulCount = result?.data?.successfulCount ?? 0
-        const failedCount = result?.data?.failedCount ?? 0
-        const isPartialSuccess = successfulCount > 0 && failedCount > 0
-
-        // Show notification for non-success cases (errors, warnings, info) or partial success
-        if (messageConfig.type !== 'success' || isPartialSuccess) {
-          ElNotification({
-            title: messageConfig.title,
-            message: messageConfig.message,
-            type: messageConfig.type,
-            duration: messageConfig.duration,
-            dangerouslyUseHTMLString: messageConfig.dangerouslyUseHTMLString,
-          })
-
-          // Stay in draft tab for failures
-          if (
-            messageConfig.type === 'error' ||
-            messageConfig.type === 'warning' ||
-            messageConfig.type === 'info'
-          ) {
-            activeTab.value = 'draft'
-            cachedNotifications = null
-            cacheTimestamp = 0
-            clearCacheFromStorage()
-            await fetchNotifications(true)
-            applyFilters()
-            return
-          }
-
-          // For partial success, still show the notification but don't redirect to draft
-          if (isPartialSuccess) {
-            // Update notification status if some were successful
-            const notificationIndex = notifications.value.findIndex((n) => n.id === notification.id)
-            if (notificationIndex !== -1 && successfulCount > 0) {
-              notifications.value[notificationIndex].status = 'published'
-              notifications.value[notificationIndex].isSent = true
+          const platforms =
+            result?.data?.platforms || template?.platforms || [];
+          let devicePlatform = 'ALL';
+          if (Array.isArray(platforms) && platforms.length > 0) {
+            if (platforms.length === 1) {
+              devicePlatform = String(platforms[0]);
+            } else {
+              devicePlatform = 'ALL';
             }
-            activeTab.value = 'published'
-            return
-          }
-        }
-
-        // Handle full success cases (only reached if messageConfig.type === 'success' and not partial)
-        if (result?.data?.successfulCount !== undefined && result?.data?.successfulCount > 0) {
-          // Successfully published and sent to users
-          const successfulCount = result?.data?.successfulCount ?? 0
-
-          // Check if this is a flash notification - check result data first, then template, then notification
-          const notificationType =
-            result?.data?.notificationType || template?.notificationType || notification.type
-          const isFlashNotification = notificationType === NotificationType.FLASH_NOTIFICATION
-
-          let message = ''
-          if (isFlashNotification) {
-            // Flash notification message
-            message = 'Flash notification published successfully, and when user open bakongPlatform it will saw it!'
-            const platformNameForFlash = getFormattedPlatformName({
-              platformName: result?.data?.platformName,
-              bakongPlatform: result?.data?.bakongPlatform || template?.bakongPlatform,
-              notification: notification as any,
-            })
-            message = message.replace('bakongPlatform', `<strong>${platformNameForFlash}</strong>`)
-          } else {
-            // Use standardized message format with bakongPlatform and devicePlatform bolded
-            const successMessageConfig = getNotificationMessage(
-              result?.data,
-              platformName,
-              bakongPlatform,
-              devicePlatformFormatted
-            )
-            message = successMessageConfig.message
           }
 
-          ElNotification({
-            title: 'Success',
-            message: message,
-            type: 'success',
-            duration: 2000,
-            dangerouslyUseHTMLString: true,
-          })
-          const notificationIndex = notifications.value.findIndex((n) => n.id === notification.id)
-          if (notificationIndex !== -1) {
-            notifications.value[notificationIndex].status = 'published'
-            notifications.value[notificationIndex].isSent = true
-          }
-          activeTab.value = 'published'
-        } else {
-          // Check if this is a flash notification - even if no successfulCount, show flash message
-          const notificationType =
-            result?.data?.notificationType || template?.notificationType || notification.type
-          const isFlashNotification = notificationType === NotificationType.FLASH_NOTIFICATION
+          const devicePlatformFormatted = formatPlatform(devicePlatform);
 
-          if (isFlashNotification) {
-            // For flash notifications, show success message even if no user count
-            let message =
-              'Flash notification published successfully, and when user open bakongPlatform it will saw it!'
-            const platformName = getFormattedPlatformName({
-              platformName: result?.data?.platformName,
-              bakongPlatform: result?.data?.bakongPlatform || template?.bakongPlatform,
-              notification: notification as any,
-            })
-            message = message.replace('bakongPlatform', `<strong>${platformName}</strong>`)
+          const messageConfig = getNotificationMessage(
+            result?.data,
+            platformName,
+            bakongPlatform,
+            devicePlatformFormatted
+          );
+          const successfulCount = result?.data?.successfulCount ?? 0;
+          const failedCount = result?.data?.failedCount ?? 0;
+          const isPartialSuccess = successfulCount > 0 && failedCount > 0;
+
+          if (messageConfig.type !== 'success' || isPartialSuccess) {
+            ElNotification({
+              title: messageConfig.title,
+              message: messageConfig.message,
+              type: messageConfig.type,
+              duration: messageConfig.duration,
+              dangerouslyUseHTMLString: messageConfig.dangerouslyUseHTMLString,
+            });
+
+            if (
+              messageConfig.type === 'error' ||
+              messageConfig.type === 'warning' ||
+              messageConfig.type === 'info'
+            ) {
+              activeTab.value = 'draft';
+              cachedNotifications = null;
+              cacheTimestamp = 0;
+              clearCacheFromStorage();
+              await fetchNotifications(true);
+              applyFilters();
+              return;
+            }
+
+            if (isPartialSuccess) {
+              const notificationIndex = notifications.value.findIndex(
+                (n) => n.id === notification.id
+              );
+              if (notificationIndex !== -1 && successfulCount > 0) {
+                notifications.value[notificationIndex].status = 'published';
+                notifications.value[notificationIndex].isSent = true;
+              }
+              activeTab.value = 'published';
+              return;
+            }
+          }
+
+          if (
+            result?.data?.successfulCount !== undefined &&
+            result?.data?.successfulCount > 0
+          ) {
+            const successfulCount = result?.data?.successfulCount ?? 0;
+
+            const notificationType =
+              result?.data?.notificationType ||
+              template?.notificationType ||
+              notification.type;
+            const isFlashNotification =
+              notificationType === NotificationType.FLASH_NOTIFICATION;
+
+            let message = '';
+            if (isFlashNotification) {
+              message =
+                'Flash notification published successfully, and when user open bakongPlatform it will saw it!';
+              const platformNameForFlash = getFormattedPlatformName({
+                platformName: result?.data?.platformName,
+                bakongPlatform:
+                  result?.data?.bakongPlatform || template?.bakongPlatform,
+                notification: notification as any,
+              });
+              message = message.replace(
+                'bakongPlatform',
+                `<strong>${platformNameForFlash}</strong>`
+              );
+            } else {
+              const successMessageConfig = getNotificationMessage(
+                result?.data,
+                platformName,
+                bakongPlatform,
+                devicePlatformFormatted
+              );
+              message = successMessageConfig.message;
+            }
 
             ElNotification({
               title: 'Success',
@@ -1325,637 +1089,639 @@ const handlePublishNotification = async (notification: Notification) => {
               type: 'success',
               duration: 2000,
               dangerouslyUseHTMLString: true,
-            })
-
-            const notificationIndex = notifications.value.findIndex((n) => n.id === notification.id)
+            });
+            const notificationIndex = notifications.value.findIndex(
+              (n) => n.id === notification.id
+            );
             if (notificationIndex !== -1) {
-              notifications.value[notificationIndex].status = 'published'
-              notifications.value[notificationIndex].isSent = true
+              notifications.value[notificationIndex].status = 'published';
+              notifications.value[notificationIndex].isSent = true;
             }
-            activeTab.value = 'published'
+            activeTab.value = 'published';
           } else {
-            // Check if notification was already sent (successfulCount might be 0 but isSent is true)
-            // This can happen for flash notifications or if it was already sent via scheduler
-            const isAlreadySent = result?.data?.isSent === true || template?.isSent === true
+            const notificationType =
+              result?.data?.notificationType ||
+              template?.notificationType ||
+              notification.type;
+            const isFlashNotification =
+              notificationType === NotificationType.FLASH_NOTIFICATION;
 
-            if (isAlreadySent) {
-              // Notification was already sent - move to published tab
-              ElNotification({
-                title: 'Info',
-                message:
-                  'This notification has already been sent. It has been moved to the Published tab.',
-                type: 'info',
-                duration: 3000,
-              })
-
-              const notificationIndex = notifications.value.findIndex(
-                (n) => n.id === notification.id,
-              )
-              if (notificationIndex !== -1) {
-                notifications.value[notificationIndex].status = 'published'
-                notifications.value[notificationIndex].isSent = true
-              }
-              activeTab.value = 'published'
-            } else {
-              // No users received the notification - use unified message handler
+            if (isFlashNotification) {
+              let message =
+                'Flash notification published successfully, and when user open bakongPlatform it will saw it!';
               const platformName = getFormattedPlatformName({
                 platformName: result?.data?.platformName,
-                bakongPlatform: result?.data?.bakongPlatform,
+                bakongPlatform:
+                  result?.data?.bakongPlatform || template?.bakongPlatform,
                 notification: notification as any,
-              })
-
-              const bakongPlatform =
-                result?.data?.bakongPlatform || (notification as any)?.bakongPlatform
-              const messageConfig = getNotificationMessage(
-                result?.data,
-                platformName,
-                bakongPlatform,
-              )
+              });
+              message = message.replace(
+                'bakongPlatform',
+                `<strong>${platformName}</strong>`
+              );
 
               ElNotification({
-                title: messageConfig.title,
-                message: messageConfig.message,
-                type: messageConfig.type,
-                duration: messageConfig.duration,
-                dangerouslyUseHTMLString: messageConfig.dangerouslyUseHTMLString,
-              })
-              activeTab.value = 'draft'
+                title: 'Success',
+                message: message,
+                type: 'success',
+                duration: 2000,
+                dangerouslyUseHTMLString: true,
+              });
+
+              const notificationIndex = notifications.value.findIndex(
+                (n) => n.id === notification.id
+              );
+              if (notificationIndex !== -1) {
+                notifications.value[notificationIndex].status = 'published';
+                notifications.value[notificationIndex].isSent = true;
+              }
+              activeTab.value = 'published';
+            } else {
+              const isAlreadySent =
+                result?.data?.isSent === true || template?.isSent === true;
+
+              if (isAlreadySent) {
+                ElNotification({
+                  title: 'Info',
+                  message:
+                    'This notification has already been sent. It has been moved to the Published tab.',
+                  type: 'info',
+                  duration: 3000,
+                });
+
+                const notificationIndex = notifications.value.findIndex(
+                  (n) => n.id === notification.id
+                );
+                if (notificationIndex !== -1) {
+                  notifications.value[notificationIndex].status = 'published';
+                  notifications.value[notificationIndex].isSent = true;
+                }
+                activeTab.value = 'published';
+              } else {
+                const platformName = getFormattedPlatformName({
+                  platformName: result?.data?.platformName,
+                  bakongPlatform: result?.data?.bakongPlatform,
+                  notification: notification as any,
+                });
+
+                const bakongPlatform =
+                  result?.data?.bakongPlatform ||
+                  (notification as any)?.bakongPlatform;
+                const messageConfig = getNotificationMessage(
+                  result?.data,
+                  platformName,
+                  bakongPlatform
+                );
+
+                ElNotification({
+                  title: messageConfig.title,
+                  message: messageConfig.message,
+                  type: messageConfig.type,
+                  duration: messageConfig.duration,
+                  dangerouslyUseHTMLString:
+                    messageConfig.dangerouslyUseHTMLString,
+                });
+                activeTab.value = 'draft';
+              }
             }
           }
+          cachedNotifications = null;
+          cacheTimestamp = 0;
+          clearCacheFromStorage();
+          await fetchNotifications(true);
+          applyFilters();
+        } catch (updateError: any) {
+          if (loadingNotification) {
+            loadingNotification.close();
+          }
+          throw updateError;
         }
-        cachedNotifications = null
-        cacheTimestamp = 0
-        clearCacheFromStorage()
-        await fetchNotifications(true)
-        applyFilters()
-      } catch (updateError: any) {
-        // Close loading notification on error
-        if (loadingNotification) {
-          loadingNotification.close()
+      }
+    } catch (error: any) {
+      try {
+        if (typeof loadingNotification !== 'undefined' && loadingNotification) {
+          loadingNotification.close();
         }
-        // If updateTemplate fails, throw to be caught by outer catch block
-        throw updateError
-      }
-    }
-  } catch (error: any) {
-    // Close loading notification on error (if it exists)
-    // Note: loadingNotification might not be defined if error occurred before it was created
-    try {
-      if (typeof loadingNotification !== 'undefined' && loadingNotification) {
-        loadingNotification.close()
-      }
-    } catch (e) {
-      // Ignore errors when closing notification
-    }
-    
-    console.error('Failed to publish notification:', error)
-    const errorMessage =
-      error?.response?.data?.responseMessage ||
-      error?.response?.data?.message ||
-      error?.message ||
-      'Failed to publish notification'
+      } catch (e) {}
 
-    // Use unified message handler for error cases
-    const errorData = error?.response?.data?.data || {}
-    const failedDueToInvalidTokens = errorData.failedDueToInvalidTokens === true
-    const failedCount = errorData.failedCount || 0
+      // [console.error removed]
+      const errorMessage =
+        error?.response?.data?.responseMessage ||
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to publish notification';
 
-    if (failedDueToInvalidTokens && failedCount > 0) {
-      // Failures due to invalid tokens - use unified message handler
-      const bakongPlatform = errorData.bakongPlatform || (notification as any)?.bakongPlatform
-      const platformName = bakongPlatform ? formatBakongApp(bakongPlatform) : undefined
-      const messageConfig = getNotificationMessage(
-        { failedDueToInvalidTokens: true, failedCount },
-        platformName,
-        bakongPlatform,
-      )
-      ElNotification({
-        title: messageConfig.title,
-        message: messageConfig.message,
-        type: messageConfig.type,
-        duration: messageConfig.duration,
-        dangerouslyUseHTMLString: messageConfig.dangerouslyUseHTMLString,
-      })
-      activeTab.value = 'draft'
-      cachedNotifications = null
-      cacheTimestamp = 0
-      clearCacheFromStorage()
-      await fetchNotifications(true)
-      applyFilters()
-    } else if (
-      errorMessage.includes('NO_USERS_FOR_BAKONG_PLATFORM') ||
-      errorMessage.includes('No users found for')
-    ) {
-      // Get platform name from error response data or notification
-      const bakongPlatform = errorData.bakongPlatform || (notification as any)?.bakongPlatform
-      const platformName = getFormattedPlatformName({
-        platformName: errorData.platformName,
-        bakongPlatform: bakongPlatform,
-        notification: notification as any,
-      })
+      const errorData = error?.response?.data?.data || {};
+      const failedDueToInvalidTokens =
+        errorData.failedDueToInvalidTokens === true;
+      const failedCount = errorData.failedCount || 0;
 
-      ElNotification({
-        title: 'Info',
-        message: getNoUsersAvailableMessage(platformName),
-        type: 'info',
-        duration: 3000,
-        dangerouslyUseHTMLString: true,
-      })
-      activeTab.value = 'draft'
-      cachedNotifications = null
-      cacheTimestamp = 0
-      clearCacheFromStorage()
-      await fetchNotifications(true)
-      applyFilters()
-    } else {
-      ElNotification({
-        title: 'Error',
-        message: errorMessage,
-        type: 'error',
-        duration: 2000,
-      })
-    }
-  } finally {
-    publishingNotifications.delete(key)
-  }
-}
-let pollingInterval: ReturnType<typeof setInterval> | null = null
-let pollingSetup = false // Flag to prevent duplicate polling setup
-let isMounted = false // Flag to prevent duplicate mount operations
-
-onMounted(async () => {
-  // Prevent duplicate mount operations
-  if (isMounted) {
-    console.log('⏭️ [Mount] Component already mounted, skipping duplicate mount')
-    return
-  }
-  isMounted = true
-
-  let tabChanged = false
-  // Priority: route query param with _refresh (explicit redirect) > localStorage (user's last choice) > route query param > default
-  // On page refresh, localStorage should take precedence to preserve user's last selected tab
-  // Route query params with _refresh are used when explicitly navigating (e.g., after creating/updating/approving notification)
-  const storedTab = getStoredTab()
-  const queryTab = route.query?.tab && ['published', 'scheduled', 'draft', 'pending'].includes(route.query.tab as string)
-    ? (route.query.tab as 'published' | 'scheduled' | 'draft' | 'pending')
-    : null
-  const hasRefreshQueryParam = route.query?._refresh !== undefined
-  
-  // activeTab is already initialized from getStoredTab() in the ref declaration
-  // If _refresh param exists, prioritize query tab (explicit redirect from action)
-  // Otherwise, prioritize localStorage (user's last choice) over route query param on refresh
-  if (hasRefreshQueryParam && queryTab) {
-    // Explicit redirect with cache-busting - use query tab immediately
-    if (activeTab.value !== queryTab) {
-      activeTab.value = queryTab
-      tabChanged = true
-      // Save to localStorage when set from route query
-      try {
-        localStorage.setItem('notification_active_tab', queryTab)
-      } catch (error) {
-        console.warn('Failed to save active tab to localStorage:', error)
-      }
-    }
-  } else if (storedTab !== 'published' || !queryTab) {
-    // User has explicitly chosen a tab (not default), or no query param - use stored tab
-    // This ensures refresh preserves user's last choice
-    if (activeTab.value !== storedTab) {
-      activeTab.value = storedTab
-      tabChanged = true
-    }
-  } else if (queryTab && storedTab === 'published') {
-    // No explicit user choice (default 'published'), so use route query param (likely from redirect)
-    if (activeTab.value !== queryTab) {
-      activeTab.value = queryTab
-      tabChanged = true
-      // Save to localStorage when set from route query
-      try {
-        localStorage.setItem('notification_active_tab', queryTab)
-      } catch (error) {
-        console.warn('Failed to save active tab to localStorage:', error)
-      }
-    }
-  }
-  if (notifications.value.length > 0 && (tabChanged || filteredNotifications.value.length === 0)) {
-    console.log(
-      '📦 Re-applying filters to cached data on mount (tab changed or filters not applied)',
-    )
-    applyFilters()
-  }
-
-  await new Promise((resolve) => setTimeout(resolve, 200))
-
-  // Check if cache was recently cleared - force refresh
-  const cacheWasCleared = !localStorage.getItem('notifications_cache_timestamp')
-  // Check for cache-busting query parameter (added after updates)
-  // hasRefreshQueryParam is already defined above
-  const shouldForceRefresh = cacheWasCleared || tabChanged || hasRefreshQueryParam
-
-  if (hasRefreshQueryParam) {
-    console.log('🔄 [Mount] Cache-busting parameter detected - forcing fresh fetch')
-    // Clear cache when refresh parameter is present
-    try {
-      localStorage.removeItem('notifications_cache')
-      localStorage.removeItem('notifications_cache_timestamp')
-      cachedNotifications = null
-      cacheTimestamp = 0
-      console.log('✅ [Mount] Cache cleared due to refresh parameter')
-    } catch (error) {
-      console.warn('⚠️ [Mount] Failed to clear cache:', error)
-    }
-  }
-
-  // Use appropriate cache duration based on active tab
-  const cacheDuration =
-    activeTab.value === 'scheduled'
-      ? SCHEDULED_TAB_CACHE_DURATION
-      : activeTab.value === 'published'
-        ? PUBLISHED_TAB_CACHE_DURATION
-        : DATA_CACHE_DURATION
-
-  console.log('📊 [Mount] Cache check:', {
-    hasCachedNotifications: !!cachedNotifications,
-    cacheTimestamp,
-    cacheWasCleared,
-    hasRefreshParam: hasRefreshQueryParam,
-    tabChanged,
-    shouldForceRefresh,
-    activeTab: activeTab.value,
-  })
-
-  // Only fetch once on mount - avoid duplicate fetches
-  if (cachedNotifications && cacheTimestamp && !shouldForceRefresh) {
-    const now = Date.now()
-    if (now - cacheTimestamp < cacheDuration) {
-      if (notifications.value.length === 0) {
-        // Apply status correction to cached notifications
-        const correctedNotifications = cachedNotifications.map(correctNotificationStatus)
-        notifications.value = correctedNotifications
-        applyFilters()
-      }
-      // Still fetch in background for published tab to get updates quickly
-      if (activeTab.value === 'published') {
-        fetchNotifications(true).catch((err) => {
-          console.warn('Background refresh failed, using cache:', err)
-        })
-      } else {
-        // For other tabs, skip background fetch if cache is fresh to avoid duplicate calls
-        console.log('⏭️ [Mount] Skipping background fetch - cache is fresh and tab is not published')
-      }
-    } else {
-      // Cache expired - fetch once
-      await fetchNotifications(true)
-    }
-  } else {
-    // Force refresh if cache was cleared or tab changed - fetch once
-    await fetchNotifications(true)
-  }
-  const setupPolling = () => {
-    // Prevent duplicate polling setup
-    if (pollingSetup && pollingInterval) {
-      console.log('⏭️ [Polling] Polling already set up, skipping duplicate setup')
-      return
-    }
-
-    // Clear any existing polling interval to prevent duplicates
-    if (pollingInterval) {
-      clearInterval(pollingInterval)
-      pollingInterval = null
-    }
-    const pollingIntervalDuration = 900000 // 15 minutes
-
-    pollingInterval = setInterval(() => {
-      const now = Date.now()
-      const cacheAge = now - cacheTimestamp
-      const cacheDuration =
-        activeTab.value === 'scheduled'
-          ? SCHEDULED_TAB_CACHE_DURATION
-          : activeTab.value === 'published'
-            ? PUBLISHED_TAB_CACHE_DURATION
-            : DATA_CACHE_DURATION
-
-      console.log(
-        `🔄 [Polling Check] Active tab: ${activeTab.value}, Cache age: ${Math.round(cacheAge / 1000)}s, Cache duration: ${Math.round(cacheDuration / 1000)}s`,
-      )
-
-      if (activeTab.value === 'scheduled' && checkForDueScheduledNotifications()) {
-        console.log('✅ [Polling] Triggering refresh - scheduled notification due')
-        fetchNotifications(true)
-        return
-      }
-      if (
-        (activeTab.value === 'scheduled' || activeTab.value === 'published') &&
-        cacheAge >= cacheDuration
+      if (failedDueToInvalidTokens && failedCount > 0) {
+        const bakongPlatform =
+          errorData.bakongPlatform || (notification as any)?.bakongPlatform;
+        const platformName = bakongPlatform
+          ? formatBakongApp(bakongPlatform)
+          : undefined;
+        const messageConfig = getNotificationMessage(
+          { failedDueToInvalidTokens: true, failedCount },
+          platformName,
+          bakongPlatform
+        );
+        ElNotification({
+          title: messageConfig.title,
+          message: messageConfig.message,
+          type: messageConfig.type,
+          duration: messageConfig.duration,
+          dangerouslyUseHTMLString: messageConfig.dangerouslyUseHTMLString,
+        });
+        activeTab.value = 'draft';
+        cachedNotifications = null;
+        cacheTimestamp = 0;
+        clearCacheFromStorage();
+        await fetchNotifications(true);
+        applyFilters();
+      } else if (
+        errorMessage.includes('NO_USERS_FOR_BAKONG_PLATFORM') ||
+        errorMessage.includes('No users found for')
       ) {
-        console.log(
-          `✅ [Polling] Triggering refresh - cache expired (${Math.round(cacheAge / 1000)}s >= ${Math.round(cacheDuration / 1000)}s)`,
-        )
-        fetchNotifications(true)
+        const bakongPlatform =
+          errorData.bakongPlatform || (notification as any)?.bakongPlatform;
+        const platformName = getFormattedPlatformName({
+          platformName: errorData.platformName,
+          bakongPlatform: bakongPlatform,
+          notification: notification as any,
+        });
+
+        ElNotification({
+          title: 'Info',
+          message: getNoUsersAvailableMessage(platformName),
+          type: 'info',
+          duration: 3000,
+          dangerouslyUseHTMLString: true,
+        });
+        activeTab.value = 'draft';
+        cachedNotifications = null;
+        cacheTimestamp = 0;
+        clearCacheFromStorage();
+        await fetchNotifications(true);
+        applyFilters();
       } else {
-        console.log('⏭️ [Polling] Skipping refresh - cache still valid')
+        ElNotification({
+          title: 'Error',
+          message: errorMessage,
+          type: 'error',
+          duration: 2000,
+        });
       }
-    }, pollingIntervalDuration)
+    } finally {
+      publishingNotifications.delete(key);
+    }
+  };
+  let pollingInterval: ReturnType<typeof setInterval> | null = null;
+  let pollingSetup = false;
+  let isMounted = false;
+  onMounted(async () => {
+    if (isMounted) {
+      // [console.log removed]
+      return;
+    }
+    isMounted = true;
 
-    pollingSetup = true
-    console.log(
-      `🔄 [Polling] Started with interval: ${pollingIntervalDuration / 1000}s (${pollingIntervalDuration / 60000} minutes)`,
-    )
-  }
-  // Setup polling once on mount - no need to restart on tab change since polling checks activeTab.value dynamically
-  setupPolling()
-})
+    let tabChanged = false;
+    const storedTab = getStoredTab();
+    const queryTab =
+      route.query?.tab &&
+      ['published', 'scheduled', 'draft', 'pending'].includes(
+        route.query.tab as string
+      )
+        ? (route.query.tab as 'published' | 'scheduled' | 'draft' | 'pending')
+        : null;
+    const hasRefreshQueryParam = route.query?._refresh !== undefined;
 
-onUnmounted(() => {
-  if (pollingInterval) {
-    clearInterval(pollingInterval)
-    pollingInterval = null
-  }
-  pollingSetup = false
-  isMounted = false
-})
+    if (hasRefreshQueryParam && queryTab) {
+      if (activeTab.value !== queryTab) {
+        activeTab.value = queryTab;
+        tabChanged = true;
+        try {
+          localStorage.setItem('notification_active_tab', queryTab);
+        } catch (error) {
+          console.warn('Failed to save active tab to localStorage:', error);
+        }
+      }
+    } else if (storedTab !== 'published' || !queryTab) {
+      if (activeTab.value !== storedTab) {
+        activeTab.value = storedTab;
+        tabChanged = true;
+      }
+    } else if (queryTab && storedTab === 'published') {
+      if (activeTab.value !== queryTab) {
+        activeTab.value = queryTab;
+        tabChanged = true;
+        try {
+          localStorage.setItem('notification_active_tab', queryTab);
+        } catch (error) {
+          console.warn('Failed to save active tab to localStorage:', error);
+        }
+      }
+    }
+    if (
+      notifications.value.length > 0 &&
+      (tabChanged || filteredNotifications.value.length === 0)
+    ) {
+      // [console.log removed]
+      applyFilters();
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const cacheWasCleared = !localStorage.getItem(
+      'notifications_cache_timestamp'
+    );
+    const shouldForceRefresh =
+      cacheWasCleared || tabChanged || hasRefreshQueryParam;
+
+    if (hasRefreshQueryParam) {
+      // [console.log removed]
+      try {
+        localStorage.removeItem('notifications_cache');
+        localStorage.removeItem('notifications_cache_timestamp');
+        cachedNotifications = null;
+        cacheTimestamp = 0;
+        // [console.log removed]
+      } catch (error) {
+        // [console.warn removed]
+      }
+    }
+
+    const cacheDuration =
+      activeTab.value === 'scheduled'
+        ? SCHEDULED_TAB_CACHE_DURATION
+        : activeTab.value === 'published'
+          ? PUBLISHED_TAB_CACHE_DURATION
+          : DATA_CACHE_DURATION;
+
+    // [console.log removed]
+
+    if (cachedNotifications && cacheTimestamp && !shouldForceRefresh) {
+      const now = Date.now();
+      if (now - cacheTimestamp < cacheDuration) {
+        if (notifications.value.length === 0) {
+          const correctedNotifications = cachedNotifications.map(
+            correctNotificationStatus
+          );
+          notifications.value = correctedNotifications;
+          applyFilters();
+        }
+        if (activeTab.value === 'published') {
+          fetchNotifications(true).catch((err) => {});
+        } else {
+        }
+      } else {
+        await fetchNotifications(true);
+      }
+    } else {
+      await fetchNotifications(true);
+    }
+    const setupPolling = () => {
+      if (pollingSetup && pollingInterval) {
+        return;
+      }
+
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+      const pollingIntervalDuration = 900000;
+      pollingInterval = setInterval(() => {
+        const now = Date.now();
+        const cacheAge = now - cacheTimestamp;
+        const cacheDuration =
+          activeTab.value === 'scheduled'
+            ? SCHEDULED_TAB_CACHE_DURATION
+            : activeTab.value === 'published'
+              ? PUBLISHED_TAB_CACHE_DURATION
+              : DATA_CACHE_DURATION;
+
+        // [console.log removed]
+
+        if (
+          activeTab.value === 'scheduled' &&
+          checkForDueScheduledNotifications()
+        ) {
+          // [console.log removed]
+          fetchNotifications(true);
+          return;
+        }
+        if (
+          (activeTab.value === 'scheduled' ||
+            activeTab.value === 'published') &&
+          cacheAge >= cacheDuration
+        ) {
+          // [console.log removed]
+          fetchNotifications(true);
+        } else {
+          // [console.log removed]
+        }
+      }, pollingIntervalDuration);
+
+      pollingSetup = true;
+      // [console.log removed]
+    };
+    setupPolling();
+  });
+
+  onUnmounted(() => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
+    pollingSetup = false;
+    isMounted = false;
+  });
 </script>
 
 <style scoped>
-.home-page {
-  width: 100%;
-  height: 100%;
-  background: #fff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  overflow-x: hidden;
-}
+  .home-page {
+    width: 100%;
+    height: 100%;
+    background: #fff;
+    font-family:
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow-x: hidden;
+  }
 
-.search-filter-bar {
-  display: grid;
-  grid-template-columns: 202px 18px 313px 18px 1fr;
-  grid-template-areas: 'filter . search . date';
-  align-items: center;
-  width: 100%;
-  padding: 17px 0;
-  position: relative;
-}
+  .search-filter-bar {
+    display: grid;
+    grid-template-columns: 202px 18px 313px 18px 1fr;
+    grid-template-areas: 'filter . search . date';
+    align-items: center;
+    width: 100%;
+    padding: 17px 0;
+    position: relative;
+  }
 
-.filter-dropdown {
-  grid-area: filter;
-}
+  .filter-dropdown {
+    grid-area: filter;
+  }
 
-.search-input {
-  grid-area: search;
-}
+  .search-input {
+    grid-area: search;
+  }
 
-.date-range {
-  grid-area: date;
-  width: 100% !important;
-  min-width: 0 !important;
-  max-width: none !important;
-}
+  .date-range {
+    grid-area: date;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
 
-.date-picker {
-  width: 100%;
-  height: 40px;
-}
+  .date-picker {
+    width: 100%;
+    height: 40px;
+  }
 
-.custom-date-range {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  height: 40px;
-  padding: 0 20px;
-  background: #fff;
-  border: 1px solid rgba(0, 19, 70, 0.15);
-  border-radius: 28px;
-  cursor: pointer;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-  box-sizing: border-box;
-}
+  .custom-date-range {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 40px;
+    padding: 0 20px;
+    background: #fff;
+    border: 1px solid rgba(0, 19, 70, 0.15);
+    border-radius: 28px;
+    cursor: pointer;
+    transition:
+      border-color 0.2s,
+      box-shadow 0.2s;
+    box-sizing: border-box;
+  }
 
-.custom-date-range:hover {
-  border-color: rgba(0, 19, 70, 0.4);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-}
+  .custom-date-range:hover {
+    border-color: rgba(0, 19, 70, 0.4);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  }
 
-.date-text {
-  color: #7a8190;
-  font-size: 15px;
-  letter-spacing: 0.2px;
-}
+  .date-text {
+    color: #7a8190;
+    font-size: 15px;
+    letter-spacing: 0.2px;
+  }
 
-.calendar-icon-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 19, 70, 0.1);
-  background: rgba(0, 19, 70, 0.03);
-  color: #001346;
-}
+  .calendar-icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 19, 70, 0.1);
+    background: rgba(0, 19, 70, 0.03);
+    color: #001346;
+  }
 
-.date-range .date-picker :deep(.el-date-editor.el-date-editor--daterange) {
-  width: 100% !important;
-  min-width: 100% !important;
-  max-width: 100% !important;
-  height: 40px !important;
-  --el-input-height: 40px !important;
-  --el-date-editor-width: 100% !important;
-  flex: 1 !important;
-}
+  .date-range .date-picker :deep(.el-date-editor.el-date-editor--daterange) {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: 40px !important;
+    --el-input-height: 40px !important;
+    --el-date-editor-width: 100% !important;
+    flex: 1 !important;
+  }
 
-.date-range .date-picker :deep(.el-range-editor.el-input__wrapper) {
-  width: 100% !important;
-  min-width: 100% !important;
-  max-width: 100% !important;
-  height: 40px !important;
-  border-radius: 28px !important;
-  border: 1px solid rgba(0, 19, 70, 0.15) !important;
-  background: #fff !important;
-  padding: 0 20px !important;
-  box-shadow: none !important;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s !important;
-  --el-input-border-color: rgba(0, 19, 70, 0.15) !important;
-  --el-border-color: rgba(0, 19, 70, 0.15) !important;
-  flex: 1 !important;
-  display: flex !important;
-  align-items: center !important;
-}
+  .date-range .date-picker :deep(.el-range-editor.el-input__wrapper) {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: 40px !important;
+    border-radius: 28px !important;
+    border: 1px solid rgba(0, 19, 70, 0.15) !important;
+    background: #fff !important;
+    padding: 0 20px !important;
+    box-shadow: none !important;
+    transition:
+      border-color 0.2s,
+      box-shadow 0.2s !important;
+    --el-input-border-color: rgba(0, 19, 70, 0.15) !important;
+    --el-border-color: rgba(0, 19, 70, 0.15) !important;
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+  }
 
-.date-range .date-picker :deep(.el-range-editor.el-input__wrapper:hover) {
-  border-color: rgba(0, 19, 70, 0.4) !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
-  --el-input-border-color: rgba(0, 19, 70, 0.4) !important;
-  --el-border-color: rgba(0, 19, 70, 0.4) !important;
-}
+  .date-range .date-picker :deep(.el-range-editor.el-input__wrapper:hover) {
+    border-color: rgba(0, 19, 70, 0.4) !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+    --el-input-border-color: rgba(0, 19, 70, 0.4) !important;
+    --el-border-color: rgba(0, 19, 70, 0.4) !important;
+  }
 
-.date-range .date-picker :deep(.el-range-editor.el-input__wrapper.is-focus) {
-  border-color: rgba(0, 19, 70, 0.4) !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
-  --el-input-border-color: rgba(0, 19, 70, 0.4) !important;
-  --el-border-color: rgba(0, 19, 70, 0.4) !important;
-}
+  .date-range .date-picker :deep(.el-range-editor.el-input__wrapper.is-focus) {
+    border-color: rgba(0, 19, 70, 0.4) !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+    --el-input-border-color: rgba(0, 19, 70, 0.4) !important;
+    --el-border-color: rgba(0, 19, 70, 0.4) !important;
+  }
 
-.date-range .date-picker :deep(.el-input__inner) {
-  height: 38px !important;
-  line-height: 38px !important;
-  font-size: 15px !important;
-  color: #7a8190 !important;
-  padding: 0 !important;
-  letter-spacing: 0.2px !important;
-}
+  .date-range .date-picker :deep(.el-input__inner) {
+    height: 38px !important;
+    line-height: 38px !important;
+    font-size: 15px !important;
+    color: #7a8190 !important;
+    padding: 0 !important;
+    letter-spacing: 0.2px !important;
+  }
 
-.date-range .date-picker :deep(.el-range-separator) {
-  margin: 0 8px !important;
-  color: #7a8190 !important;
-}
+  .date-range .date-picker :deep(.el-range-separator) {
+    margin: 0 8px !important;
+    color: #7a8190 !important;
+  }
 
-.date-range .date-picker :deep(.el-range-input) {
-  border: none !important;
-  background: transparent !important;
-  color: #7a8190 !important;
-  font-size: 15px !important;
-  letter-spacing: 0.2px !important;
-}
+  .date-range .date-picker :deep(.el-range-input) {
+    border: none !important;
+    background: transparent !important;
+    color: #7a8190 !important;
+    font-size: 15px !important;
+    letter-spacing: 0.2px !important;
+  }
 
-.date-range .date-picker :deep(.el-input__suffix) {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 36px !important;
-  height: 36px !important;
-  border-radius: 50% !important;
-  border: 1px solid rgba(0, 19, 70, 0.1) !important;
-  background: rgba(0, 19, 70, 0.03) !important;
-  color: #001346 !important;
-}
+  .date-range .date-picker :deep(.el-input__suffix) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(0, 19, 70, 0.1) !important;
+    background: rgba(0, 19, 70, 0.03) !important;
+    color: #001346 !important;
+  }
 
-.date-range .date-picker :deep(.el-input__suffix .el-icon) {
-  color: #001346 !important;
-  font-size: 16px !important;
-}
+  .date-range .date-picker :deep(.el-input__suffix .el-icon) {
+    color: #001346 !important;
+    font-size: 16px !important;
+  }
 
-.date-range {
-  --el-input-height: 40px !important;
-  --el-date-editor-width: 100% !important;
-  --el-input-border-color: rgba(0, 19, 70, 0.15) !important;
-  --el-border-color: rgba(0, 19, 70, 0.15) !important;
-  --el-input-border-radius: 28px !important;
-  --el-input-bg-color: #fff !important;
-  --el-input-text-color: #7a8190 !important;
-  --el-input-placeholder-color: #7a8190 !important;
-  --el-component-size: 40px !important;
-  width: 100% !important;
-  min-width: 0 !important;
-  max-width: none !important;
-  flex: 1 !important;
-  display: flex !important;
-}
+  .date-range {
+    --el-input-height: 40px !important;
+    --el-date-editor-width: 100% !important;
+    --el-input-border-color: rgba(0, 19, 70, 0.15) !important;
+    --el-border-color: rgba(0, 19, 70, 0.15) !important;
+    --el-input-border-radius: 28px !important;
+    --el-input-bg-color: #fff !important;
+    --el-input-text-color: #7a8190 !important;
+    --el-input-placeholder-color: #7a8190 !important;
+    --el-component-size: 40px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    flex: 1 !important;
+    display: flex !important;
+  }
 
-.date-range * {
-  box-sizing: border-box !important;
-}
+  .date-range * {
+    box-sizing: border-box !important;
+  }
 
-.date-range .date-picker {
-  width: 100% !important;
-  min-width: 100% !important;
-  max-width: 100% !important;
-  flex: 1 !important;
-  display: block !important;
-}
+  .date-range .date-picker {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 !important;
+    display: block !important;
+  }
 
-.date-range :deep(.el-date-editor) {
-  width: 100% !important;
-  min-width: 100% !important;
-  max-width: 100% !important;
-  display: block !important;
-}
+  .date-range :deep(.el-date-editor) {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+  }
 
-.date-range :deep(.el-input) {
-  width: 100% !important;
-  min-width: 100% !important;
-  max-width: 100% !important;
-  display: block !important;
-}
+  .date-range :deep(.el-input) {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+  }
 
-.date-range :deep(.el-input__wrapper) {
-  width: 100% !important;
-  min-width: 100% !important;
-  max-width: 100% !important;
-  display: flex !important;
-}
+  .date-range :deep(.el-input__wrapper) {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+  }
 
-.range-popper .el-picker-panel__sidebar {
-  width: 160px;
-}
+  .range-popper .el-picker-panel__sidebar {
+    width: 160px;
+  }
 
-.notifications-grid {
-  display: flex;
-  flex-direction: column;
-  position: absolute;
-  top: 124px;
-  left: 32px;
-  right: 32px;
-  bottom: 32px;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
+  .notifications-grid {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 124px;
+    left: 32px;
+    right: 32px;
+    bottom: 32px;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
 
-.notifications-grid .notification-cards-container {
-  width: 100%;
-  margin-top: 20px;
-}
+  .notifications-grid .notification-cards-container {
+    width: 100%;
+    margin-top: 20px;
+  }
 
-.notifications-grid::-webkit-scrollbar {
-  display: none;
-}
+  .notifications-grid::-webkit-scrollbar {
+    display: none;
+  }
 
-.loading-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 200px;
-  width: 100%;
-}
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+    width: 100%;
+  }
 
-.loading-spinner {
-  color: #001346;
-  font-size: 16px;
-  font-weight: 500;
-}
+  .loading-spinner {
+    color: #001346;
+    font-size: 16px;
+    font-weight: 500;
+  }
 
-.empty-state {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  width: 100%;
-  height: 100%;
-  min-height: 400px;
-  padding-top: 80px;
-}
+  .empty-state {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+    padding-top: 80px;
+  }
 
-.empty-state-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 24px;
-  width: 241px;
-  height: 391.87px;
-}
+  .empty-state-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 24px;
+    width: 241px;
+    height: 391.87px;
+  }
 
-.image-empty-state {
-  width: 191.96px;
-  height: 337.87px;
-  display: flex;
-}
+  .image-empty-state {
+    width: 191.96px;
+    height: 337.87px;
+    display: flex;
+  }
 
-.empty-message {
-  color: #000000;
-  font-size: 20px;
-  font-weight: 600;
-  font-family: 'IBM Plex Sans';
-}
+  .empty-message {
+    color: #000000;
+    font-size: 20px;
+    font-weight: 600;
+    font-family: 'IBM Plex Sans';
+  }
 </style>

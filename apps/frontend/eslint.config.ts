@@ -1,8 +1,8 @@
-import { defineConfigWithVueTs } from '@vue/eslint-config-typescript'
-import pluginVue from 'eslint-plugin-vue'
-import pluginVitest from '@vitest/eslint-plugin'
-import typescriptParser from '@typescript-eslint/parser'
-import vueParser from 'vue-eslint-parser'
+import { defineConfigWithVueTs } from '@vue/eslint-config-typescript';
+import pluginVue from 'eslint-plugin-vue';
+import pluginVitest from '@vitest/eslint-plugin';
+import typescriptParser from '@typescript-eslint/parser';
+import vueParser from 'vue-eslint-parser';
 
 export default defineConfigWithVueTs(
   {
@@ -53,5 +53,5 @@ export default defineConfigWithVueTs(
       'vue/no-mutating-props': 'off',
       'vue/multi-word-component-names': 'off',
     },
-  },
-)
+  }
+);

@@ -119,96 +119,97 @@
         {{ option.label }}
       </el-checkbox>
     </el-checkbox-group>
-    <slot v-else-if="type === 'custom'" :value="modelValue" :update="updateValue" />
+    <slot
+      v-else-if="type === 'custom'"
+      :value="modelValue"
+      :update="updateValue"
+    />
   </el-form-item>
 </template>
-
 <script setup lang="ts">
-export interface FormFieldOption {
-  label: string
-  value: any
-  disabled?: boolean
-}
-
-interface Props {
-  modelValue: any
-  type?: 'input' | 'textarea' | 'select' | 'date' | 'switch' | 'radio' | 'checkbox' | 'custom'
-  prop?: string
-  label?: string
-  placeholder?: string
-  required?: boolean
-  disabled?: boolean
-  readonly?: boolean
-  clearable?: boolean
-  showPassword?: boolean
-  prefixIcon?: string
-  suffixIcon?: string
-  maxlength?: number
-  showWordLimit?: boolean
-  rows?: number
-  options?: FormFieldOption[]
-  multiple?: boolean
-  filterable?: boolean
-  allowCreate?: boolean
-  dateType?: 'date' | 'datetime' | 'daterange' | 'datetimerange'
-  dateFormat?: string
-  valueFormat?: string
-  activeText?: string
-  inactiveText?: string
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  type: 'input',
-  required: false,
-  disabled: false,
-  readonly: false,
-  clearable: true,
-  showPassword: false,
-  showWordLimit: false,
-  rows: 3,
-  multiple: false,
-  filterable: false,
-  allowCreate: false,
-  dateType: 'date',
-  dateFormat: 'YYYY-MM-DD',
-  valueFormat: 'YYYY-MM-DD',
-})
-
-const emit = defineEmits<{
-  'update:modelValue': [value: any]
-  input: [value: any]
-  change: [value: any]
-  blur: [event: Event]
-  focus: [event: Event]
-}>()
-
-const updateValue = (value: any) => {
-  emit('update:modelValue', value)
-}
-
-const handleInput = (value: any) => {
-  emit('input', value)
-}
-
-const handleChange = (value: any) => {
-  emit('change', value)
-}
-
-const handleBlur = (event: Event) => {
-  emit('blur', event)
-}
-
-const handleFocus = (event: Event) => {
-  emit('focus', event)
-}
+  export interface FormFieldOption {
+    label: string;
+    value: any;
+    disabled?: boolean;
+  }
+  interface Props {
+    modelValue: any;
+    type?:
+      | 'input'
+      | 'textarea'
+      | 'select'
+      | 'date'
+      | 'switch'
+      | 'radio'
+      | 'checkbox'
+      | 'custom';
+    prop?: string;
+    label?: string;
+    placeholder?: string;
+    required?: boolean;
+    disabled?: boolean;
+    readonly?: boolean;
+    clearable?: boolean;
+    showPassword?: boolean;
+    prefixIcon?: string;
+    suffixIcon?: string;
+    maxlength?: number;
+    showWordLimit?: boolean;
+    rows?: number;
+    options?: FormFieldOption[];
+    multiple?: boolean;
+    filterable?: boolean;
+    allowCreate?: boolean;
+    dateType?: 'date' | 'datetime' | 'daterange' | 'datetimerange';
+    dateFormat?: string;
+    valueFormat?: string;
+    activeText?: string;
+    inactiveText?: string;
+  }
+  const props = withDefaults(defineProps<Props>(), {
+    type: 'input',
+    required: false,
+    disabled: false,
+    readonly: false,
+    clearable: true,
+    showPassword: false,
+    showWordLimit: false,
+    rows: 3,
+    multiple: false,
+    filterable: false,
+    allowCreate: false,
+    dateType: 'date',
+    dateFormat: 'YYYY-MM-DD',
+    valueFormat: 'YYYY-MM-DD',
+  });
+  const emit = defineEmits<{
+    'update:modelValue': [value: any];
+    input: [value: any];
+    change: [value: any];
+    blur: [event: Event];
+    focus: [event: Event];
+  }>();
+  const updateValue = (value: any) => {
+    emit('update:modelValue', value);
+  };
+  const handleInput = (value: any) => {
+    emit('input', value);
+  };
+  const handleChange = (value: any) => {
+    emit('change', value);
+  };
+  const handleBlur = (event: Event) => {
+    emit('blur', event);
+  };
+  const handleFocus = (event: Event) => {
+    emit('focus', event);
+  };
 </script>
-
 <style scoped>
-.el-form-item {
-  margin-bottom: 18px;
-}
-
-.el-form-item:last-child {
-  margin-bottom: 0;
-}
+  .el-form-item {
+    margin-bottom: 18px;
+  }
+  .el-form-item:last-child {
+    margin-bottom: 0;
+  }
 </style>

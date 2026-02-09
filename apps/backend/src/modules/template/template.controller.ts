@@ -1,185 +1,214 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common'
-import { UserRole } from '@bakong/shared'
-import { Roles } from 'src/common/middleware/roles.guard'
-import { BaseResponseDto } from 'src/common/base-response.dto'
-import { BaseFunctionHelper } from 'src/common/util/base-function.helper'
-import { CreateTemplateDto } from './dto/create-template.dto'
-import { UpdateTemplateDto } from './dto/update-template.dto'
-import { RejectTemplateDto } from './dto/reject-template.dto'
-import { TemplateService } from './template.service'
-
+import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import { UserRole } from '@bakong/shared';
+import { Roles } from 'src/common/middleware/roles.guard';
+import { BaseResponseDto } from 'src/common/base-response.dto';
+import { BaseFunctionHelper } from 'src/common/util/base-function.helper';
+import { CreateTemplateDto } from './dto/create-template.dto';
+import { UpdateTemplateDto } from './dto/update-template.dto';
+import { RejectTemplateDto } from './dto/reject-template.dto';
+import { TemplateService } from './template.service';
 @Controller('template')
 export class TemplateController {
   constructor(private readonly templateService: TemplateService) {}
-
   @Roles(UserRole.ADMINISTRATOR, UserRole.EDITOR)
   @Post('create')
   async create(@Body() dto: CreateTemplateDto, @Req() req: any) {
-    console.log('🎯 [CONTROLLER] /template/create endpoint called')
+    console.log('🎯 [CONTROLLER] /template/create endpoint called');
     console.log('🎯 [CONTROLLER] Request data:', {
       notificationType: dto.notificationType,
       sendType: dto.sendType,
       isSent: dto.isSent,
       platforms: dto.platforms,
       hasTranslations: dto.translations?.length > 0,
-    })
-
+    });
     try {
-      const currentUser = req.user
-      console.log('🎯 [CONTROLLER] Current user:', currentUser?.username || 'NO USER')
-
-      console.log('🎯 [CONTROLLER] Calling templateService.create...')
-      const template = await this.templateService.create(dto, currentUser)
+      const currentUser = req.user;
+      console.log(
+        '🎯 [CONTROLLER] Current user:',
+        currentUser?.username || 'NO USER'
+      );
+      console.log('🎯 [CONTROLLER] Calling templateService.create...');
+      const template = await this.templateService.create(dto, currentUser);
       console.log(
         '🎯 [CONTROLLER] Template service returned, notificationType:',
-        template.notificationType,
-      )
-
+        template.notificationType
+      );
       return new BaseResponseDto({
         responseCode: 0,
         responseMessage: `Create ${template.notificationType} successfully`,
         errorCode: 0,
         data: template,
-      })
+      });
     } catch (error: any) {
       console.error('🎯 [CONTROLLER] ❌ ERROR in create endpoint:', {
         message: error?.message,
         stack: error?.stack,
         error: BaseFunctionHelper.safeLogObject(error),
-      })
-
-      throw error
+      });
+      throw error;
     }
   }
 
   @Roles(UserRole.ADMINISTRATOR, UserRole.EDITOR, UserRole.APPROVAL)
   @Post(':id/update-publish')
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateTemplateDto, @Req() req: any) {
-    console.log('🎯 [CONTROLLER] /template/:id/update-publish endpoint called for template:', id)
-    // Use safe logging to prevent logging large image buffers or content
+  async update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateTemplateDto,
+    @Req() req: any
+  ) {
+    console.log(
+      '🎯 [CONTROLLER] /template/:id/update-publish endpoint called for template:',
+      id
+    );
     const safeDto = BaseFunctionHelper.safeLogObject({
       platforms: updateUserDto.platforms,
       isSent: updateUserDto.isSent,
       sendType: updateUserDto.sendType,
       hasTranslations: updateUserDto.translations?.length > 0,
       translationCount: updateUserDto.translations?.length || 0,
-    })
-    console.log('🎯 [CONTROLLER] Update request data:', safeDto)
-
-    const currentUser = req.user
-    const template = await this.templateService.update(+id, updateUserDto, currentUser)
-
+    });
+    console.log('🎯 [CONTROLLER] Update request data:', safeDto);
+    const currentUser = req.user;
+    const template = await this.templateService.update(
+      +id,
+      updateUserDto,
+      currentUser
+    );
     console.log('🎯 [CONTROLLER] Update result:', {
       templateId: template.templateId,
       platforms: template.platforms,
       isSent: template.isSent,
-    })
-
+    });
     return new BaseResponseDto({
       responseCode: 0,
       responseMessage: `Update ${template.notificationType} successfully`,
       errorCode: 0,
       data: template,
-    })
+    });
   }
 
   @Roles(UserRole.EDITOR)
   @Post(':id/submit')
   async submitForApproval(@Param('id') id: string, @Req() req: any) {
-    const currentUser = req.user
-    const template = await this.templateService.submitForApproval(+id, currentUser)
+    const currentUser = req.user;
+    const template = await this.templateService.submitForApproval(
+      +id,
+      currentUser
+    );
     return new BaseResponseDto({
       responseCode: 0,
       responseMessage: 'Notification submitted for approval successfully',
       errorCode: 0,
       data: template,
-    })
+    });
   }
 
   @Roles(UserRole.ADMINISTRATOR, UserRole.EDITOR, UserRole.APPROVAL)
   @Post(':id/remove')
   async remove(@Param('id') id: string) {
-    const template = await this.templateService.remove(+id)
+    const template = await this.templateService.remove(+id);
     return new BaseResponseDto({
       responseCode: 0,
       responseMessage: 'Template removed successfully',
       errorCode: 0,
       data: template,
-    })
+    });
   }
 
   @Get('cron')
   getCronJobs() {
-    return this.templateService.getCronJob()
+    return this.templateService.getCronJob();
   }
 
-  @Roles(UserRole.ADMINISTRATOR, UserRole.EDITOR, UserRole.VIEW_ONLY, UserRole.APPROVAL)
+  @Roles(
+    UserRole.ADMINISTRATOR,
+    UserRole.EDITOR,
+    UserRole.VIEW_ONLY,
+    UserRole.APPROVAL
+  )
   @Get('all')
   async getAll(@Query('language') language?: string) {
-    return this.templateService.all(language)
+    return this.templateService.all(language);
   }
 
-  @Roles(UserRole.ADMINISTRATOR, UserRole.EDITOR, UserRole.VIEW_ONLY, UserRole.APPROVAL)
+  @Roles(
+    UserRole.ADMINISTRATOR,
+    UserRole.EDITOR,
+    UserRole.VIEW_ONLY,
+    UserRole.APPROVAL
+  )
   @Get(':id')
   async findOne(@Param('id') id: string) {
-    const template = await this.templateService.findOne(+id)
+    const template = await this.templateService.findOne(+id);
     return new BaseResponseDto({
       responseCode: 0,
       responseMessage: 'Template retrieved successfully',
       errorCode: 0,
       data: template,
-    })
+    });
   }
 
-  @Roles(UserRole.ADMINISTRATOR, UserRole.EDITOR, UserRole.VIEW_ONLY, UserRole.APPROVAL)
+  @Roles(
+    UserRole.ADMINISTRATOR,
+    UserRole.EDITOR,
+    UserRole.VIEW_ONLY,
+    UserRole.APPROVAL
+  )
   @Get()
   async findTemplates(
     @Query() query: any,
     @Query('language') language?: string,
-    @Query('format') format?: string,
+    @Query('format') format?: string
   ) {
-    // Transform query parameters from strings to proper types
-    const page = query.page ? parseInt(query.page, 10) : undefined
-    const size = query.size ? parseInt(query.size, 10) : undefined
+    const page = query.page ? parseInt(query.page, 10) : undefined;
+    const size = query.size ? parseInt(query.size, 10) : undefined;
     const isAscending =
       query.isAscending !== undefined
         ? query.isAscending === 'true' || query.isAscending === true
-        : undefined
-
+        : undefined;
     if (format === 'notification') {
       return await this.templateService.findTemplatesAsNotifications(
         page,
         size,
         isAscending,
-        language,
-      )
+        language
+      );
     }
-    return this.templateService.findTemplates(page, size, isAscending, language)
+    return this.templateService.findTemplates(
+      page,
+      size,
+      isAscending,
+      language
+    );
   }
 
   @Roles(UserRole.ADMINISTRATOR, UserRole.APPROVAL)
   @Post(':id/approve')
   async approve(@Param('id') id: string, @Req() req: any) {
-    const currentUser = req.user
-    const template = await this.templateService.approve(+id, currentUser)
+    const currentUser = req.user;
+    const template = await this.templateService.approve(+id, currentUser);
     return new BaseResponseDto({
       responseCode: 0,
       responseMessage: 'Template approved successfully',
       errorCode: 0,
       data: template,
-    })
+    });
   }
 
   @Roles(UserRole.ADMINISTRATOR, UserRole.APPROVAL)
   @Post(':id/reject')
-  async reject(@Param('id') id: string, @Body() dto: RejectTemplateDto, @Req() req: any) {
-    const currentUser = req.user
-    const template = await this.templateService.reject(+id, dto, currentUser)
+  async reject(
+    @Param('id') id: string,
+    @Body() dto: RejectTemplateDto,
+    @Req() req: any
+  ) {
+    const currentUser = req.user;
+    const template = await this.templateService.reject(+id, dto, currentUser);
     return new BaseResponseDto({
       responseCode: 0,
       responseMessage: 'Template rejected successfully',
       errorCode: 0,
       data: template,
-    })
+    });
   }
 }

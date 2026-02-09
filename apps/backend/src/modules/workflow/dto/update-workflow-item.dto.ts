@@ -1,11 +1,10 @@
-import { IsString, IsOptional } from 'class-validator'
-
+import { IsString, IsOptional } from 'class-validator';
 export class UpdateWorkflowItemDto {
   @IsString()
   @IsOptional()
-  title?: string
+  title?: string;
 
   @IsString()
   @IsOptional()
-  description?: string
+  description?: string;
 }
