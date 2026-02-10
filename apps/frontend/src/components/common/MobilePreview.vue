@@ -33,11 +33,14 @@
           ></div>
         </div>
         <div
-          class="scrollable-content absolute left-[12.08px] top-[170.5px] bottom-[61px] w-[307.92px] flex flex-col items-start gap-[6.04px] px-[30px] pt-[12px] pb-[20px] overflow-y-auto overflow-x-hidden"
+          class="absolute left-[12.08px] top-[170.5px] bottom-[61px] w-[307.92px] flex flex-col items-start gap-[6.04px] px-[30px] pt-[12px] pb-[20px]"
         >
           <div
             class="title-container"
-            :class="{ 'lang-khmer': props.titleHasKhmer }"
+            :class="[
+              { 'lang-khmer': props.titleHasKhmer },
+              { 'empty-title': !displayTitle }
+            ]"
             :data-content-lang="props.titleHasKhmer ? 'km' : ''"
           >
             {{ displayTitle || 'No title' }}
@@ -50,7 +53,7 @@
             />
             <div
               v-if="displayCategory"
-              class="text-[12px] leading-[18px] text-black flex items-center overflow-hidden"
+              :class="['text-[12px] leading-[18px] text-black flex items-center overflow-hidden', props.activeLanguage === 'KM' ? 'category-khmer' : '']"
             >
               {{ formatCategoryType(displayCategory) }}
             </div>
@@ -60,13 +63,14 @@
             ></div>
           </div>
           <div
-            class="text-[14px] leading-[18px] text-black h-[18px] flex items-center pb-2"
+            :class="['text-[14px] leading-[18px] text-black h-[18px] flex items-center pb-2', props.activeLanguage === 'KM' ? 'date-khmer' : '']"
           >
             {{ currentDate }}
           </div>
           <div
             v-if="displayDescription"
-            class="description-container-relative"
+            class="description-container-relative overflow-y-auto overflow-x-hidden"
+            style="max-height: 180px; width: 100%;"
             :class="{ 'lang-khmer': props.descriptionHasKhmer }"
             :data-content-lang="props.descriptionHasKhmer ? 'km' : ''"
           >
@@ -80,20 +84,35 @@
           </div>
         </div>
         <div
-          class="absolute left-[5px] right-0 bottom-[10px] h-[51.15px] px-[10.08px]"
+          class="absolute left-2 right-2 bottom-[10px] h-[51.15px] px-[10.08px] flex items-center justify-center gap-2"
         >
-          <div
-            class="rounded-[12.08px] p-[12.08px] bg-[#DB1A1A] text-white font-semibold text-[16px] text-center select-none flex items-center justify-center"
-            style="
-              width: 307.92px;
-              height: 42.15px;
-              pointer-events: none;
-              cursor: default;
-              user-select: none;
-            "
-          >
-            Close
-          </div>
+          <template v-if="props.linkToSeeMore && props.linkToSeeMore.trim()">
+            <div
+              class="rounded-[12.08px] bg-[#DB1A1A] text-white font-semibold text-[16px] select-none flex items-center justify-center text-center flex-1"
+              style="height: 42.15px; min-width: 0; user-select: none; padding-left: 5px; padding-right: 5px;"
+              @click.stop.prevent
+              disabled
+            >
+              Close
+            </div>
+            <div
+              :href="props.linkToSeeMore"
+              class="rounded-[12.08px] bg-[#DB1A1A] text-white font-semibold text-[16px] select-none flex items-center justify-center text-center flex-1"
+              style="height: 42.15px; min-width: 0; user-select: none; padding-left: 5px; padding-right: 5px; text-decoration: none;"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Read more
+            </div>
+          </template>
+          <template v-else>
+            <div
+              class="rounded-[12.08px] p-[12.08px] bg-[#DB1A1A] text-white font-semibold text-[16px] select-none flex items-center justify-center text-center align-center"
+              style="width: 307.92px; height: 42.15px; pointer-events: none; cursor: default; user-select: none;"
+            >
+              Close
+            </div>
+          </template>
         </div>
       </section>
     </div>
@@ -129,6 +148,7 @@
     activeLanguage?: string;
     titleHasKhmer?: boolean;
     descriptionHasKhmer?: boolean;
+    linkToSeeMore?: string;
   }
   const props = withDefaults(defineProps<Props>(), {
     title: '',
@@ -138,6 +158,7 @@
     activeLanguage: 'KM',
     titleHasKhmer: false,
     descriptionHasKhmer: false,
+    linkToSeeMore: '',
   });
   const toPreviewUrl = (url: string) => {
     if (!url) return '';
@@ -213,15 +234,26 @@
     color: #000000;
     overflow: hidden;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
     -webkit-box-orient: vertical;
     text-overflow: ellipsis;
     overflow-wrap: break-word;
     word-break: keep-all;
     white-space: normal;
-    max-height: 36px;
-    min-height: 18px;
+  }
+  
+  .title-container.empty-title {
+    min-height: 0px;
+  }
+  
+  .title-container.lang-khmer,
+  .text-khmer,
+  .category-khmer,
+  .date-khmer,
+  .category-type-khmer,
+  .date-type-khmer {
+    font-family: 'Battambang', 'IBM Plex Sans', sans-serif !important;
   }
   .description-container-relative {
     width: 290.92px;
@@ -272,10 +304,17 @@
     flex-direction: column;
     gap: 4px;
   }
+    .description-container-relative::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+  .description-container-relative {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;     /* Firefox */
+  }
   .line-clamp-2 {
     display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;

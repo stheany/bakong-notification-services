@@ -62,7 +62,6 @@
   } from '@/services/categoryTypeApi';
   import { useErrorHandler } from '@/composables/useErrorHandler';
   import { ElMessage, ElNotification } from 'element-plus';
-  import { mockCategoryTypes } from '../../Data/mockCategoryTypes';
   import { UserRole } from '@bakong/shared';
   import { useAuthStore } from '@/stores/auth';
   const authStore = useAuthStore();
@@ -169,10 +168,9 @@
       if (data && data.length > 0) {
         categoryTypes.value = data;
       } else {
-        categoryTypes.value = [...mockCategoryTypes];
+        categoryTypes.value = [];
       }
     } catch (error) {
-      categoryTypes.value = [...mockCategoryTypes];
       categoryTypes.value = [...categoryTypes.value];
       /*
     ElMessage({
@@ -255,7 +253,7 @@
 
   watch(
     () => route.query.refresh,
-    async (refreshParam) => {
+    async (refreshParam = '') => {
       if (refreshParam) {
         await fetchCategoryTypes();
         router.replace({ path: '/types', query: {} });

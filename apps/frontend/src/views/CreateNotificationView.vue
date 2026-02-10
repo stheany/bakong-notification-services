@@ -595,6 +595,7 @@
         :activeLanguage="activeLanguage"
         :title-has-khmer="titleHasKhmer"
         :description-has-khmer="descriptionHasKhmer"
+        :link-to-see-more="currentLinkToSeeMore"
       />
     </div>
   </div>
@@ -1383,14 +1384,20 @@
             : null;
           originalLanguageFormData[lang].imageFile = null;
 
-          console.log(
-            '🖼️ [Load Data] Set existing image ID for',
-            lang,
-            ':',
-            existingImageIds[lang]
-          );
-
           existingTranslationIds[lang] = t.id || null;
+        }
+        // Fallback: if current language's title is empty, use first available translation
+        const currentLang = activeLanguage.value;
+        if (!languageFormData[currentLang]?.title) {
+          const firstTranslation = template.translations.find((t: any) => t.title);
+          if (firstTranslation) {
+            languageFormData[currentLang].title = firstTranslation.title;
+            languageFormData[currentLang].description = firstTranslation.content || '';
+            languageFormData[currentLang].linkToSeeMore = firstTranslation.linkPreview || '';
+            const fileId = firstTranslation.image?.fileId || firstTranslation.image?.fileID || firstTranslation.imageId || firstTranslation.image?.id;
+            languageFormData[currentLang].imageUrl = fileId ? `/api/v1/image/${fileId}` : null;
+            languageFormData[currentLang].imageFile = null;
+          }
         }
       }
 
@@ -1485,15 +1492,6 @@
       await nextTick();
       formData.scheduleDate = todayDate;
       formData.scheduleTime = currentTime;
-      console.log(
-        '✅ [Mount] Set default date and time for new notification:',
-        {
-          date: todayDate,
-          time: currentTime,
-          scheduleEnabled: formData.scheduleEnabled,
-          scheduleDate: formData.scheduleDate,
-        }
-      );
 
       await nextTick();
       if (formData.scheduleDate !== todayDate) {
