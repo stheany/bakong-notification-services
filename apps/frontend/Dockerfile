@@ -1,7 +1,9 @@
 # Build stage
 FROM node:20-alpine AS builder
-
 WORKDIR /app
+# Cache busting to ensure fresh build after configuration changes
+ARG CACHE_BUST=1
+ENV CACHE_BUST=${CACHE_BUST}
 
 # Copy root package files for workspace setup
 COPY package*.json ./
@@ -23,7 +25,7 @@ RUN npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 COPY apps/packages/shared/tsconfig.json ./apps/packages/shared/
 COPY apps/packages/shared/src ./apps/packages/shared/src
 WORKDIR /app/apps/packages/shared
-RUN npm run build
+RUN npm exec -- tsc
 
 # Copy frontend source code (exclude node_modules and dist to avoid conflicts)
 WORKDIR /app

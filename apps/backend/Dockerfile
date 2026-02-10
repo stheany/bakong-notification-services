@@ -4,6 +4,12 @@
 FROM node:20-alpine AS builder
 WORKDIR /opt/bk_notification_service
 ENV NODE_ENV=development
+# Cache busting to ensure fresh build after configuration changes
+ARG CACHE_BUST=1
+ENV CACHE_BUST=${CACHE_BUST}
+
+# Install build dependencies for native modules (bcrypt, etc.)
+RUN apk add --no-cache tar python3 make g++
 
 # -----------------------------------------------------
 # Copy all package manifests
@@ -25,15 +31,15 @@ COPY apps/backend/nest-cli.json ./apps/backend/
 # Add retry logic for network resilience
 # -----------------------------------------------------
 RUN set -eux; \
-    for i in 1 2 3; do \
-      npm ci --legacy-peer-deps && break || \
-      (echo "⚠️  npm install attempt $i failed, retrying..." && sleep 5); \
-    done && \
-    cd apps/backend && \
-    for i in 1 2 3; do \
-      npm ci --legacy-peer-deps && break || \
-      (echo "⚠️  backend npm install attempt $i failed, retrying..." && sleep 5); \
-    done
+  for i in 1 2 3; do \
+  npm ci --legacy-peer-deps && break || \
+  (echo "⚠️  npm install attempt $i failed, retrying..." && sleep 5); \
+  done && \
+  cd apps/backend && \
+  for i in 1 2 3; do \
+  npm ci --legacy-peer-deps && break || \
+  (echo "⚠️  backend npm install attempt $i failed, retrying..." && sleep 5); \
+  done
 
 # -----------------------------------------------------
 # Copy full source
@@ -43,7 +49,7 @@ COPY apps/packages/shared ./apps/packages/shared
 
 # Build shared first
 WORKDIR /opt/bk_notification_service/apps/packages/shared
-RUN npm run build
+RUN npm exec -- tsc
 
 # Build backend
 WORKDIR /opt/bk_notification_service/apps/backend
@@ -63,15 +69,15 @@ WORKDIR /opt/bk_notification_service
 # Install build dependencies needed for native modules (bcrypt, etc.)
 # Add retry logic for network/I/O resilience (handles package integrity errors)
 RUN set -eux; \
-    for i in 1 2 3; do \
-      (apk update && apk add --no-cache python3 make g++) && break || \
-      (echo "⚠️  apk install attempt $i failed, clearing cache and retrying..." && \
-       rm -rf /var/cache/apk/* /tmp/* && sleep 5); \
-    done; \
-    if [ $? -ne 0 ]; then \
-      echo "❌ Failed to install packages after 3 attempts"; \
-      exit 1; \
-    fi
+  for i in 1 2 3; do \
+  (apk update && apk add --no-cache python3 make g++) && break || \
+  (echo "⚠️  apk install attempt $i failed, clearing cache and retrying..." && \
+  rm -rf /var/cache/apk/* /tmp/* && sleep 5); \
+  done; \
+  if [ $? -ne 0 ]; then \
+  echo "❌ Failed to install packages after 3 attempts"; \
+  exit 1; \
+  fi
 
 # Copy package files (needed for workspace structure)
 COPY package*.json ./
@@ -93,11 +99,11 @@ COPY --from=builder /opt/bk_notification_service/apps/backend/assets ./apps/back
 # Try workspace install first, fallback to installing all deps if needed (ensures @nestjs/core is available)
 WORKDIR /opt/bk_notification_service
 RUN npm ci --legacy-peer-deps --omit=dev --workspace=apps/backend --workspace=apps/packages/shared 2>&1 || \
-    (echo "⚠️  Workspace install with --omit=dev failed, installing all dependencies to ensure availability..." && \
-     npm ci --legacy-peer-deps --workspace=apps/backend --workspace=apps/packages/shared 2>&1 || \
-     (echo "⚠️  Workspace install failed, trying individual installs..." && \
-      cd apps/backend && npm ci --legacy-peer-deps && \
-      cd ../packages/shared && npm ci --legacy-peer-deps || true))
+  (echo "⚠️  Workspace install with --omit=dev failed, installing all dependencies to ensure availability..." && \
+  npm ci --legacy-peer-deps --workspace=apps/backend --workspace=apps/packages/shared 2>&1 || \
+  (echo "⚠️  Workspace install failed, trying individual installs..." && \
+  cd apps/backend && npm ci --legacy-peer-deps && \
+  cd ../packages/shared && npm ci --legacy-peer-deps || true))
 
 # Verify @nestjs/core is actually installed and can be required
 WORKDIR /opt/bk_notification_service

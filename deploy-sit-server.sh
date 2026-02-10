@@ -433,14 +433,14 @@ echo ""
 # ============================================================================
 echo "🏗️  Step 6: Building backend (this will take a few minutes)..."
 echo "   ℹ️  If build fails with network errors, wait a moment and retry"
-# Try building with cache first (faster), fallback to --no-cache if needed
-if ! docker compose -f "$COMPOSE_FILE" build backend 2>&1 | tee /tmp/docker-build.log; then
+# Try building with --no-cache to ensure all changes are applied
+if ! docker compose -f "$COMPOSE_FILE" build --no-cache backend 2>&1 | tee /tmp/docker-build.log; then
     echo "   ⚠️  Build failed, checking if it's a network error..."
     if grep -q "ECONNRESET\|network\|ETIMEDOUT" /tmp/docker-build.log 2>/dev/null; then
         echo "   🔄 Network error detected - waiting 10 seconds and retrying..."
         sleep 10
-        echo "   🔄 Retrying build..."
-        docker compose -f "$COMPOSE_FILE" build backend || {
+        echo "   🔄 Retrying build with --no-cache..."
+        docker compose -f "$COMPOSE_FILE" build --no-cache backend || {
             echo "   ❌ Build failed again - please check network connectivity"
             exit 1
         }
@@ -451,14 +451,14 @@ if ! docker compose -f "$COMPOSE_FILE" build backend 2>&1 | tee /tmp/docker-buil
 fi
 
 echo ""
-echo "🏗️  Step 6.5: Building frontend (this will take a few minutes)..."
-if ! docker compose -f "$COMPOSE_FILE" build frontend 2>&1 | tee /tmp/docker-build-frontend.log; then
+echo "🏗️  Step 6.5: Building frontend with --no-cache..."
+if ! docker compose -f "$COMPOSE_FILE" build --no-cache frontend 2>&1 | tee /tmp/docker-build-frontend.log; then
     echo "   ⚠️  Frontend build failed, checking if it's a network error..."
     if grep -q "ECONNRESET\|network\|ETIMEDOUT" /tmp/docker-build-frontend.log 2>/dev/null; then
         echo "   🔄 Network error detected - waiting 10 seconds and retrying..."
         sleep 10
-        echo "   🔄 Retrying frontend build..."
-        docker compose -f "$COMPOSE_FILE" build frontend || {
+        echo "   🔄 Retrying frontend build with --no-cache..."
+        docker compose -f "$COMPOSE_FILE" build --no-cache frontend || {
             echo "   ❌ Frontend build failed again - please check network connectivity"
             exit 1
         }
