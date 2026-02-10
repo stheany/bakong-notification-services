@@ -140,16 +140,10 @@
                 <span>Edit</span>
                 <img :src="editIcon" alt="Edit" class="button-icon" />
               </button>
-
               <button
+                v-if="canDeleteNotification(notification)"
                 class="delete-button"
-                :class="{ disabled: !canDeleteNotification(notification) }"
-                :disabled="!canDeleteNotification(notification)"
-                @click="
-                  canDeleteNotification(notification)
-                    ? handleDeleteClick(notification)
-                    : null
-                "
+                @click="handleDeleteClick(notification)"
               >
                 <span>Delete</span>
                 <img :src="deleteIcon" alt="Delete" class="button-icon" />
@@ -239,28 +233,26 @@
   const isApprover = computed(() => {
     return (authStore.user?.role as any) === UserRole.APPROVAL;
   });
-  const canDeleteNotification = (notification: Notification) => {
-    const role = authStore.user?.role as any;
-
-    if (role === UserRole.APPROVAL) {
-      return (
-        props.activeTab === 'published' ||
-        props.activeTab === 'scheduled' ||
-        props.activeTab === 'pending' ||
-        props.activeTab === 'draft'
-      );
-    }
-
-    if (role === UserRole.ADMINISTRATOR || role === UserRole.EDITOR) {
-      return (
-        props.activeTab === 'draft' ||
-        props.activeTab === 'published' ||
-        props.activeTab === 'scheduled' ||
-        props.activeTab === 'pending'
-      );
-    }
+const canDeleteNotification = (notification: Notification) => {
+  const role = authStore.user?.role as any;
+  // Viewers: never see delete button
+  if (role === UserRole.VIEW_ONLY) {
     return false;
-  };
+  }
+  // Editors: can only delete in 'pending' and 'draft' tabs
+  if (role === UserRole.EDITOR) {
+    return props.activeTab === 'pending' || props.activeTab === 'draft';
+  }
+  // Admin: can delete everywhere
+  if (role === UserRole.ADMINISTRATOR) {
+    return true;
+  }
+  // Approval: can delete in 'pending' and 'draft' tabs
+  if (role === UserRole.APPROVAL) {
+    return props.activeTab === 'pending' || props.activeTab === 'draft' || props.activeTab === 'published' || props.activeTab === 'scheduled';
+  }
+  return false;
+};
   const canEditNotification = (notification: Notification) => {
     const role = authStore.user?.role as any;
 
@@ -520,7 +512,7 @@
           // [console.log removed]
 
           if (scheduledTime < oneMinuteAgo) {
-            // [console.warn removed]
+    
 
             try {
               await notificationApi.approveTemplate(Number(templateId));
@@ -659,24 +651,22 @@
       const errorMessage =
         error.response?.data?.responseMessage || error.message || '';
       const isNoUsersError =
-        error.response?.data?.errorCode === 31 || // ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM
-        errorMessage.includes('No users found') ||
-        errorMessage.includes('no users found') ||
-        errorMessage.includes('No users match') ||
-        errorMessage.includes('registered users for this platform');
+        error.response?.data?.errorCode ===
+          ErrorCode.NO_USERS_FOR_BAKONG_PLATFORM ||
+        errorMessage.includes('No users found for') ||
+        errorMessage.includes('No users match');
 
       if (isNoUsersError) {
+
         ElNotification({
           title: 'Warning',
-          message: formatNoUsersFoundRejectionMessage(errorMessage),
+          message: formatNoUsersFoundMessage(errorMessage),
           type: 'warning',
           duration: 8000,
           dangerouslyUseHTMLString: true,
+          showClose: true,
         });
-        emit('switch-tab', 'draft');
-        setTimeout(() => {
-          emit('refresh', true); // Force refresh to show updated status (REJECTED)
-        }, 500); // Small delay to ensure backend has updated
+        emit('refresh', true);
         return;
       }
 
@@ -794,7 +784,6 @@
         errorMessage.includes('No users match');
 
       if (isNoUsersError) {
-        // [console.warn removed]
         ElNotification({
           title: 'Warning',
           message: formatNoUsersFoundMessage(errorMessage),
@@ -818,7 +807,7 @@
         const scheduleTimeDisplay =
           error.response?.data?.data?.scheduleTimeDisplay;
         if (scheduleTimeDisplay) {
-          formattedMessage = `The scheduled time was set to <strong>${scheduleTimeDisplay}</strong>, and it has now passed. Please go to update the schedule time and resubmitting again.`;
+          formattedMessage = `The request was not approved in time, and the scheduled time <strong>${scheduleTimeDisplay}</strong>, has already passed. Please update the schedule and resubmit.`; // `The scheduled   time was set to <strong>${scheduleTimeDisplay}</strong> and the scheduled time <strong>${scheduleTimeDisplay}</strong> has already passed. Please update the schedule and resubmit.`;
         } else if (errorMessage.includes('scheduled time was set')) {
           formattedMessage = errorMessage.replace(
             /The scheduled time was set to (.+?), and it has now passed/,

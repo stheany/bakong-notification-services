@@ -70,7 +70,7 @@
           <div
             v-if="displayDescription"
             class="description-container-relative overflow-y-auto overflow-x-hidden"
-            style="max-height: 180px; width: 100%;"
+            style="max-height: 180px; width: 95%;"
             :class="{ 'lang-khmer': props.descriptionHasKhmer }"
             :data-content-lang="props.descriptionHasKhmer ? 'km' : ''"
           >
@@ -253,7 +253,10 @@
   .date-khmer,
   .category-type-khmer,
   .date-type-khmer {
+    width: 98%;
     font-family: 'Battambang', 'IBM Plex Sans', sans-serif !important;
+    -webkit-line-clamp: 3;
+    line-clamp: 3 ;
   }
   .description-container-relative {
     width: 290.92px;

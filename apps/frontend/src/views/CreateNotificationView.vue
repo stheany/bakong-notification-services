@@ -30,7 +30,8 @@
           v-if="
             (isEditMode || isViewMode) &&
             fromTab === 'draft' &&
-            expiredScheduleTime
+            expiredScheduleTime &&
+            !originalIsSent
           "
           class="reject-reason-container expired-time-container"
         >
@@ -39,10 +40,9 @@
             <div class="reject-reason-label">
               Expired Time:
               <span class="reject-reason-text">
-                The scheduled time was set to
+                The request was not approved in time, and the scheduled time
                 <strong>{{ expiredScheduleTime }}</strong
-                >, and it has now passed. Please update the schedule time before
-                resubmitting.
+                >, has already passed. Please update the schedule and resubmit.
               </span>
             </div>
           </div>
@@ -1017,28 +1017,6 @@
     },
   });
 
-  const findFirstAvailableText = (
-    field: 'title' | 'description' | 'linkToSeeMore'
-  ) => {
-    const activeVal = (languageFormData[activeLanguage.value] as any)?.[field];
-    if (activeVal) return activeVal;
-    for (const langKey of Object.keys(languageFormData)) {
-      const val = (languageFormData as any)[langKey]?.[field];
-      if (val) return val;
-    }
-    return '';
-  };
-
-  const currentTitleFallback = computed(() => findFirstAvailableText('title'));
-
-  const currentDescriptionFallback = computed(() =>
-    findFirstAvailableText('description')
-  );
-
-  const currentLinkFallback = computed(() =>
-    findFirstAvailableText('linkToSeeMore')
-  );
-
   const currentImageUrl = computed({
     get: () => languageFormData[activeLanguage.value]?.imageUrl || null,
     set: (value: string | null) => {
@@ -1046,17 +1024,6 @@
         languageFormData[activeLanguage.value].imageUrl = value;
       }
     },
-  });
-
-  const currentImageUrlFallback = computed((): string | null => {
-    const active = currentImageUrl.value;
-    if (active) return active;
-
-    for (const langKey of Object.keys(languageFormData)) {
-      const maybe = (languageFormData as any)[langKey]?.imageUrl;
-      if (maybe) return maybe;
-    }
-    return null;
   });
 
   const titleHasKhmer = computed(() => containsKhmer(currentTitle.value));
@@ -1189,8 +1156,9 @@
       isEditingPending.value = template.approvalStatus === 'PENDING';
 
       isTemplateExpired.value =
-        template.approvalStatus === 'EXPIRED' ||
-        template.approvalStatus === 'REJECTED';
+        (template.approvalStatus === 'EXPIRED' ||
+          template.approvalStatus === 'REJECTED') &&
+        template.isSent !== true;
 
       if (template.approvalStatus === 'REJECTED') {
         rejectReasonText.value = template.reasonForRejection || '';
@@ -1350,12 +1318,28 @@
         wasScheduled.value = false;
         formData.scheduleDate = getTodayDateString();
         formData.scheduleTime = null;
-        console.log('✅ [Load Data] No schedule - disabled toggle');
       }
 
       formData.splashEnabled =
         template.notificationType === NotificationType.FLASH_NOTIFICATION;
       if (Array.isArray(template.translations)) {
+        // Clear all language fields first
+        Object.keys(languageFormData).forEach((lang) => {
+          languageFormData[lang].title = '';
+          languageFormData[lang].description = '';
+          languageFormData[lang].linkToSeeMore = '';
+          languageFormData[lang].imageUrl = null;
+          languageFormData[lang].imageFile = null;
+          originalLanguageFormData[lang].title = '';
+          originalLanguageFormData[lang].description = '';
+          originalLanguageFormData[lang].linkToSeeMore = '';
+          originalLanguageFormData[lang].imageUrl = null;
+          originalLanguageFormData[lang].imageFile = null;
+          existingImageIds[lang] = null;
+          originalImageIds[lang] = null;
+          existingTranslationIds[lang] = null;
+        });
+        // Populate with backend data
         for (const t of template.translations) {
           const lang = t.language as string as Language;
           if (!languageFormData[lang]) continue;
@@ -1385,19 +1369,42 @@
           originalLanguageFormData[lang].imageFile = null;
 
           existingTranslationIds[lang] = t.id || null;
+
         }
-        // Fallback: if current language's title is empty, use first available translation
-        const currentLang = activeLanguage.value;
-        if (!languageFormData[currentLang]?.title) {
-          const firstTranslation = template.translations.find((t: any) => t.title);
-          if (firstTranslation) {
-            languageFormData[currentLang].title = firstTranslation.title;
-            languageFormData[currentLang].description = firstTranslation.content || '';
-            languageFormData[currentLang].linkToSeeMore = firstTranslation.linkPreview || '';
-            const fileId = firstTranslation.image?.fileId || firstTranslation.image?.fileID || firstTranslation.imageId || firstTranslation.image?.id;
-            languageFormData[currentLang].imageUrl = fileId ? `/api/v1/image/${fileId}` : null;
-            languageFormData[currentLang].imageFile = null;
-          }
+      }
+
+      // Auto-switch to first available language with data
+      let firstLangWithData: Language | null = null;
+      for (const lang of [Language.KM, Language.EN, Language.JP]) {
+        const data = languageFormData[lang];
+        if (
+          data &&
+          (data.title?.trim() ||
+            data.description?.trim() ||
+            existingImageIds[lang])
+        ) {
+          firstLangWithData = lang as Language;
+          break;
+        }
+      }
+
+      if (firstLangWithData && firstLangWithData !== activeLanguage.value) {
+        const activeData = languageFormData[activeLanguage.value];
+        const activeIsEmpty =
+          !activeData ||
+          (!activeData.title?.trim() &&
+            !activeData.description?.trim() &&
+            !existingImageIds[activeLanguage.value]);
+
+        if (activeIsEmpty) {
+          console.log(
+            '🔄 [Load Data] Auto-switching tab to',
+            firstLangWithData,
+            'because current tab',
+            activeLanguage.value,
+            'is empty'
+          );
+          activeLanguage.value = firstLangWithData;
         }
       }
 
@@ -1821,6 +1828,7 @@
 
     if (
       isEditMode.value &&
+      !isEditingPublished.value &&
       formData.scheduleEnabled &&
       formData.scheduleDate &&
       formData.scheduleTime
@@ -1850,7 +1858,7 @@
             );
             ElNotification({
               title: 'Warning',
-              message: `The scheduled time was set to <strong>${scheduleTimeDisplay}</strong>, and it has now passed. Please go to update the schedule time and resubmitting again.`,
+              message: `The request was not approved in time, and the scheduled time <strong>${scheduleTimeDisplay}</strong> has already passed. Please update the schedule and resubmit.`,
               type: 'warning',
               duration: 5000,
               dangerouslyUseHTMLString: true,
@@ -1871,7 +1879,7 @@
       try {
         const originalScheduleDate = new Date(originalSendSchedule.value);
         const nowUTC = new Date();
-        if (originalScheduleDate.getTime() <= nowUTC.getTime()) {
+        if (originalScheduleDate.getTime() <= nowUTC.getTime() && !isEditingPublished.value) {
           if (
             formData.scheduleEnabled &&
             formData.scheduleDate &&
@@ -1903,7 +1911,7 @@
                   );
                   ElNotification({
                     title: 'Warning',
-                    message: `The scheduled time was set to <strong>${scheduleTimeDisplay}</strong>, and it has now passed. Please go to update the schedule time and resubmitting again.`,
+                    message: `The request was not approved in time, and the scheduled time <strong>${scheduleTimeDisplay}</strong> has already passed. Please update the schedule and resubmit.`,
                     type: 'warning',
                     duration: 5000,
                     dangerouslyUseHTMLString: true,
@@ -1933,7 +1941,7 @@
             );
             ElNotification({
               title: 'Warning',
-              message: `The scheduled time was set to <strong>${scheduleTimeDisplay}</strong>, and it has now passed. Please go to update the schedule time and resubmitting again.`,
+              message: `The request was not approved in time, and the scheduled time <strong>${scheduleTimeDisplay}</strong> has already passed. Please update the schedule and resubmit.`,
               type: 'warning',
               duration: 5000,
               dangerouslyUseHTMLString: true,
@@ -1980,7 +1988,7 @@
               isPast: diffMs <= 0,
             });
 
-            if (diffMs <= 0) {
+            if (diffMs <= 0 && !isEditingPublished.value) {
               const scheduleTimeDisplay =
                 expiredScheduleTime.value || `${dateStr} at ${timeStr}`;
               console.error(
@@ -1993,7 +2001,7 @@
               );
               ElNotification({
                 title: 'Warning',
-                message: `The scheduled time was set to <strong>${scheduleTimeDisplay}</strong>, and it has now passed. Please go to update the schedule time and resubmitting again.`,
+                message: `The request was not approved in time, and the scheduled time <strong>${scheduleTimeDisplay}</strong> has already passed. Please update the schedule and resubmit.`,
                 type: 'warning',
                 duration: 5000,
                 dangerouslyUseHTMLString: true,
@@ -2349,6 +2357,12 @@
             return false;
           }
         }
+        if (isEditingPublished.value) {
+          console.log(
+            '⏭️ [Schedule Validation] Skipping validation for already published notification'
+          );
+          return true;
+        }
         return true;
       };
 
@@ -2383,12 +2397,11 @@
               redirectTab = 'scheduled';
             }
           } else if (isEditingFromPublished) {
-            sendType = SendType.SEND_NOW;
+            sendType = formData.scheduleEnabled
+              ? SendType.SEND_SCHEDULE
+              : SendType.SEND_NOW;
             isSent = true; // Keep as sent
             redirectTab = 'published';
-            formData.scheduleEnabled = false;
-            formData.scheduleDate = '';
-            formData.scheduleTime = '';
           } else if (isEditingFromPending) {
             if (formData.scheduleEnabled) {
               const isValid = await validateSchedule();
@@ -2466,6 +2479,8 @@
       const translations = [];
 
       for (const [langKey, langData] of Object.entries(languageFormData)) {
+        // LOG: Check language and form data
+        console.log('[Translation Filter] langKey:', langKey, 'langData:', langData);
         try {
           if (
             formData.platform === BakongApp.BAKONG_TOURIST &&
@@ -2474,13 +2489,29 @@
             continue;
           }
         } catch (e) {}
-        const shouldInclude = isEditMode.value
-          ? langData.title ||
-            langData.description ||
-            existingTranslationIds[langKey] // Include if has content OR existing translation
-          : langData.title && langData.description; // Create mode: require both
+        const allEmpty =
+          (!langData.title || String(langData.title).trim() === '') &&
+          (!langData.description || String(langData.description).trim() === '') &&
+          (!langData.linkToSeeMore || String(langData.linkToSeeMore).trim() === '') &&
+          !langData.imageFile && !langData.imageUrl;
+
+        if (allEmpty) {
+          console.log('[Translation Filter] EMPTY:', langKey);
+          // If it was an existing translation, we MUST include it (as empty) so the backend can delete it
+          if (isEditMode.value && existingTranslationIds[langKey]) {
+            console.log('[Translation Filter] Including empty translation for deletion:', langKey);
+          } else {
+            console.log('[Translation Filter] Skipping new empty translation:', langKey);
+            continue;
+          }
+        }
+
+        const isExisting = isEditMode.value && !!existingTranslationIds[langKey];
+
+        const shouldInclude = !allEmpty || isExisting;
 
         if (shouldInclude) {
+          console.log('[Translation Filter] INCLUDE:', langKey, langData);
           if (langData.linkToSeeMore && !isValidUrl(langData.linkToSeeMore)) {
             ElNotification({
               title: 'Error',
@@ -2658,18 +2689,27 @@
           isSavingOrPublishing.value = false;
           return;
         }
-        const fallbackTranslationData: any = {
-          language: mapLanguageToEnum(activeLanguage.value),
-          title: currentTitle.value,
-          content: currentDescription.value,
-          linkPreview: currentLinkToSeeMore.value || undefined,
-          image: fallbackImageId,
-        };
-        if (isEditMode.value && existingTranslationIds[activeLanguage.value]) {
-          fallbackTranslationData.id =
-            existingTranslationIds[activeLanguage.value];
+        // Only push fallbackTranslationData if at least one field is not empty
+        const allEmptyFallback =
+          (!currentTitle.value || String(currentTitle.value).trim() === '') &&
+          (!currentDescription.value || String(currentDescription.value).trim() === '') &&
+          (!currentLinkToSeeMore.value || String(currentLinkToSeeMore.value).trim() === '') &&
+          (!currentImageFile.value) &&
+          (!fallbackImageId);
+        if (!allEmptyFallback) {
+          const fallbackTranslationData: any = {
+            language: mapLanguageToEnum(activeLanguage.value),
+            title: currentTitle.value,
+            content: currentDescription.value,
+            linkPreview: currentLinkToSeeMore.value || undefined,
+            image: fallbackImageId,
+          };
+          if (isEditMode.value && existingTranslationIds[activeLanguage.value]) {
+            fallbackTranslationData.id =
+              existingTranslationIds[activeLanguage.value];
+          }
+          translations.push(fallbackTranslationData);
         }
-        translations.push(fallbackTranslationData);
       }
 
       let filteredTranslations = translations;
@@ -2693,8 +2733,7 @@
       }
 
       if (
-        formData.scheduleEnabled &&
-        !(isEditMode.value && isEditingPublished.value)
+        formData.scheduleEnabled
       ) {
         const dateStr = String(formData.scheduleDate);
         const timeStr = String(formData.scheduleTime);
@@ -3251,7 +3290,7 @@
 
       let scheduleTimeDisplay = error.response?.data?.data?.scheduleTimeDisplay;
       if (isExpiredTemplateError && scheduleTimeDisplay) {
-        errorMessage = `The scheduled time was set to <strong>${scheduleTimeDisplay}</strong>, and it has now passed. Please go to update the schedule time and resubmitting again.`;
+        errorMessage = `The request was not approved in time, and the scheduled time <strong>${scheduleTimeDisplay}</strong> has already passed. Please update the schedule and resubmit.`;
       }
 
       if (
