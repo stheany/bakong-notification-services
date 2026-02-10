@@ -2,62 +2,59 @@
 # 🏗️ Stage 1 — Build backend and shared packages
 # -----------------------------------------------------
 FROM node:20-alpine AS builder
+
+# Add build dependencies for native modules and shared packages
+RUN apk add --no-cache tar python3 make g++
+
 WORKDIR /opt/bk_notification_service
-ENV NODE_ENV=development
+
 # Cache busting to ensure fresh build after configuration changes
 ARG CACHE_BUST=1
 ENV CACHE_BUST=${CACHE_BUST}
 
-# Install build dependencies for native modules (bcrypt, etc.)
-RUN apk add --no-cache tar python3 make g++
-
 # -----------------------------------------------------
-# Copy all package manifests
+# Copy workspace configuration and package files
 # -----------------------------------------------------
 COPY package*.json ./
 COPY apps/backend/package*.json ./apps/backend/
 COPY apps/packages/shared/package*.json ./apps/packages/shared/
 
-# -----------------------------------------------------
-# Copy TypeScript configs
-# -----------------------------------------------------
+# Copy TypeScript and NestJS configurations
 COPY tsconfig*.json ./
 COPY apps/backend/tsconfig*.json ./apps/backend/
 COPY apps/packages/shared/tsconfig*.json ./apps/packages/shared/
 COPY apps/backend/nest-cli.json ./apps/backend/
 
 # -----------------------------------------------------
-# Install dependencies
-# Add retry logic for network resilience
+# Install dependencies for the entire workspace
 # -----------------------------------------------------
+# Fix for bcrypt "Cannot find module 'tar'" by ensuring it's available for node-pre-gyp
+RUN npm install tar --legacy-peer-deps
+
 RUN set -eux; \
   for i in 1 2 3; do \
   npm ci --legacy-peer-deps && break || \
   (echo "⚠️  npm install attempt $i failed, retrying..." && sleep 5); \
-  done && \
-  cd apps/backend && \
-  for i in 1 2 3; do \
-  npm ci --legacy-peer-deps && break || \
-  (echo "⚠️  backend npm install attempt $i failed, retrying..." && sleep 5); \
   done
 
 # -----------------------------------------------------
-# Copy full source
+# Build process
 # -----------------------------------------------------
-COPY apps/backend ./apps/backend
-COPY apps/packages/shared ./apps/packages/shared
 
-# Build shared first
-WORKDIR /opt/bk_notification_service/apps/packages/shared
-RUN npm exec -- tsc
+# -----------------------------------------------------
+# Build process
+# -----------------------------------------------------
 
-# Build backend
-WORKDIR /opt/bk_notification_service/apps/backend
-# Build TypeScript and fix paths
-# Use npm exec to run tsc and tsc-alias (more reliable than npx in Alpine)
-RUN npm exec -- tsc -p tsconfig.json && npm exec -- tsc-alias -p tsconfig.json
+# Copy shared source and build it
+COPY apps/packages/shared/ ./apps/packages/shared/
+RUN npm run build:shared
+
+# Copy backend source and build it
+COPY apps/backend/ ./apps/backend/
+RUN cd apps/backend && npm run build
+
 # Fix remaining src/ paths that tsc-alias might have missed
-RUN node fix-paths.js
+RUN node apps/backend/fix-paths.js
 
 # -----------------------------------------------------
 # 🚀 Stage 2 — Runtime
