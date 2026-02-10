@@ -29,12 +29,16 @@ COPY apps/backend/nest-cli.json ./apps/backend/
 # -----------------------------------------------------
 # Install dependencies for the entire workspace
 # -----------------------------------------------------
+# Ensure tar is available globally for node-pre-gyp before running npm ci
+RUN npm install -g tar --legacy-peer-deps
 
 RUN set -eux; \
+  status=0; \
   for i in 1 2 3; do \
-  npm ci --legacy-peer-deps && break || \
-  (echo "⚠️  npm install attempt $i failed, retrying..." && sleep 5); \
-  done
+  npm ci --legacy-peer-deps && status=0 && break || status=$?; \
+  echo "⚠️  npm install attempt $i failed (exit code $status), retrying..." && sleep 5; \
+  done; \
+  if [ $status -ne 0 ]; then echo "❌ npm ci failed after 3 attempts"; exit 1; fi
 
 # -----------------------------------------------------
 # Build process
@@ -87,15 +91,15 @@ COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./app
 COPY --from=builder /opt/bk_notification_service/apps/backend/assets ./assets
 COPY --from=builder /opt/bk_notification_service/apps/backend/assets ./apps/backend/assets
 
-# Install production dependencies (rebuilds native modules like bcrypt for correct architecture)
-# Try workspace install first, fallback to installing all deps if needed (ensures @nestjs/core is available)
+# Install production dependencies
 WORKDIR /opt/bk_notification_service
-RUN npm ci --legacy-peer-deps --omit=dev --workspace=apps/backend --workspace=apps/packages/shared 2>&1 || \
-  (echo "⚠️  Workspace install with --omit=dev failed, installing all dependencies to ensure availability..." && \
-  npm ci --legacy-peer-deps --workspace=apps/backend --workspace=apps/packages/shared 2>&1 || \
-  (echo "⚠️  Workspace install failed, trying individual installs..." && \
-  cd apps/backend && npm ci --legacy-peer-deps && \
-  cd ../packages/shared && npm ci --legacy-peer-deps || true))
+RUN set -eux; \
+  status=0; \
+  for i in 1 2 3; do \
+  npm ci --legacy-peer-deps --omit=dev --workspace=apps/backend --workspace=apps/packages/shared && status=0 && break || status=$?; \
+  echo "⚠️  Production npm install attempt $i failed, retrying..." && sleep 5; \
+  done; \
+  if [ $status -ne 0 ]; then echo "❌ Production npm ci failed after 3 attempts"; exit 1; fi
 
 # Verify @nestjs/core is actually installed and can be required
 WORKDIR /opt/bk_notification_service
