@@ -831,16 +831,29 @@ db_backup() {
         elif docker ps --format '{{.Names}}' | grep -q "bakong-notification-services-db-dev"; then
             ENV="dev"
         else
-            echo "❌ No database container found!"
-            echo ""
-            echo "💡 Usage: bash utils-server.sh db-backup [environment]"
-            echo "   Environments: dev, sit, production"
-            echo ""
-            echo "   Examples:"
-            echo "     bash utils-server.sh db-backup dev"
-            echo "     bash utils-server.sh db-backup sit"
-            echo "     bash utils-server.sh db-backup production"
-            exit 1
+            # Try to find any bakong database container (even if stopped)
+            local found_container=$(docker ps -a --format '{{.Names}}' | grep "bakong-notification-services-db" | head -1)
+            if [ -n "$found_container" ]; then
+                if [[ "$found_container" == *"-sit" ]]; then
+                    ENV="staging"
+                elif [[ "$found_container" == *"-dev" ]]; then
+                    ENV="dev"
+                else
+                    ENV="production"
+                fi
+                echo "ℹ️  Auto-detected environment from container '$found_container': $ENV"
+            else
+                echo "❌ No database container found!"
+                echo ""
+                echo "💡 Usage: bash utils-server.sh db-backup [environment]"
+                echo "   Environments: dev, sit, production"
+                echo ""
+                echo "   Examples:"
+                echo "     bash utils-server.sh db-backup dev"
+                echo "     bash utils-server.sh db-backup sit"
+                echo "     bash utils-server.sh db-backup production"
+                exit 1
+            fi
         fi
     fi
     
@@ -863,12 +876,18 @@ db_backup() {
         exit 1
     }
     
-    # Double-check container is running
+    # Double-check container is running (start if stopped)
     if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
-        echo "❌ Database container '$DB_CONTAINER' is not running!"
-        echo ""
-        echo "💡 Start the container first, then try again."
-        exit 1
+        if docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+            echo "ℹ️  Database container '$DB_CONTAINER' is stopped - starting it for backup..."
+            docker start "$DB_CONTAINER"
+            sleep 5
+        else
+            echo "❌ Database container '$DB_CONTAINER' does not exist!"
+            echo ""
+            echo "💡 If this is a new deployment, you can skip the backup."
+            exit 1
+        fi
     fi
     
     _backup_database_internal "$ENV"
