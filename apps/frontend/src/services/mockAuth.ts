@@ -1,4 +1,4 @@
-import type { User, UserRole } from '@/stores/auth'
+import type { User, UserRole } from '@/stores/auth';
 
 const mockUsers = [
   {
@@ -33,10 +33,10 @@ const mockUsers = [
     role: 'API_USER' as UserRole,
     password: 'api123',
   },
-]
+];
 
 const generateMockToken = (user: any): string => {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const payload = btoa(
     JSON.stringify({
       sub: user.id.toString(),
@@ -44,17 +44,17 @@ const generateMockToken = (user: any): string => {
       role: user.role,
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
-    }),
-  )
-  const signature = btoa('mock-signature')
+    })
+  );
+  const signature = btoa('mock-signature');
 
-  return `${header}.${payload}.${signature}`
-}
+  return `${header}.${payload}.${signature}`;
+};
 
 const createMockResponse = (
   data: any,
   responseCode: number = 0,
-  responseMessage: string = 'Success',
+  responseMessage: string = 'Success'
 ) => {
   return {
     data: {
@@ -62,44 +62,46 @@ const createMockResponse = (
       responseMessage,
       data,
     },
-  }
-}
+  };
+};
 
 export const mockAuthApi = {
   login: async (credentials: { username: string; password: string }) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const user = mockUsers.find((u) => u.username === credentials.username)
+    const user = mockUsers.find((u) => u.username === credentials.username);
 
     if (!user) {
-      return createMockResponse(null, 1, 'User not found')
+      return createMockResponse(null, 1, 'User not found');
     }
 
     if (user.password !== credentials.password) {
-      return createMockResponse(null, 1, 'Invalid password')
+      return createMockResponse(null, 1, 'Invalid password');
     }
 
-    const accessToken = generateMockToken(user)
+    const accessToken = generateMockToken(user);
 
-    const { password, ...userData } = user
+    const { password, ...userData } = user;
 
     return createMockResponse({
       accessToken,
       user: userData,
-    })
+    });
   },
 
   register: async (userData: {
-    username: string
-    password: string
-    displayName: string
-    role: string
+    username: string;
+    password: string;
+    displayName: string;
+    role: string;
   }) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const existingUser = mockUsers.find((u) => u.username === userData.username)
+    const existingUser = mockUsers.find(
+      (u) => u.username === userData.username
+    );
     if (existingUser) {
-      return createMockResponse(null, 1, 'Username already exists')
+      return createMockResponse(null, 1, 'Username already exists');
     }
 
     const newUser = {
@@ -109,54 +111,54 @@ export const mockAuthApi = {
       displayName: userData.displayName,
       role: userData.role as UserRole,
       password: userData.password,
-    }
+    };
 
-    mockUsers.push(newUser)
+    mockUsers.push(newUser);
 
-    const accessToken = generateMockToken(newUser)
+    const accessToken = generateMockToken(newUser);
 
-    const { password, ...userDataWithoutPassword } = newUser
+    const { password, ...userDataWithoutPassword } = newUser;
 
     return createMockResponse({
       accessToken,
       user: userDataWithoutPassword,
-    })
+    });
   },
 
   logout: async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
-    return createMockResponse({ message: 'Logged out successfully' })
+    return createMockResponse({ message: 'Logged out successfully' });
   },
 
   refreshToken: async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
-    const token = localStorage.getItem('auth_token')
+    const token = localStorage.getItem('auth_token');
     if (!token) {
-      return createMockResponse(null, 1, 'No token to refresh')
+      return createMockResponse(null, 1, 'No token to refresh');
     }
 
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      const user = mockUsers.find((u) => u.id === parseInt(payload.sub))
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const user = mockUsers.find((u) => u.id === parseInt(payload.sub));
 
       if (!user) {
-        return createMockResponse(null, 1, 'User not found')
+        return createMockResponse(null, 1, 'User not found');
       }
 
-      const newToken = generateMockToken(user)
-      const { password, ...userData } = user
+      const newToken = generateMockToken(user);
+      const { password, ...userData } = user;
 
       return createMockResponse({
         accessToken: newToken,
         user: userData,
-      })
+      });
     } catch (error) {
-      return createMockResponse(null, 1, 'Invalid token')
+      return createMockResponse(null, 1, 'Invalid token');
     }
   },
-}
+};
 
 /**
  * Mock authentication is disabled.
@@ -164,7 +166,7 @@ export const mockAuthApi = {
  * To re-enable mock mode, change this to return true.
  */
 export const isMockMode = (): boolean => {
-  return false
-}
+  return false;
+};
 
-export { mockUsers }
+export { mockUsers };

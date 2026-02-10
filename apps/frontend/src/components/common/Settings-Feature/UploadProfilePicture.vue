@@ -69,13 +69,29 @@
           />
           <div v-if="selectedFile" class="mt-4 p-4 bg-gray-50 rounded-lg">
             <div class="flex items-center gap-3">
-              <img :src="filePreview" alt="Preview" class="w-12 h-12 object-cover rounded" />
+              <img
+                :src="filePreview"
+                alt="Preview"
+                class="w-12 h-12 object-cover rounded"
+              />
               <div class="flex-1">
-                <p class="text-sm font-medium text-gray-900">{{ selectedFile.name }}</p>
-                <p class="text-xs text-gray-500">{{ formatFileSize(selectedFile.size) }}</p>
+                <p class="text-sm font-medium text-gray-900">
+                  {{ selectedFile.name }}
+                </p>
+                <p class="text-xs text-gray-500">
+                  {{ formatFileSize(selectedFile.size) }}
+                </p>
               </div>
-              <button @click="removeFile" class="text-red-500 hover:text-red-700">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button
+                @click="removeFile"
+                class="text-red-500 hover:text-red-700"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path
                     stroke-linecap="round"
                     stroke-linejoin="round"
@@ -87,7 +103,10 @@
             </div>
           </div>
         </div>
-        <div class="w-full flex flex-col gap-[7px] opacity-100" style="transform: rotate(0deg)">
+        <div
+          class="w-full flex flex-col gap-[7px] opacity-100"
+          style="transform: rotate(0deg)"
+        >
           <label
             class="text-[#011246]"
             style="
@@ -105,7 +124,12 @@
             placeholder="Product and feature"
             required
             class="w-full border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            style="height: 56px; border-radius: 8px; border-width: 1px; padding: 16px"
+            style="
+              height: 56px;
+              border-radius: 8px;
+              border-width: 1px;
+              padding: 16px;
+            "
           />
         </div>
         <div
@@ -116,7 +140,12 @@
             @click="handleCreate"
             :disabled="!typeName.trim() || isLoading"
             class="w-full sm:w-auto bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            style="height: 56px; border-radius: 32px; padding: 8px 16px; min-width: 117px"
+            style="
+              height: 56px;
+              border-radius: 32px;
+              padding: 8px 16px;
+              min-width: 117px;
+            "
           >
             <LoadingSpinner v-if="isLoading" class="w-4 h-4" />
             {{ isLoading ? 'Creating...' : 'Create now' }}
@@ -124,7 +153,12 @@
           <button
             @click="handleCancel"
             class="w-full sm:w-auto border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-            style="height: 56px; border-radius: 32px; padding: 8px 16px; min-width: 83px"
+            style="
+              height: 56px;
+              border-radius: 32px;
+              padding: 8px 16px;
+              min-width: 83px;
+            "
           >
             Cancel
           </button>
@@ -133,103 +167,93 @@
     </div>
   </div>
 </template>
-
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { formatFileSize } from '@/utils/helpers'
-import { LoadingSpinner } from '@/components/common'
-
-const router = useRouter()
-const typeName = ref('')
-const selectedFile = ref<File | null>(null)
-const filePreview = ref('')
-const fileInput = ref<HTMLInputElement>()
-const isLoading = ref(false)
-const triggerFileUpload = () => {
-  fileInput.value?.click()
-}
-
-const handleFileSelect = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (file) {
-    processFile(file)
-  }
-}
-
-const handleFileDrop = (event: DragEvent) => {
-  const file = event.dataTransfer?.files[0]
-  if (file) {
-    processFile(file)
-  }
-}
-
-const processFile = (file: File) => {
-  const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg']
-  if (!allowedTypes.includes(file.type)) {
-    alert('Please select a PNG or JPG file')
-    return
-  }
-  const maxSize = 2 * 1024 * 1024 // 2MB
-  if (file.size > maxSize) {
-    alert('File size must be less than 2MB')
-    return
-  }
-
-  selectedFile.value = file
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    filePreview.value = e.target?.result as string
-  }
-  reader.readAsDataURL(file)
-}
-
-const removeFile = () => {
-  selectedFile.value = null
-  filePreview.value = ''
-  if (fileInput.value) {
-    fileInput.value.value = ''
-  }
-}
-
-const handleCancel = () => {
-  router.back()
-}
-
-const handleCreate = async () => {
-  if (!typeName.value.trim()) {
-    alert('Please enter a type name')
-    return
-  }
-  isLoading.value = true
-  try {
-    console.log('Creating notification type:', {
-      name: typeName.value,
-      file: selectedFile.value,
-    })
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    router.push('/templates')
-  } catch (error) {
-    console.error('Error creating notification type:', error)
-    alert('Failed to create notification type')
-  } finally {
-    isLoading.value = false
-  }
-}
+  import { ref } from 'vue';
+  import { useRouter } from 'vue-router';
+  import { formatFileSize } from '@/utils/helpers';
+  import { LoadingSpinner } from '@/components/common';
+  const router = useRouter();
+  const typeName = ref('');
+  const selectedFile = ref<File | null>(null);
+  const filePreview = ref('');
+  const fileInput = ref<HTMLInputElement>();
+  const isLoading = ref(false);
+  const triggerFileUpload = () => {
+    fileInput.value?.click();
+  };
+  const handleFileSelect = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+  const handleFileDrop = (event: DragEvent) => {
+    const file = event.dataTransfer?.files[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+  const processFile = (file: File) => {
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please select a PNG or JPG file');
+      return;
+    }
+    const maxSize = 2 * 1024 * 1024; // 2MB
+    if (file.size > maxSize) {
+      alert('File size must be less than 2MB');
+      return;
+    }
+    selectedFile.value = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      filePreview.value = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+  const removeFile = () => {
+    selectedFile.value = null;
+    filePreview.value = '';
+    if (fileInput.value) {
+      fileInput.value.value = '';
+    }
+  };
+  const handleCancel = () => {
+    router.back();
+  };
+  const handleCreate = async () => {
+    if (!typeName.value.trim()) {
+      alert('Please enter a type name');
+      return;
+    }
+    isLoading.value = true;
+    try {
+      console.log('Creating notification type:', {
+        name: typeName.value,
+        file: selectedFile.value,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      router.push('/templates');
+    } catch (error) {
+      console.error('Error creating notification type:', error);
+      alert('Failed to create notification type');
+    } finally {
+      isLoading.value = false;
+    }
+  };
 </script>
-
 <style scoped>
-.custom-dashed-border {
-  border-style: dashed;
-  border-width: 2px;
-  border-image: repeating-linear-gradient(
-      deg,
-      #d1d5db 0,
-      #d1d5db 12px,
-      transparent 12px,
-      transparent 20px
-    )
-    1;
-}
+  .custom-dashed-border {
+    border-style: dashed;
+    border-width: 2px;
+    border-image: repeating-linear-gradient(
+        deg,
+        #d1d5db 0,
+        #d1d5db 12px,
+        transparent 12px,
+        transparent 20px
+      )
+      1;
+  }
 </style>

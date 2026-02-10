@@ -6,30 +6,30 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
-} from 'typeorm'
-import { User } from './user.entity'
-
+} from 'typeorm';
+import { User } from './user.entity';
 export enum VerificationTokenType {
   EMAIL_VERIFICATION = 'EMAIL_VERIFICATION',
   PASSWORD_RESET = 'PASSWORD_RESET',
   ACCOUNT_ACTIVATION = 'ACCOUNT_ACTIVATION',
 }
-
 @Entity()
 export class VerificationToken {
   @PrimaryGeneratedColumn()
-  id: number
+  id: number;
 
   @Column({ nullable: false, length: 255, unique: true })
   @Index()
-  token: string
+  token: string;
 
   @Column({ nullable: false, type: 'int' })
-  userId: number
+  userId: number;
 
-  @ManyToOne(() => User, (user) => user.verificationTokens, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.verificationTokens, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'userId' })
-  user: User
+  user: User;
 
   @Column({
     nullable: false,
@@ -37,14 +37,14 @@ export class VerificationToken {
     enum: VerificationTokenType,
     default: VerificationTokenType.EMAIL_VERIFICATION,
   })
-  type: VerificationTokenType
+  type: VerificationTokenType;
 
   @Column({ nullable: false, type: 'timestamp' })
-  expiresAt: Date
+  expiresAt: Date;
 
   @Column({ nullable: true, type: 'timestamp' })
-  usedAt?: Date
+  usedAt?: Date;
 
   @CreateDateColumn({ type: 'timestamp' })
-  createdAt: Date
+  createdAt: Date;
 }

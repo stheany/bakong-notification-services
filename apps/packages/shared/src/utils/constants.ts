@@ -22,42 +22,37 @@
   MANAGEMENT: {
     HEALTH: '/api/v1/management/healthcheck',
   },
-} as const
-
+} as const;
 export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 10,
   MAX_PAGE_SIZE: 100,
   PAGE_SIZES: [5, 10, 20, 50, 100],
-} as const
-
+} as const;
 export const NOTIFICATION_LIMITS = {
   MAX_TITLE_LENGTH: 255,
   MAX_CONTENT_LENGTH: 1000,
   MAX_SCHEDULE_DAYS: 30,
-} as const
-
+} as const;
 export const USER_LIMITS = {
   MIN_USERNAME_LENGTH: 3,
   MAX_USERNAME_LENGTH: 20,
   MIN_PASSWORD_LENGTH: 8,
   MAX_DISPLAY_NAME_LENGTH: 100,
-} as const
+} as const;
 export const USER_ROLES = {
   ADMIN_USER: 'ADMIN_USER',
   NORMAL_USER: 'NORMAL_USER',
   API_USER: 'API_USER',
-} as const
-
+} as const;
 export const NOTIFICATION_STATUS = {
   SENT: 'SENT',
   SCHEDULED: 'SCHEDULED',
   FAILED: 'FAILED',
   PENDING: 'PENDING',
   DRAFT: 'DRAFT',
-} as const
-
+} as const;
 export const TEMPLATE_STATUS = {
   ACTIVE: 'ACTIVE',
   INACTIVE: 'INACTIVE',
   DRAFT: 'DRAFT',
-} as const
+} as const;

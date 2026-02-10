@@ -1,43 +1,37 @@
-import { UserRole } from '../enums/user-role.enum'
-
+import { UserRole } from '../enums/user-role.enum';
 export interface User {
-  id: number
-  username: string
-  displayName?: string
-  email?: string
-  role: UserRole
-  createdAt?: Date
-  updatedAt?: Date
+  id: number;
+  username: string;
+  displayName?: string;
+  email?: string;
+  role: UserRole;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
-
 export interface UserCreateRequest {
-  username: string
-  displayName?: string
-  email?: string
-  password: string
-  role?: UserRole
+  username: string;
+  displayName?: string;
+  email?: string;
+  password: string;
+  role?: UserRole;
 }
-
 export interface UserUpdateRequest {
-  username?: string
-  displayName?: string
-  email?: string
-  role?: UserRole
+  username?: string;
+  displayName?: string;
+  email?: string;
+  role?: UserRole;
 }
-
 export interface UserLoginRequest {
-  username: string
-  password: string
+  username: string;
+  password: string;
 }
-
 export interface UserLoginResponse {
-  user: User
-  token: string
-  expiresIn: string
+  user: User;
+  token: string;
+  expiresIn: string;
 }
-
 export interface AuthResponse {
-  success: boolean
-  message: string
-  data?: UserLoginResponse
+  success: boolean;
+  message: string;
+  data?: UserLoginResponse;
 }

@@ -8,30 +8,39 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm'
-import { SendType, NotificationType, BakongApp, ApprovalStatus } from '@bakong/shared'
-import { TemplateTranslation } from './template-translation.entity'
-import { CategoryType as CategoryTypeEntity } from './category-type.entity'
-
-export type SendIntervalData = { cron: string; startAt: Date; endAt: Date }
+} from 'typeorm';
+import {
+  SendType,
+  NotificationType,
+  BakongApp,
+  ApprovalStatus,
+} from '@bakong/shared';
+import { TemplateTranslation } from './template-translation.entity';
+import { CategoryType as CategoryTypeEntity } from './category-type.entity';
+export type SendIntervalData = { cron: string; startAt: Date; endAt: Date };
 @Entity()
 export class Template {
   @PrimaryGeneratedColumn()
-  id: number
+  id: number;
 
   @OneToMany(() => TemplateTranslation, (translation) => translation.template, {
     cascade: ['insert'],
   })
-  translations: TemplateTranslation[]
+  translations: TemplateTranslation[];
 
   @Column('text', { array: true, nullable: false })
-  platforms?: string[]
+  platforms?: string[];
 
   @Column({ nullable: true, type: 'enum', enum: BakongApp })
-  bakongPlatform?: BakongApp
+  bakongPlatform?: BakongApp;
 
-  @Column({ nullable: false, type: 'enum', enum: SendType, default: SendType.SEND_SCHEDULE })
-  sendType?: SendType
+  @Column({
+    nullable: false,
+    type: 'enum',
+    enum: SendType,
+    default: SendType.SEND_SCHEDULE,
+  })
+  sendType?: SendType;
 
   @Column({
     nullable: false,
@@ -39,60 +48,60 @@ export class Template {
     enum: NotificationType,
     default: NotificationType.FLASH_NOTIFICATION,
   })
-  notificationType?: NotificationType
+  notificationType?: NotificationType;
 
   @Column({ nullable: true, type: 'integer' })
-  categoryTypeId?: number
+  categoryTypeId?: number;
 
   @ManyToOne(() => CategoryTypeEntity, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'categoryTypeId', referencedColumnName: 'id' })
-  categoryTypeEntity?: CategoryTypeEntity
+  categoryTypeEntity?: CategoryTypeEntity;
 
   @Column({ nullable: false, type: 'integer', default: 0 })
-  priority?: number
+  priority?: number;
 
   @Column({ type: 'json', nullable: true })
-  sendInterval?: SendIntervalData
+  sendInterval?: SendIntervalData;
 
   @Column({ type: 'boolean', default: false })
-  isSent?: boolean
+  isSent?: boolean;
 
   @Column({ type: 'timestamptz', nullable: true })
-  sendSchedule?: Date
+  sendSchedule?: Date;
 
   @Column({ nullable: true })
-  createdBy?: string
+  createdBy?: string;
 
   @Column({ nullable: true })
-  updatedBy?: string
+  updatedBy?: string;
 
   @Column({ nullable: true })
-  publishedBy?: string
+  publishedBy?: string;
 
   @Column({ nullable: true, type: 'enum', enum: ApprovalStatus })
-  approvalStatus?: ApprovalStatus
+  approvalStatus?: ApprovalStatus;
 
   @Column({ nullable: true })
-  approvedBy?: string
+  approvedBy?: string;
 
   @Column({ type: 'timestamptz', nullable: true })
-  approvedAt?: Date
+  approvedAt?: Date;
 
   @Column({ type: 'integer', nullable: true, default: 1 })
-  showPerDay?: number
+  showPerDay?: number;
 
   @Column({ type: 'integer', nullable: true, default: 1 })
-  maxDayShowing?: number
+  maxDayShowing?: number;
 
   @Column({ type: 'text', nullable: true })
-  reasonForRejection?: string
+  reasonForRejection?: string;
 
   @CreateDateColumn({ type: 'timestamptz' })
-  createdAt: Date
+  createdAt: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
-  updatedAt?: Date
+  updatedAt?: Date;
 
   @DeleteDateColumn({ type: 'timestamptz', nullable: true })
-  deletedAt?: Date
+  deletedAt?: Date;
 }

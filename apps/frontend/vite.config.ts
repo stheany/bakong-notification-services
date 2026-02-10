@@ -1,16 +1,19 @@
-import { fileURLToPath, URL } from 'node:url'
-import { defineConfig } from 'vitest/config'
-import vue from '@vitejs/plugin-vue'
+import { fileURLToPath, URL } from 'node:url';
+import { defineConfig } from 'vitest/config';
+import vue from '@vitejs/plugin-vue';
 
 // Get the directory where this config file is located
-const root = fileURLToPath(new URL('.', import.meta.url))
+const root = fileURLToPath(new URL('.', import.meta.url));
 
 // Use environment variables directly (Vite automatically loads .env files)
 // For Docker builds, these will come from process.env
-const frontendPort = parseInt(process.env.VITE_FRONTEND_PORT || '3000', 10)
+const frontendPort = parseInt(process.env.VITE_FRONTEND_PORT || '3000', 10);
 // For Docker dev: use backend service name (internal network)
 // For local dev: use localhost
-const apiBaseUrl = process.env.VITE_API_BASE_URL || process.env.VITE_API_BASE_URL_DOCKER || 'http://localhost:4005'
+const apiBaseUrl =
+  process.env.VITE_API_BASE_URL ||
+  process.env.VITE_API_BASE_URL_DOCKER ||
+  'http://localhost:4005';
 
 export default defineConfig({
   root: root,
@@ -19,7 +22,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@bakong/shared': fileURLToPath(new URL('../packages/shared/src', import.meta.url)),
+      '@bakong/shared': fileURLToPath(
+        new URL('../packages/shared/src', import.meta.url)
+      ),
     },
   },
   optimizeDeps: {
@@ -36,14 +41,18 @@ export default defineConfig({
         secure: false,
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
-            console.log('proxy error', err)
-          })
+            console.log('proxy error', err);
+          });
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending Request to the Target:', req.method, req.url)
-          })
+            console.log('Sending Request to the Target:', req.method, req.url);
+          });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received Response from the Target:', proxyRes.statusCode, req.url)
-          })
+            console.log(
+              'Received Response from the Target:',
+              proxyRes.statusCode,
+              req.url
+            );
+          });
         },
       },
       '/images': {
@@ -66,4 +75,4 @@ export default defineConfig({
     __VUE_OPTIONS_API__: true,
     __VUE_PROD_DEVTOOLS__: false,
   },
-})
+});

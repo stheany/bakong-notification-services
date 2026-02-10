@@ -1,26 +1,25 @@
-import { IsOptional, IsString } from 'class-validator'
-
+import { IsOptional, IsString } from 'class-validator';
 export class UpdateCategoryTypeDto {
   @IsOptional()
   @IsString()
-  name?: string
+  name?: string;
 
   @IsOptional()
   @IsString()
-  namekh?: string
+  namekh?: string;
 
   @IsOptional()
   @IsString()
-  namejp?: string
+  namejp?: string;
 
   @IsOptional()
-  icon?: Buffer
-
-  @IsOptional()
-  @IsString()
-  mimeType?: string
+  icon?: Buffer;
 
   @IsOptional()
   @IsString()
-  originalFileName?: string
+  mimeType?: string;
+
+  @IsOptional()
+  @IsString()
+  originalFileName?: string;
 }

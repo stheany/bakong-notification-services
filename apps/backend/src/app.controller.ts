@@ -1,14 +1,12 @@
-import { Controller, Get } from '@nestjs/common'
-import { AppService } from './app.service'
-import { Public } from './common/middleware/jwt-auth.guard'
-
+import { Controller, Get } from '@nestjs/common';
+import { AppService } from './app.service';
+import { Public } from './common/middleware/jwt-auth.guard';
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
-
   @Get()
   getHello(): string {
-    return this.appService.getHello()
+    return this.appService.getHello();
   }
 
   @Public()
@@ -19,6 +17,6 @@ export class AppController {
       timestamp: new Date().toISOString(),
       service: 'Bakong Notification Service API',
       version: '1.0.0',
-    }
+    };
   }
 }

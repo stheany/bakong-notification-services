@@ -247,10 +247,8 @@
     </div>
   </div>
 </template>
-
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-
 export interface UserTableItem {
   id?: number | string
   name?: string
@@ -261,43 +259,31 @@ export interface UserTableItem {
   role?: string
   status?: 'Active' | 'Deactivate'
 }
-
 const props = defineProps<{
   users: UserTableItem[]
 }>()
-
 const emit = defineEmits<{
   view: [user: UserTableItem]
   edit: [user: UserTableItem]
   delete: [user: UserTableItem]
   statusToggle: [user: UserTableItem, index: number]
 }>()
-
 const selectedItems = ref<Set<number>>(new Set())
-
-// Sorting state
 const sortColumn = ref<'name' | 'status' | null>(null)
 const sortOrder = ref<'asc' | 'desc' | null>(null)
-
 const isAllSelected = computed(() => {
   return props.users.length > 0 && selectedItems.value.size === props.users.length
 })
-
 const isIndeterminate = computed(() => {
   return selectedItems.value.size > 0 && selectedItems.value.size < props.users.length
 })
-
-// Sorted users computed property
 const sortedUsers = computed(() => {
   if (sortOrder.value === null || sortColumn.value === null) {
     return props.users
   }
-
   const users = [...props.users]
-
   return users.sort((a, b) => {
     let comparison = 0
-
     if (sortColumn.value === 'name') {
       const nameA = a.name || a.displayName || a.username || ''
       const nameB = b.name || b.displayName || b.username || ''
@@ -305,7 +291,6 @@ const sortedUsers = computed(() => {
     } else if (sortColumn.value === 'status') {
       const statusA = a.status || 'Active'
       const statusB = b.status || 'Active'
-      // Active comes before Deactivate
       if (statusA === statusB) {
         comparison = 0
       } else if (statusA === 'Active') {
@@ -314,12 +299,9 @@ const sortedUsers = computed(() => {
         comparison = 1
       }
     }
-
     return sortOrder.value === 'asc' ? comparison : -comparison
   })
 })
-
-// Sort handler for Name column
 const handleNameSort = () => {
   if (sortColumn.value !== 'name') {
     sortColumn.value = 'name'
@@ -330,8 +312,6 @@ const handleNameSort = () => {
     sortOrder.value = 'asc'
   }
 }
-
-// Sort handler for Status column
 const handleStatusSort = () => {
   if (sortColumn.value !== 'status') {
     sortColumn.value = 'status'
@@ -342,7 +322,6 @@ const handleStatusSort = () => {
     sortOrder.value = 'asc'
   }
 }
-
 const handleSelectAll = () => {
   if (isAllSelected.value) {
     selectedItems.value.clear()
@@ -353,7 +332,6 @@ const handleSelectAll = () => {
     })
   }
 }
-
 const handleSelectItem = (index: number) => {
   if (selectedItems.value.has(index)) {
     selectedItems.value.delete(index)
@@ -361,10 +339,8 @@ const handleSelectItem = (index: number) => {
     selectedItems.value.add(index)
   }
 }
-
 const formatRole = (role?: string): string => {
   if (!role) return 'Editor'
-
   const roleMap: Record<string, string> = {
     ADMIN_USER: 'Editor',
     NORMAL_USER: 'View only',
@@ -373,52 +349,42 @@ const formatRole = (role?: string): string => {
     'View only': 'View only',
     Approval: 'Approval',
   }
-
   return roleMap[role] || role
 }
-
 const handleStatusToggle = (user: UserTableItem, index: number) => {
   emit('statusToggle', user, index)
 }
 </script>
-
 <style scoped>
 /* Ensure table respects the max dimensions */
 table {
   table-layout: fixed;
 }
-
 /* Column width distribution */
 th:nth-child(1),
 td:nth-child(1) {
   width: 120px;
 }
-
 th:nth-child(2),
 td:nth-child(2) {
   width: 180px;
 }
-
 th:nth-child(3),
 td:nth-child(3) {
   width: 220px;
 }
-
 th:nth-child(4),
 td:nth-child(4) {
   width: 180px;
 }
-
 th:nth-child(5),
 td:nth-child(5) {
   width: 150px;
 }
-
 th:nth-child(6),
 td:nth-child(6) {
   width: 150px;
 }
-
 th:nth-child(7),
 td:nth-child(7) {
   width: 247px;

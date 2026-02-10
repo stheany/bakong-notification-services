@@ -1,15 +1,14 @@
-import { IsNotEmpty, IsString, IsOptional } from 'class-validator'
-
+import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
 export class UploadImageDto {
   @IsNotEmpty()
   @IsString()
-  file: Buffer
+  file: Buffer;
 
   @IsNotEmpty()
   @IsString()
-  mimeType: string
+  mimeType: string;
 
   @IsOptional()
   @IsString()
-  originalFileName: string
+  originalFileName: string;
 }

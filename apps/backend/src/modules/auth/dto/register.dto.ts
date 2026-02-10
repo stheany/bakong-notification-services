@@ -1,6 +1,5 @@
-import { IsEnum, IsNotEmpty, IsString, Matches, Length } from 'class-validator'
-import { UserRole } from '@bakong/shared'
-
+import { IsEnum, IsNotEmpty, IsString, Matches, Length } from 'class-validator';
+import { UserRole } from '@bakong/shared';
 export class RegisterDto {
   @IsNotEmpty()
   @IsString()
@@ -8,17 +7,17 @@ export class RegisterDto {
   @Matches(/^[a-z0-9_@.]+$/, {
     message: 'Username must be lowercase with no spaces.',
   })
-  username: string
+  username: string;
 
   @IsNotEmpty()
   @IsString()
-  password: string
+  password: string;
 
   @IsNotEmpty()
   @IsString()
-  displayName: string
+  displayName: string;
 
   @IsNotEmpty()
   @IsEnum(UserRole)
-  role: UserRole
+  role: UserRole;
 }

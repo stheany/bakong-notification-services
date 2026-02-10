@@ -8,115 +8,113 @@ import {
   IsArray,
   ValidateNested,
   IsUUID,
-} from 'class-validator'
-import { Type, Transform } from 'class-transformer'
-import { SendType } from '@bakong/shared'
-import { TemplateTranslationDto } from './template-translation.dto'
-import { NotificationType, Platform, BakongApp } from '@bakong/shared'
-import { ValidationHelper } from 'src/common/util/validation.helper'
-
+} from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+import { SendType } from '@bakong/shared';
+import { TemplateTranslationDto } from './template-translation.dto';
+import { NotificationType, Platform, BakongApp } from '@bakong/shared';
+import { ValidationHelper } from 'src/common/util/validation.helper';
 export class SendIntervalDto {
   @IsString()
   @IsNotEmpty()
-  cron: string
+  cron: string;
 
   @IsString()
   @IsNotEmpty()
-  startAt: string
+  startAt: string;
 
   @IsString()
   @IsNotEmpty()
-  endAt: string
+  endAt: string;
 }
-
 export class CreateTemplateDto {
   @IsString()
   @IsOptional()
   @IsUUID()
-  imageId?: string
+  imageId?: string;
 
   @IsArray()
   @IsString({ each: true })
   @Transform(({ value }) => {
     if (Array.isArray(value)) {
-      return value.map((platform) => ValidationHelper.normalizeEnum(platform))
+      return value.map((platform) => ValidationHelper.normalizeEnum(platform));
     }
-    return value
+    return value;
   })
   @IsEnum(Platform, { each: true })
-  platforms: Platform[]
+  platforms: Platform[];
 
   @IsNotEmpty()
   @IsEnum(SendType)
   @Transform(({ value }) => {
     if (typeof value === 'string') {
-      return ValidationHelper.normalizeEnum(value)
+      return ValidationHelper.normalizeEnum(value);
     }
-    return value
+    return value;
   })
-  sendType: SendType
+  sendType: SendType;
 
   @IsOptional()
   @ValidateNested()
   @Type(() => SendIntervalDto)
-  sendInterval?: SendIntervalDto
+  sendInterval?: SendIntervalDto;
 
   @IsBoolean()
   @IsOptional()
-  isSent: boolean
+  isSent: boolean;
 
   @IsOptional()
   @IsString()
-  sendSchedule?: string
+  sendSchedule?: string;
 
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => TemplateTranslationDto)
-  translations: TemplateTranslationDto[]
+  translations: TemplateTranslationDto[];
 
   @IsOptional()
   @IsEnum(NotificationType)
   @Transform(({ value }) => {
     if (typeof value === 'string') {
-      return ValidationHelper.normalizeEnum(value)
+      return ValidationHelper.normalizeEnum(value);
     }
-    return value
+    return value;
   })
-  notificationType?: NotificationType
+  notificationType?: NotificationType;
 
   @IsOptional()
   @IsNumber()
-  categoryTypeId?: number
+  categoryTypeId?: number;
 
   @IsOptional()
   @IsNumber()
-  priority?: number
+  priority?: number;
 
   @IsOptional()
   @IsEnum(BakongApp)
   @Transform(({ value }) => {
     if (typeof value === 'string') {
-      return ValidationHelper.normalizeEnum(value)
+      return ValidationHelper.normalizeEnum(value);
     }
-    return value
+    return value;
   })
-  bakongPlatform?: BakongApp
+  bakongPlatform?: BakongApp;
 
   @IsOptional()
   @IsNumber()
   @Transform(({ value }) => {
-    if (value === undefined || value === null) return 1 // Default: 1 per day
-    const num = Number(value)
-    return isNaN(num) ? 1 : Math.max(1, Math.min(10, num)) // Clamp between 1-10
+    if (value === undefined || value === null) return 1; // Default: 1 per day
+    const num = Number(value);
+    return isNaN(num) ? 1 : Math.max(1, Math.min(10, num)); // Clamp between 1-10
   })
-  showPerDay?: number
+  showPerDay?: number;
 
   @IsOptional()
   @IsNumber()
   @Transform(({ value }) => {
-    if (value === undefined || value === null) return 1 // Default: 1 day
-    const num = Number(value)
-    return isNaN(num) ? 1 : Math.max(1, Math.min(30, num)) // Clamp between 1-30
+    if (value === undefined || value === null) return 1; // Default: 1 day
+    const num = Number(value);
+    return isNaN(num) ? 1 : Math.max(1, Math.min(30, num)); // Clamp between 1-30
   })
-  maxDayShowing?: number
+  maxDayShowing?: number;
 }

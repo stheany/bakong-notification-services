@@ -1,5 +1,4 @@
-import { IsNotEmpty, IsString, MinLength, MaxLength } from 'class-validator'
-
+import { IsNotEmpty, IsString, MinLength, MaxLength } from 'class-validator';
 /**
  * DTO for password change requests
  *
@@ -10,11 +9,11 @@ import { IsNotEmpty, IsString, MinLength, MaxLength } from 'class-validator'
 export class ChangePasswordDto {
   @IsNotEmpty({ message: 'Current password is required' })
   @IsString({ message: 'Current password must be a string' })
-  currentPassword: string
+  currentPassword: string;
 
   @IsNotEmpty({ message: 'New password is required' })
   @IsString({ message: 'New password must be a string' })
   @MinLength(6, { message: 'Password must be at least 6 characters long' })
   @MaxLength(128, { message: 'Password must not exceed 128 characters' })
-  newPassword: string
+  newPassword: string;
 }

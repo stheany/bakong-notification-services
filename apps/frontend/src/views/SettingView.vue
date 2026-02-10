@@ -6,7 +6,9 @@
         <div class="info-item">
           <span class="info-label">Name</span>
           <span class="info-value" :class="{ loading: loading }">
-            {{ loading ? 'Loading...' : userInfo.displayName || userInfo.username }}
+            {{
+              loading ? 'Loading...' : userInfo.displayName || userInfo.username
+            }}
           </span>
         </div>
         <div class="info-item">
@@ -33,7 +35,9 @@
             <ArrowRight />
           </el-icon>
         </div>
-        <el-button type="danger" class="logout-btn" @click="handleLogout"> Logout </el-button>
+        <el-button type="danger" class="logout-btn" @click="handleLogout">
+          Logout
+        </el-button>
       </div>
     </div>
     <ConfirmationDialog
@@ -51,221 +55,221 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-import { ArrowRight } from '@element-plus/icons-vue'
-import ConfirmationDialog from '@/components/common/ConfirmationDialog.vue'
-import { useConfirmationDialog } from '@/composables/useConfirmationDialog'
-import { ElNotification } from 'element-plus'
-import { UserRole } from '@/stores/auth'
+  import { ref, computed, onMounted } from 'vue';
+  import { useRouter } from 'vue-router';
+  import { useAuthStore } from '@/stores/auth';
+  import { ArrowRight } from '@element-plus/icons-vue';
+  import ConfirmationDialog from '@/components/common/ConfirmationDialog.vue';
+  import { useConfirmationDialog } from '@/composables/useConfirmationDialog';
+  import { ElNotification } from 'element-plus';
+  import { UserRole } from '@/stores/auth';
 
-const formatUserRole = (role: string) => {
-  switch (role) {
-    case 'ADMINISTRATOR':
-      return 'Administrator'
-    case UserRole.VIEW_ONLY:
-      return 'Viewer Only'
-    case UserRole.APPROVAL:
-      return 'Approval'
-    case UserRole.EDITOR:
-      return 'Editor'
-    default:
-      return role || 'Unknown'
-  }
-}
-
-const router = useRouter()
-const authStore = useAuthStore()
-const dialog = useConfirmationDialog()
-
-const loading = ref(false)
-const error = ref<string | null>(null)
-
-const userInfo = computed(() => {
-  if (authStore.user) {
-    return {
-      displayName: authStore.user.displayName,
-      role: formatUserRole(authStore.user.role) as UserRole,
-      username: authStore.user.username,
+  const formatUserRole = (role: string) => {
+    switch (role) {
+      case 'ADMINISTRATOR':
+        return 'Administrator';
+      case UserRole.VIEW_ONLY:
+        return 'Viewer Only';
+      case UserRole.APPROVAL:
+        return 'Approval';
+      case UserRole.EDITOR:
+        return 'Editor';
+      default:
+        return role || 'Unknown';
     }
-  }
-  return {
-    displayName: 'Loading...',
-    role: 'Loading...',
-  }
-})
+  };
 
-const handleChangePassword = () => {
-  router.push('/settings/change-password')
-}
+  const router = useRouter();
+  const authStore = useAuthStore();
+  const dialog = useConfirmationDialog();
 
-const handleChangePicture = () => {
-  router.push('/settings/change-profile')
-}
+  const loading = ref(false);
+  const error = ref<string | null>(null);
 
-const handleLogout = async () => {
-  const confirmed = await dialog.showLogoutDialog()
-  if (confirmed) {
-    authStore.logout()
-    ElNotification({
-      title: 'Success',
-      type: 'success',
-      message: 'Logged out successfully',
-    })
-    router.push('/login')
-  }
-}
+  const userInfo = computed(() => {
+    if (authStore.user) {
+      return {
+        displayName: authStore.user.displayName,
+        role: formatUserRole(authStore.user.role) as UserRole,
+        username: authStore.user.username,
+      };
+    }
+    return {
+      displayName: 'Loading...',
+      role: 'Loading...',
+    };
+  });
 
-onMounted(() => {
-  loading.value = false
-  error.value = null
-})
+  const handleChangePassword = () => {
+    router.push('/settings/change-password');
+  };
+
+  const handleChangePicture = () => {
+    router.push('/settings/change-profile');
+  };
+
+  const handleLogout = async () => {
+    const confirmed = await dialog.showLogoutDialog();
+    if (confirmed) {
+      authStore.logout();
+      ElNotification({
+        title: 'Success',
+        type: 'success',
+        message: 'Logged out successfully',
+      });
+      router.push('/login');
+    }
+  };
+
+  onMounted(() => {
+    loading.value = false;
+    error.value = null;
+  });
 </script>
 
 <style scoped>
-.setting-page {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background-color: #fff;
-}
-
-.setting-container {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-  max-width: 393px;
-}
-
-.personal-info-section {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  padding: 0px;
-  gap: 32px;
-}
-
-.section-title {
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-weight: 600;
-  font-size: 18px;
-  line-height: 150%;
-  color: #001346;
-  margin: 0;
-}
-
-.info-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(0, 19, 70, 0.1);
-}
-
-.info-item:last-child {
-  border-bottom: none;
-}
-
-.info-label {
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-weight: 400;
-  font-size: 16px;
-  line-height: 150%;
-  color: #001346;
-}
-
-.info-value {
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-weight: 500;
-  font-size: 16px;
-  line-height: 150%;
-  color: #001346;
-  text-align: right;
-} 
-
-.profile-action-section {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  padding: 0px;
-  gap: 16px;
-}
-
-.action-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding: 12px 0;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.action-item:hover {
-  background-color: rgba(0, 19, 70, 0.05);
-  border-radius: 8px;
-  padding: 12px 16px;
-}
-
-.action-label {
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-weight: 400;
-  font-size: 16px;
-  line-height: 150%;
-  color: #001346;
-}
-
-.action-arrow {
-  font-size: 16px;
-  color: #001346;
-}
-
-.logout-btn {
-  width: 100%;
-  height: 48px;
-  background-color: #dc3545;
-  border-color: #dc3545;
-  color: white;
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-weight: 500;
-  font-size: 16px;
-  border-radius: 8px;
-  margin-top: 8px;
-}
-
-.logout-btn:hover {
-  background-color: #c82333;
-  border-color: #bd2130;
-}
-
-.info-value.loading {
-  color: #999999;
-  font-style: italic;
-}
-
-.error-message {
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-weight: 400;
-  font-size: 12px;
-  line-height: 150%;
-  color: #dc3545;
-  margin-top: 4px;
-  padding: 8px 12px;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
-  border-radius: 4px;
-}
-
-@media (max-width: 768px) {
   .setting-page {
-    padding: 16px;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: #fff;
   }
 
   .setting-container {
-    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    max-width: 393px;
   }
-}
+
+  .personal-info-section {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0px;
+    gap: 32px;
+  }
+
+  .section-title {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 18px;
+    line-height: 150%;
+    color: #001346;
+    margin: 0;
+  }
+
+  .info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(0, 19, 70, 0.1);
+  }
+
+  .info-item:last-child {
+    border-bottom: none;
+  }
+
+  .info-label {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 150%;
+    color: #001346;
+  }
+
+  .info-value {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 150%;
+    color: #001346;
+    text-align: right;
+  }
+
+  .profile-action-section {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0px;
+    gap: 16px;
+  }
+
+  .action-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 12px 0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .action-item:hover {
+    background-color: rgba(0, 19, 70, 0.05);
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+
+  .action-label {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 150%;
+    color: #001346;
+  }
+
+  .action-arrow {
+    font-size: 16px;
+    color: #001346;
+  }
+
+  .logout-btn {
+    width: 100%;
+    height: 48px;
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 500;
+    font-size: 16px;
+    border-radius: 8px;
+    margin-top: 8px;
+  }
+
+  .logout-btn:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+  }
+
+  .info-value.loading {
+    color: #999999;
+    font-style: italic;
+  }
+
+  .error-message {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 400;
+    font-size: 12px;
+    line-height: 150%;
+    color: #dc3545;
+    margin-top: 4px;
+    padding: 8px 12px;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+  }
+
+  @media (max-width: 768px) {
+    .setting-page {
+      padding: 16px;
+    }
+
+    .setting-container {
+      max-width: 100%;
+    }
+  }
 </style>

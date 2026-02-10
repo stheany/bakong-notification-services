@@ -1,4 +1,4 @@
-import { Exclude } from 'class-transformer'
+import { Exclude } from 'class-transformer';
 import {
   Column,
   CreateDateColumn,
@@ -10,20 +10,19 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm'
-import { IsString, Matches, Length, IsNotEmpty } from 'class-validator'
-import { UserRole, UserStatus } from '@bakong/shared'
-import { VerificationToken } from './verification-token.entity'
-import { Image } from './image.entity'
-
+} from 'typeorm';
+import { IsString, Matches, Length, IsNotEmpty } from 'class-validator';
+import { UserRole, UserStatus } from '@bakong/shared';
+import { VerificationToken } from './verification-token.entity';
+import { Image } from './image.entity';
 @Entity()
 export class User {
   @PrimaryGeneratedColumn()
-  id: number
+  id: number;
 
   @Column()
-  username: string
-  
+  username: string;
+
   @Column({ nullable: false, length: 255, unique: true })
   @Index()
   @IsNotEmpty()
@@ -31,58 +30,66 @@ export class User {
   @Matches(/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i, {
     message: 'Email must be a valid email address',
   })
-  email: string
+  email: string;
 
   @Column({ nullable: false, length: 255 })
   @Exclude()
-  password: string
+  password: string;
 
   @Column({ nullable: false, length: 255 })
-  displayName: string
+  displayName: string;
 
-  @Column({ nullable: false, type: 'enum', enum: UserRole, default: UserRole.EDITOR })
-  role: UserRole
+  @Column({
+    nullable: false,
+    type: 'enum',
+    enum: UserRole,
+    default: UserRole.EDITOR,
+  })
+  role: UserRole;
 
   @Column({ type: 'varchar', length: 20, nullable: false })
   @IsNotEmpty()
   @IsString()
   @Length(10, 20)
-  @Matches(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/, {
-    message: 'Phone number must be in a valid format',
-  })
-  phoneNumber: string
+  @Matches(
+    /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/,
+    {
+      message: 'Phone number must be in a valid format',
+    }
+  )
+  phoneNumber: string;
 
   @Column({ type: 'enum', enum: UserStatus, default: UserStatus.DEACTIVATED })
   @Index()
-  status: UserStatus
+  status: UserStatus;
 
   @Column({ type: 'boolean', default: true, nullable: false })
-  mustChangePassword: boolean
+  mustChangePassword: boolean;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  imageId?: string
+  imageId?: string;
 
   @ManyToOne(() => Image, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'imageId', referencedColumnName: 'fileId' })
-  image?: Image
+  image?: Image;
 
   @OneToMany(() => VerificationToken, (token) => token.user)
-  verificationTokens?: VerificationToken[]
+  verificationTokens?: VerificationToken[];
 
   @Column({ type: 'jsonb', nullable: true })
   syncStatus?: {
-    failLoginAttempt: number
-    login_at: string | null
-    changePassword_count: number
-    tempPasswordLoginAttempts?: number
-  }
+    failLoginAttempt: number;
+    login_at: string | null;
+    changePassword_count: number;
+    tempPasswordLoginAttempts?: number;
+  };
 
   @CreateDateColumn({ type: 'timestamp' })
-  createdAt: Date
+  createdAt: Date;
 
   @UpdateDateColumn({ type: 'timestamp' })
-  updatedAt?: Date
+  updatedAt?: Date;
 
   @DeleteDateColumn({ type: 'timestamp' })
-  deletedAt?: Date
+  deletedAt?: Date;
 }

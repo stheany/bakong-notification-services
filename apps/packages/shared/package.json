@@ -16,7 +16,11 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rimraf dist",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.{ts,js,json,vue,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,js,json,vue,md}\"",
+    "lint": "eslint \"src/**/*.{ts,js}\" --fix",
+    "format:all": "npm run format && npm run lint"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

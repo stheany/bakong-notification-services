@@ -33,7 +33,6 @@ export enum ErrorCode {
   NO_USERS_FOR_BAKONG_PLATFORM = 31,
   DATABASE_INVALID_INPUT_SYNTAX = 32,
 }
-
 export enum ResponseMessage {
   REQUEST_SUCCESS = 'Request successfully',
   INTERNAL_SERVER_ERROR = 'Internal server error',
@@ -73,7 +72,6 @@ export enum ResponseMessage {
   NO_USERS_FOR_BAKONG_PLATFORM = 'No users found for this Bakong platform. Please ensure there are registered users for this platform before sending notifications.',
   DATABASE_INVALID_INPUT_SYNTAX = 'Invalid input format. Please check your values.',
 }
-
 export enum HttpStatus {
   OK = 200,
   CREATED = 201,
@@ -88,14 +86,12 @@ export enum HttpStatus {
   BAD_GATEWAY = 502,
   SERVICE_UNAVAILABLE = 503,
 }
-
 export enum Environment {
   DEVELOPMENT = 'development',
   STAGING = 'staging',
   PRODUCTION = 'production',
   TEST = 'test',
 }
-
 export enum LogLevel {
   ERROR = 'error',
   WARN = 'warn',
