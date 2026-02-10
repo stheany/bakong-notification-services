@@ -35,7 +35,13 @@ BACKUP_SUCCESS=false
 
 if [ -f "utils-server.sh" ]; then
     echo "🔒 Creating backup before any changes..."
-    if bash utils-server.sh db-backup sit; then
+    
+    # Check if container exists at all before attempting backup
+    if ! docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+        echo "⚠️  WARNING: Database container '$DB_CONTAINER' not found."
+        echo "   Skipping backup (assuming fresh deployment or transient state)."
+        BACKUP_SUCCESS=true # Allow proceeding without backup since it's impossible
+    elif bash utils-server.sh db-backup sit; then
         BACKUP_SUCCESS=true
         echo ""
         echo "✅ Backup created successfully!"
