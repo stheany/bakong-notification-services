@@ -36,8 +36,7 @@ COPY apps/packages/shared/src ./apps/packages/shared/src
 RUN npm run build:shared
 
 # Copy frontend source and build it
-COPY apps/frontend ./apps/frontend/
-RUN cd apps/frontend && npm run build
+COPY apps/frontend/ ./apps/frontend/
 # Accept build args for environment variables
 ARG VITE_API_BASE_URL
 ARG VITE_FRONTEND_PORT=3000

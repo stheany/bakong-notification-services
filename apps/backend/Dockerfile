@@ -4,7 +4,8 @@
 FROM node:20-alpine AS builder
 
 # Add build dependencies for native modules and shared packages
-RUN apk add --no-cache tar python3 make g++
+# build-base and py3-setuptools are required for node-gyp with Python 3.12+
+RUN apk add --no-cache tar python3 py3-setuptools build-base
 
 WORKDIR /opt/bk_notification_service
 
@@ -28,18 +29,12 @@ COPY apps/backend/nest-cli.json ./apps/backend/
 # -----------------------------------------------------
 # Install dependencies for the entire workspace
 # -----------------------------------------------------
-# Fix for bcrypt "Cannot find module 'tar'" by ensuring it's available for node-pre-gyp
-RUN npm install tar --legacy-peer-deps
 
 RUN set -eux; \
   for i in 1 2 3; do \
   npm ci --legacy-peer-deps && break || \
   (echo "⚠️  npm install attempt $i failed, retrying..." && sleep 5); \
   done
-
-# -----------------------------------------------------
-# Build process
-# -----------------------------------------------------
 
 # -----------------------------------------------------
 # Build process
@@ -64,10 +59,10 @@ WORKDIR /opt/bk_notification_service
 # NODE_ENV is controlled by docker-compose.yml per environment (development/staging/production)
 
 # Install build dependencies needed for native modules (bcrypt, etc.)
-# Add retry logic for network/I/O resilience (handles package integrity errors)
+# py3-setuptools is required for node-gyp on Python 3.12
 RUN set -eux; \
   for i in 1 2 3; do \
-  (apk update && apk add --no-cache python3 make g++) && break || \
+  (apk update && apk add --no-cache python3 py3-setuptools build-base) && break || \
   (echo "⚠️  apk install attempt $i failed, clearing cache and retrying..." && \
   rm -rf /var/cache/apk/* /tmp/* && sleep 5); \
   done; \
@@ -108,8 +103,7 @@ RUN NODE_PATH=/opt/bk_notification_service/node_modules:/opt/bk_notification_ser
   node -e "try { const core = require('@nestjs/core'); console.log('✅ @nestjs/core found, version:', core.VERSION || 'unknown'); } catch(e) { console.error('❌ @nestjs/core NOT FOUND - this will cause runtime errors!'); console.error('   Error:', e.message); console.error('   Searching for @nestjs...'); require('child_process').exec('find . -name \"@nestjs\" -type d 2>/dev/null | head -5', (err, stdout) => { console.log(stdout || '  No @nestjs directories found'); process.exit(1); }); }"
 
 # Remove build dependencies to reduce image size (keep only runtime dependencies)
-# Note: Native modules are already compiled, so build tools are no longer needed
-RUN apk del python3 make g++
+RUN apk del py3-setuptools build-base
 
 # Healthcheck - backend runs on port 8080 inside container
 # Health endpoint is at /api/v1/health or /api/v1/management/healthcheck
