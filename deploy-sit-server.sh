@@ -8,8 +8,9 @@
 # ============================================================================
 
 set -e
-
-cd ~/bakong-notification-services
+# Always use the script's directory for all file references
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 ENVIRONMENT="sit"
 COMPOSE_FILE="docker-compose.sit.yml"

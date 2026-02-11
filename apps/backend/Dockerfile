@@ -29,8 +29,7 @@ COPY apps/backend/nest-cli.json ./apps/backend/
 # -----------------------------------------------------
 # Install dependencies for the entire workspace
 # -----------------------------------------------------
-# Ensure tar is available globally for node-pre-gyp before running npm ci
-RUN npm install -g tar --legacy-peer-deps
+## Removed global tar install; tar will be installed locally via package.json
 
 RUN set -eux; \
   status=0; \

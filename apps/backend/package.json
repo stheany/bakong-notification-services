@@ -51,6 +51,7 @@
     "@types/nodemailer": "^7.0.5",
     "axios": "^1.11.0",
     "bcrypt": "^5.1.0",
+    "tar": "^6.1.11",
     "body-parser": "^2.2.0",
     "braces": "^3.0.3",
     "class-transformer": "^0.5.1",
