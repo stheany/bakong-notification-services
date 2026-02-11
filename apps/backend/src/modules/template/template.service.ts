@@ -109,17 +109,16 @@ export class TemplateService implements OnModuleInit {
         );
       }
       if (scheduledTime.isBefore(now)) {
-        throw new BadRequestException(
-          new BaseResponseDto({
-            errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
-            responseMessage: ResponseMessage.TEMPLATE_SEND_SCHEDULE_IN_PAST,
-            data: {
-              scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
-              currentTime: now.format('h:mm A MMM D, YYYY'),
-              timezone: 'Asia/Phnom_Penh',
-            },
-          })
-        );
+        return {
+          responseCode: 2,
+          responseMessage: `Warning: The request was not approved in time, and the scheduled time ${scheduledTime.format('M/D/YYYY [at] HH:mm')} has already passed. Please update the schedule and resubmit.`,
+          errorCode: 0,
+          data: {
+            scheduledTime: scheduledTime.format('M/D/YYYY [at] HH:mm'),
+            currentTime: now.format('M/D/YYYY [at] HH:mm'),
+            timezone: 'Asia/Phnom_Penh',
+          },
+        };
       }
     }
     if (dto.sendType === SendType.SEND_INTERVAL && dto.sendInterval) {
@@ -154,9 +153,9 @@ export class TemplateService implements OnModuleInit {
         throw new BadRequestException(
           new BaseResponseDto({
             errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
-            responseMessage: 'sendInterval.startAt cannot be in the past',
+            responseMessage: ResponseMessage.TEMPLATE_SEND_SCHEDULE_IN_PAST,
             data: {
-              startTime: startTime.format('h:mm A MMM D, YYYY'),
+              scheduledTime: startTime.format('h:mm A MMM D, YYYY'),
               currentTime: now.format('h:mm A MMM D, YYYY'),
               timezone: 'Asia/Phnom_Penh',
             },
@@ -825,72 +824,42 @@ export class TemplateService implements OnModuleInit {
         updateFields.sendType = sendType;
       }
       if (sendSchedule !== undefined) {
-        console.log(`🔵 [UPDATE] Processing sendSchedule update:`, {
-          provided: sendSchedule,
-          current: template.sendSchedule,
-          willUpdate: sendSchedule !== null && sendSchedule !== undefined,
-        });
         if (sendSchedule) {
           const scheduledTime = moment.utc(sendSchedule);
-          const existingScheduleTime = template.sendSchedule
-            ? moment.utc(template.sendSchedule)
-            : null;
           if (!scheduledTime.isValid()) {
-            throw new BadRequestException(
-              new BaseResponseDto({
-                responseCode: 1,
-                errorCode: ErrorCode.VALIDATION_FAILED,
-                responseMessage: 'Invalid sendSchedule date format',
-                data: {
-                  providedDate: sendSchedule,
-                  expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:30:00)',
-                },
-              })
-            );
+            throw new BadRequestException({
+              responseCode: 1,
+              errorCode: ErrorCode.VALIDATION_FAILED,
+              responseMessage: 'Invalid sendSchedule date format',
+              data: {
+                providedDate: sendSchedule,
+                expectedFormat: 'ISO 8601 format (e.g., 2025-10-06T09:30:00)',
+              },
+            });
           }
-          const isPreservingExistingSchedule =
-            existingScheduleTime && scheduledTime.isSame(existingScheduleTime);
-          if (!isPreservingExistingSchedule) {
-            const now = moment.utc();
-            if (scheduledTime.isBefore(now.clone().subtract(1, 'minute'))) {
-              throw new BadRequestException(
-                new BaseResponseDto({
-                  responseCode: 1,
-                  errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
-                  responseMessage:
-                    ResponseMessage.TEMPLATE_SEND_SCHEDULE_IN_PAST,
-                  data: {
-                    scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
-                    currentTime: now.format('h:mm A MMM D, YYYY'),
-                  },
-                })
-              );
-            }
-          } else {
-            console.log(
-              `🔵 [UPDATE] ⏭️ Preserving existing schedule time (no validation needed):`,
-              {
-                utc: scheduledTime.toISOString(),
-                cambodia: scheduledTime
-                  .clone()
-                  .utcOffset(7)
-                  .format('YYYY-MM-DD HH:mm:ss'),
-              }
-            );
+
+          const now = moment.utc();
+          if (scheduledTime.isBefore(now.clone().subtract(1, 'minute'))) {
+            // Mark as draft or expired
+            await this.repo.update(id, {
+              isSent: false,
+              approvalStatus: ApprovalStatus.EXPIRED, // Mark as expired
+            });
+
+            return {
+              responseCode: 2,
+              responseMessage: `The request was not approved in time, and the scheduled time <strong>${scheduledTime.format('M/D/YYYY [at] HH:mm')}</strong> has already passed. Please update the schedule and resubmit.`,
+              errorCode: 0,
+              data: {
+                scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
+                currentTime: now.format('h:mm A MMM D, YYYY'),
+                timezone: 'Asia/Phnom_Penh',
+              },
+            };
           }
           updateFields.sendSchedule = scheduledTime.toDate();
-          console.log(`🔵 [UPDATE] ✅ Setting sendSchedule to:`, {
-            utc: scheduledTime.toISOString(),
-            local: scheduledTime.format('YYYY-MM-DD HH:mm:ss'),
-            cambodia: scheduledTime
-              .clone()
-              .utcOffset(7)
-              .format('YYYY-MM-DD HH:mm:ss'),
-            isPreservingExisting: isPreservingExistingSchedule,
-          });
         } else {
           updateFields.sendSchedule = null;
-          console.log(`🔵 [UPDATE] ✅ Clearing sendSchedule (null provided)`);
         }
       }
       if (isSent !== undefined) {
@@ -2196,23 +2165,23 @@ export class TemplateService implements OnModuleInit {
             });
           }
 
-          // Suppress past date validation if already published
-          if (!isEditingPublished) {
-            const now = moment.utc();
-            if (scheduledTime.isBefore(now.clone().subtract(1, 'minute'))) {
-              throw new BadRequestException(
-                new BaseResponseDto({
-                  responseCode: 1,
-                  errorCode: ErrorCode.TEMPLATE_SEND_SCHEDULE_IN_PAST,
-                  responseMessage:
-                    ResponseMessage.TEMPLATE_SEND_SCHEDULE_IN_PAST,
-                  data: {
-                    scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
-                    currentTime: now.format('h:mm A MMM D, YYYY'),
-                  },
-                })
-              );
-            }
+          const now = moment.utc();
+          if (scheduledTime.isBefore(now.clone().subtract(1, 'minute'))) {
+            // Mark as draft or expired
+            updateFields.isSent = false;
+            updateFields.approvalStatus = ApprovalStatus.EXPIRED; // Mark as expired
+            await this.repo.update(id, updateFields);
+
+            return {
+              responseCode: 2,
+              responseMessage: `The request was not approved in time, and the scheduled time <strong>${scheduledTime.format('M/D/YYYY [at] HH:mm')}</strong> has already passed. Please update the schedule and resubmit.`,
+              errorCode: 0,
+              data: {
+                scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
+                currentTime: now.format('h:mm A MMM D, YYYY'),
+                timezone: 'Asia/Phnom_Penh',
+              },
+            };
           }
           updateFields.sendSchedule = scheduledTime.toDate();
         } else {

@@ -43,7 +43,11 @@
             ]"
             :data-content-lang="props.titleHasKhmer ? 'km' : ''"
           >
-            {{ displayTitle || 'No title' }}
+            {{
+              displayTitle ||
+              (props.activeLanguage === 'JP' ? 'タイトルなし' :
+                props.activeLanguage === 'KM' ? 'គ្មានចំណងជើង' : 'No title')
+            }}
           </div>
           <div class="flex items-center w-full gap-2 h-[18px]">
             <img
@@ -93,7 +97,10 @@
               @click.stop.prevent
               disabled
             >
-              Close
+              {{
+                props.activeLanguage === 'JP' ? '近い' :
+                props.activeLanguage === 'KM' ? 'បិទ' : 'Close'
+              }}
             </div>
             <div
               :href="props.linkToSeeMore"
@@ -102,7 +109,10 @@
               target="_blank"
               rel="noopener noreferrer"
             >
-              Read more
+              {{
+                props.activeLanguage === 'JP' ? '続きを読む' :
+                props.activeLanguage === 'KM' ? 'អានបន្ថែម' : 'Read more'
+              }}
             </div>
           </template>
           <template v-else>
@@ -110,7 +120,10 @@
               class="rounded-[12.08px] p-[12.08px] bg-[#DB1A1A] text-white font-semibold text-[16px] select-none flex items-center justify-center text-center align-center"
               style="width: 307.92px; height: 42.15px; pointer-events: none; cursor: default; user-select: none;"
             >
-              Close
+              {{
+                props.activeLanguage === 'JP' ? '近い' :
+                props.activeLanguage === 'KM' ? 'បិទ' : 'Close'
+              }}
             </div>
           </template>
         </div>

@@ -29,20 +29,17 @@
         <div
           v-if="
             (isEditMode || isViewMode) &&
-            fromTab === 'draft' &&
-            expiredScheduleTime &&
-            !originalIsSent
+            isTemplateExpired &&
+            !rejectReasonText
           "
           class="reject-reason-container expired-time-container"
         >
           <div class="reject-reason-header">
-            <el-icon class="reject-reason-icon"><WarningFilled /></el-icon>
+            <el-icon class="reject-reason-icon"><Timer /></el-icon>
             <div class="reject-reason-label">
               Expired Time:
               <span class="reject-reason-text">
-                The request was not approved in time, and the scheduled time
-                <strong>{{ expiredScheduleTime }}</strong
-                >, has already passed. Please update the schedule and resubmit.
+                The request was not approved in time, and the <template v-if="expiredScheduleTime">scheduled time <strong>{{ expiredScheduleTime }}</strong></template><template v-else>scheduled time</template> has already passed. Please update the schedule and resubmit.
               </span>
             </div>
           </div>
@@ -538,6 +535,14 @@
                 @click="() => handleSaveDraft(false)"
               />
               <Button
+                v-if="isEditMode && fromTab === 'draft'"
+                text="Cancel now"
+                variant="secondary"
+                size="medium"
+                height="56px"
+                @click="handleCancel"
+              />
+              <Button
                 v-if="!isEditMode"
                 text="Save draft"
                 variant="secondary"
@@ -650,7 +655,7 @@
   import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
   import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router';
   import { ElNotification, ElInputNumber, ElMessageBox } from 'element-plus';
-  import { ArrowDown, WarningFilled } from '@element-plus/icons-vue';
+  import { ArrowDown, WarningFilled, Timer } from '@element-plus/icons-vue';
   import {
     MobilePreview,
     ImageUpload,
@@ -1119,6 +1124,60 @@
   const expiredScheduleTime = ref<string | null>(null);
   const originalSendSchedule = ref<string | null>(null);
 
+  const resetForm = () => {
+    // Reset formData
+    formData.notificationType = NotificationType.ANNOUNCEMENT;
+    formData.categoryTypeId = null;
+    formData.pushToPlatforms = Platform.ALL;
+    formData.showPerDay = 1;
+    formData.maxDayShowing = 1;
+    formData.platform = BakongApp.BAKONG;
+    formData.scheduleEnabled = false;
+    formData.scheduleDate = getTodayDateString();
+    formData.scheduleTime = getCurrentTimePlaceholder();
+    formData.splashEnabled = false;
+
+    // Reset languageFormData
+    Object.keys(languageFormData).forEach((lang) => {
+      languageFormData[lang] = {
+        title: '',
+        description: '',
+        linkToSeeMore: '',
+        imageFile: null,
+        imageUrl: null,
+      };
+    });
+
+    // Reset other state
+    activeLanguage.value = Language.KM;
+    titleError.value = '';
+    descriptionError.value = '';
+    linkError.value = '';
+    isEditingPublished.value = false;
+    wasScheduled.value = false;
+    isEditingPending.value = false;
+    isEditingScheduled.value = false;
+    isTemplateExpired.value = false;
+    hasLoadedScheduleTime.value = false;
+    loadedScheduleTime.value = null;
+    originalIsSent.value = null;
+    templateCreatedAt.value = null;
+    rejectReasonText.value = '';
+    expiredScheduleTime.value = null;
+    originalSendSchedule.value = null;
+
+    // Reset existing images/translations
+    Object.keys(existingImageIds).forEach((lang) => {
+      existingImageIds[lang] = null;
+    });
+    Object.keys(existingTranslationIds).forEach((lang) => {
+      existingTranslationIds[lang] = null;
+    });
+
+    // Re-initialize category types to set default
+    initializeCategoryTypes();
+  };
+
   const loadNotificationData = async () => {
     if ((!isEditMode.value && !isViewMode.value) || !notificationId.value)
       return;
@@ -1156,9 +1215,8 @@
       isEditingPending.value = template.approvalStatus === 'PENDING';
 
       isTemplateExpired.value =
-        (template.approvalStatus === 'EXPIRED' ||
-          template.approvalStatus === 'REJECTED') &&
-        template.isSent !== true;
+        template.approvalStatus === 'EXPIRED' ||
+        template.approvalStatus === 'REJECTED';
 
       if (template.approvalStatus === 'REJECTED') {
         rejectReasonText.value = template.reasonForRejection || '';
@@ -1229,31 +1287,11 @@
             template.sendSchedule
           );
           if (date && time) {
-            console.log('🔵 [Load Data] BEFORE setting schedule:', {
-              originalUTC: template.sendSchedule,
-              parsedDate: date,
-              parsedTime: time,
-              currentFormDataScheduleTime: formData.scheduleTime,
-              hasLoadedScheduleTime: hasLoadedScheduleTime.value,
-              isLoadingData: isLoadingData.value,
-            });
-
             loadedScheduleTime.value = time;
             hasLoadedScheduleTime.value = true;
 
             formData.scheduleDate = date;
             formData.scheduleTime = time;
-
-            console.log('✅ [Load Data] AFTER setting schedule time:', {
-              originalUTC: template.sendSchedule,
-              parsedDate: date,
-              parsedTime: time,
-              formDataScheduleDate: formData.scheduleDate,
-              formDataScheduleTime: formData.scheduleTime,
-              loadedScheduleTime: loadedScheduleTime.value,
-              hasLoadedScheduleTime: hasLoadedScheduleTime.value,
-              isLoadingData: isLoadingData.value,
-            });
 
             await nextTick();
 
@@ -1270,15 +1308,6 @@
 
             formData.scheduleEnabled = true;
 
-            console.log('✅ [Load Data] AFTER enabling toggle:', {
-              formDataScheduleTime: formData.scheduleTime,
-              expectedTime: time,
-              loadedScheduleTime: loadedScheduleTime.value,
-              timeMatches: formData.scheduleTime === time,
-              hasLoadedScheduleTime: hasLoadedScheduleTime.value,
-              scheduleEnabled: formData.scheduleEnabled,
-            });
-
             await nextTick();
 
             if (
@@ -1294,20 +1323,8 @@
               );
               formData.scheduleTime = loadedScheduleTime.value;
             }
-
-            console.log('🔍 [Load Data] Final check after toggle enabled:', {
-              formDataScheduleTime: formData.scheduleTime,
-              expectedTime: time,
-              loadedScheduleTime: loadedScheduleTime.value,
-              timeMatches: formData.scheduleTime === time,
-              hasLoadedScheduleTime: hasLoadedScheduleTime.value,
-            });
           }
         } catch (error) {
-          console.error(
-            '❌ [Load Data] Error parsing schedule date/time:',
-            error
-          );
           hasLoadedScheduleTime.value = false;
           loadedScheduleTime.value = null;
         }
@@ -1397,13 +1414,6 @@
             !existingImageIds[activeLanguage.value]);
 
         if (activeIsEmpty) {
-          console.log(
-            '🔄 [Load Data] Auto-switching tab to',
-            firstLangWithData,
-            'because current tab',
-            activeLanguage.value,
-            'is empty'
-          );
           activeLanguage.value = firstLangWithData;
         }
       }
@@ -1415,13 +1425,6 @@
         loadedScheduleTime.value &&
         formData.scheduleTime !== loadedScheduleTime.value
       ) {
-        console.log(
-          '🔒 [Load Data] Final restoration - Time incorrect before finishing load:',
-          {
-            current: formData.scheduleTime,
-            expected: loadedScheduleTime.value,
-          }
-        );
         formData.scheduleTime = loadedScheduleTime.value;
         await nextTick();
       }
@@ -1441,33 +1444,17 @@
         isReadOnly.value
       ) {
         if (formData.scheduleTime !== loadedScheduleTime.value) {
-          console.log(
-            '🔒 [Load Data] Final preservation for expired template (view mode):',
-            {
-              current: formData.scheduleTime,
-              original: loadedScheduleTime.value,
-            }
-          );
           formData.scheduleTime = loadedScheduleTime.value;
           await nextTick();
         }
-        console.log(
-          '🔒 [Load Data] Expired template (view mode) - keeping hasLoadedScheduleTime=true to preserve original time'
-        );
       } else if (
         isTemplateExpired.value &&
         hasLoadedScheduleTime.value &&
         loadedScheduleTime.value &&
         !isReadOnly.value
       ) {
-        console.log(
-          '✅ [Load Data] Expired template (edit mode) - will allow time editing after load completes'
-        );
         nextTick(() => {
           setTimeout(() => {
-            console.log(
-              '✅ [Load Data] Expired template (edit mode) - clearing preservation flag to allow editing'
-            );
             hasLoadedScheduleTime.value = false;
             loadedScheduleTime.value = null;
           }, 200); // Small delay to ensure time picker has initialized with correct value
@@ -1475,19 +1462,17 @@
       }
 
       isLoadingData.value = false;
-      console.log(
-        '✅ [Load Data] Loading complete, isLoadingData set to false',
-        {
-          isTemplateExpired: isTemplateExpired.value,
-          hasLoadedScheduleTime: hasLoadedScheduleTime.value,
-          loadedScheduleTime: loadedScheduleTime.value,
-          formDataScheduleTime: formData.scheduleTime,
-          isReadOnly: isReadOnly.value,
-          isEditMode: isEditMode.value,
-        }
-      );
     }
   };
+
+  watch(
+    () => route.name,
+    (newRouteName) => {
+      if (newRouteName === 'create-notification') {
+        resetForm();
+      }
+    }
+  );
 
   onMounted(async () => {
     datePlaceholder.value = getCurrentDatePlaceholder();
@@ -1502,10 +1487,6 @@
 
       await nextTick();
       if (formData.scheduleDate !== todayDate) {
-        console.log('⚠️ [Mount] Date was changed, correcting back to today:', {
-          expected: todayDate,
-          actual: formData.scheduleDate,
-        });
         formData.scheduleDate = todayDate;
       }
 
@@ -1513,10 +1494,6 @@
         await nextTick();
         if (formData.scheduleDate !== todayDate) {
           formData.scheduleDate = todayDate;
-          console.log(
-            '✅ [Mount] Corrected schedule date to today:',
-            todayDate
-          );
         }
       }
     }
@@ -1584,13 +1561,6 @@
         isReadOnly.value
       ) {
         if (newTime !== loadedScheduleTime.value) {
-          console.log(
-            '🔒 [ScheduleTime Watcher] RESTORING - Expired template (view mode) time changed, restoring to original:',
-            {
-              attemptedTime: newTime,
-              restoredTime: loadedScheduleTime.value,
-            }
-          );
           nextTick(() => {
             formData.scheduleTime = loadedScheduleTime.value;
           });
@@ -1604,13 +1574,6 @@
         loadedScheduleTime.value
       ) {
         if (newTime !== loadedScheduleTime.value) {
-          console.log(
-            '🔒 [ScheduleTime Watcher] RESTORING - Time changed during load, restoring to loaded time:',
-            {
-              attemptedTime: newTime,
-              restoredTime: loadedScheduleTime.value,
-            }
-          );
           nextTick(() => {
             formData.scheduleTime = loadedScheduleTime.value;
           });
@@ -1622,27 +1585,8 @@
   watch(
     () => formData.scheduleEnabled,
     (isEnabled, wasEnabled) => {
-      console.log('🔵 [Schedule Toggle Watcher] FIRED:', {
-        isEnabled,
-        wasEnabled,
-        currentScheduleTime: formData.scheduleTime,
-        currentScheduleDate: formData.scheduleDate,
-        hasLoadedScheduleTime: hasLoadedScheduleTime.value,
-        isLoadingData: isLoadingData.value,
-        isEditMode: isEditMode.value,
-      });
 
       if (hasLoadedScheduleTime.value && formData.scheduleTime) {
-        console.log(
-          '🔒 [Schedule Toggle] BLOCKED - Preserving loaded schedule time:',
-          {
-            scheduleDate: formData.scheduleDate,
-            scheduleTime: formData.scheduleTime,
-            wasEnabled,
-            isLoadingData: isLoadingData.value,
-            hasLoadedScheduleTime: hasLoadedScheduleTime.value,
-          }
-        );
         return; // Always preserve loaded schedule time, never overwrite
       }
 
@@ -1658,27 +1602,12 @@
         nextTick(() => {
           if (formData.scheduleDate !== todayDate) {
             formData.scheduleDate = todayDate;
-            console.log(
-              '✅ [Schedule Toggle] Corrected date to today for new notification:',
-              {
-                oldDate: formData.scheduleDate,
-                newDate: todayDate,
-              }
-            );
           } else {
             formData.scheduleDate = todayDate;
           }
           if (!formData.scheduleTime || formData.scheduleTime === '') {
             formData.scheduleTime = currentTime;
           }
-          console.log(
-            '✅ [Schedule Toggle] New notification - Set date to today:',
-            {
-              date: formData.scheduleDate,
-              time: formData.scheduleTime,
-              wasEnabled,
-            }
-          );
         });
       } else if (
         isEnabled &&
@@ -1698,7 +1627,6 @@
           hasLoadedScheduleTime.value = false;
         }
         formData.scheduleTime = null;
-        console.log('✅ [Schedule Toggle] Disabled - Cleared time');
       } else if (isEnabled && formData.scheduleTime) {
         console.log('✅ [Schedule Toggle] Preserving existing schedule time:', {
           scheduleDate: formData.scheduleDate,
@@ -1707,14 +1635,14 @@
           isLoadingData: isLoadingData.value,
           hasLoadedScheduleTime: hasLoadedScheduleTime.value,
         });
-      } else {
-        console.log('⚠️ [Schedule Toggle] No action taken:', {
-          isEnabled,
+        console.log('✅ [Schedule Toggle] Preserving existing schedule time:', {
+          scheduleDate: formData.scheduleDate,
+          scheduleTime: formData.scheduleTime,
           wasEnabled,
-          hasScheduleTime: !!formData.scheduleTime,
-          hasLoadedScheduleTime: hasLoadedScheduleTime.value,
           isLoadingData: isLoadingData.value,
+          hasLoadedScheduleTime: hasLoadedScheduleTime.value,
         });
+      } else {
       }
     }
   );
@@ -1727,7 +1655,6 @@
 
   const handleDatePickerChange = (val: string | null) => {
     formData.scheduleDate = val ?? '';
-    console.log('Date changed:', val);
   };
 
   const titleError = ref('');
@@ -1811,20 +1738,6 @@
 
   const handlePublishNow = async () => {
     isSavingOrPublishing.value = true;
-
-    console.log(
-      '🔍 [Expired Check] Validating schedule time before submission:',
-      {
-        scheduleEnabled: formData.scheduleEnabled,
-        scheduleDate: formData.scheduleDate,
-        scheduleTime: formData.scheduleTime,
-        isEditMode: isEditMode.value,
-        notificationId: notificationId.value,
-        expiredScheduleTime: expiredScheduleTime.value,
-        isTemplateExpired: isTemplateExpired.value,
-        originalSendSchedule: originalSendSchedule.value,
-      }
-    );
 
     if (
       isEditMode.value &&
@@ -1965,13 +1878,6 @@
         const datePattern = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
         const timePattern = /^\d{2}:\d{2}$/;
 
-        console.log('🔍 [Expired Check] Validating date/time format:', {
-          dateStr,
-          timeStr,
-          dateMatches: datePattern.test(dateStr),
-          timeMatches: timePattern.test(timeStr),
-        });
-
         if (datePattern.test(dateStr) && timePattern.test(timeStr)) {
           try {
             const scheduleDateTime = DateUtils.parseScheduleDateTime(
@@ -2009,9 +1915,6 @@
               isSavingOrPublishing.value = false; // Reset flag on expired check failure
               return;
             }
-            console.log(
-              '✅ [Expired Check] Schedule time is valid (in the future)'
-            );
           } catch (error) {
             console.error(
               '❌ [Expired Template Check] Error parsing schedule:',
@@ -5041,11 +4944,12 @@
   .reject-reason-icon {
     color: #e42323;
     font-size: 18px;
+    font-weight: 800;
   }
 
   .reject-reason-label {
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 800;
     color: #e42323;
   }
 

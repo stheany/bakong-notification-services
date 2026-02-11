@@ -9,7 +9,7 @@ import { RejectTemplateDto } from './dto/reject-template.dto';
 import { TemplateService } from './template.service';
 @Controller('template')
 export class TemplateController {
-  constructor(private readonly templateService: TemplateService) {}
+  constructor(private readonly templateService: TemplateService) { }
   @Roles(UserRole.ADMINISTRATOR, UserRole.EDITOR)
   @Post('create')
   async create(@Body() dto: CreateTemplateDto, @Req() req: any) {
@@ -28,7 +28,13 @@ export class TemplateController {
         currentUser?.username || 'NO USER'
       );
       console.log('🎯 [CONTROLLER] Calling templateService.create...');
-      const template = await this.templateService.create(dto, currentUser);
+      const result = await this.templateService.create(dto, currentUser);
+
+      if ((result as any).responseCode === 2) {
+        return result;
+      }
+
+      const template = result;
       console.log(
         '🎯 [CONTROLLER] Template service returned, notificationType:',
         template.notificationType
@@ -69,11 +75,17 @@ export class TemplateController {
     });
     console.log('🎯 [CONTROLLER] Update request data:', safeDto);
     const currentUser = req.user;
-    const template = await this.templateService.update(
+    const result = await this.templateService.update(
       +id,
       updateUserDto,
       currentUser
     );
+
+    if ((result as any).responseCode === 2) {
+      return result;
+    }
+
+    const template = result;
     console.log('🎯 [CONTROLLER] Update result:', {
       templateId: template.templateId,
       platforms: template.platforms,
