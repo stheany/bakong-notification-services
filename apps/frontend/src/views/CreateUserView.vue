@@ -198,6 +198,11 @@
     return {
       username: [
         { required: true, message: 'Full name is required', trigger: 'blur' },
+        {
+          min: 3,
+          message: 'username must be longer than or equal to 3 characters',
+          trigger: 'blur',
+        },
       ],
       email: [
         { required: true, message: 'Email is required', trigger: 'blur' },

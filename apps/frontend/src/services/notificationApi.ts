@@ -357,7 +357,7 @@ export const notificationApi = {
               status: template.isSent
                 ? 'published'
                 : template.sendType === 'SEND_SCHEDULE' ||
-                    template.sendType === 'SEND_INTERVAL'
+                  template.sendType === 'SEND_INTERVAL'
                   ? 'scheduled'
                   : 'draft',
               type: template.notificationType,
@@ -550,13 +550,13 @@ export const notificationApi = {
         response.data.data.files ||
         (response.data.data.fileId
           ? [
-              {
-                language: languages[0],
-                fileId: response.data.data.fileId,
-                mimeType: normalized[0].file.type,
-                originalFileName: normalized[0].file.name,
-              },
-            ]
+            {
+              language: languages[0],
+              fileId: response.data.data.fileId,
+              mimeType: normalized[0].file.type,
+              originalFileName: normalized[0].file.name,
+            },
+          ]
           : [])
       );
     } catch (error) {
@@ -655,7 +655,6 @@ export const notificationApi = {
       const response = await api.post(`/api/v1/template/${id}/submit`);
       return response.data;
     } catch (error: any) {
-      console.error('Error submitting template for approval:', error);
       throw error;
     }
   },

@@ -866,7 +866,25 @@ const canDeleteNotification = (notification: Notification) => {
 
       loadingNotification.close();
 
-      const responseData = result?.data?.data || result?.data || result;
+      // Check for warning response from backend (expired schedule)
+      if (result?.responseCode === 2) {
+        ElNotification({
+          title: 'Warning',
+          message: result.responseMessage,
+          type: 'warning',
+          duration: 8000,
+          dangerouslyUseHTMLString: true,
+          showClose: true,
+        });
+
+        emit('switch-tab', 'draft');
+        setTimeout(() => {
+          emit('refresh', true);
+        }, 500);
+        return;
+      }
+
+      const responseData = result?.data || result;
       const successfulCount = responseData?.successfulCount || 0;
       const failedCount = responseData?.failedCount || 0;
       const isSent = responseData?.isSent === true;
