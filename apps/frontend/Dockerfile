@@ -1,49 +1,42 @@
 # Build stage
 FROM node:20-alpine AS builder
+
 WORKDIR /app
+
 # Cache busting to ensure fresh build after configuration changes
 ARG CACHE_BUST=1
 ENV CACHE_BUST=${CACHE_BUST}
 
-# Copy root package files for workspace setup
+# -----------------------------------------------------
+# Copy workspace configuration and package files
+# -----------------------------------------------------
 COPY package*.json ./
-COPY package-lock.json* ./
-
-# Copy root tsconfig.json (needed by shared package)
-COPY tsconfig.json ./
-
-# Copy shared package files
+COPY apps/frontend/package*.json ./apps/frontend/
 COPY apps/packages/shared/package*.json ./apps/packages/shared/
 
-# Copy frontend package files
-COPY apps/frontend/package*.json ./apps/frontend/
-
-# Install workspace dependencies at root level
-RUN npm ci --legacy-peer-deps || npm install --legacy-peer-deps
-
-# Copy shared package source and build it
+# Copy configuration files
+COPY tsconfig.json ./
 COPY apps/packages/shared/tsconfig.json ./apps/packages/shared/
+
+# -----------------------------------------------------
+# Install dependencies for the entire workspace
+# -----------------------------------------------------
+RUN set -eux; \
+    for i in 1 2 3; do \
+    npm ci --legacy-peer-deps && break || \
+    (echo "⚠️  npm install attempt $i failed, retrying..." && sleep 5); \
+    done
+
+# -----------------------------------------------------
+# Build process
+# -----------------------------------------------------
+
+# Copy shared source and build it
 COPY apps/packages/shared/src ./apps/packages/shared/src
-WORKDIR /app/apps/packages/shared
-RUN npm exec -- tsc
+RUN npm run build:shared
 
-# Copy frontend source code (exclude node_modules and dist to avoid conflicts)
-WORKDIR /app
-# Copy frontend files but preserve the workspace structure
-# Explicitly ensure public folder is copied
-COPY apps/frontend/. ./apps/frontend/
-# Verify public folder was copied
-RUN ls -la apps/frontend/ | grep public || echo "WARNING: public folder not found after COPY"
-# Verify LogoNBC.svg exists (required for build)
-RUN ls -la apps/frontend/src/assets/image/LogoNBC.svg || echo "ERROR: LogoNBC.svg not found!"
-RUN rm -rf ./apps/frontend/node_modules ./apps/frontend/dist || true
-
-# Reinstall dependencies to ensure frontend-specific deps are available
-# This ensures all dependencies including @vitejs/plugin-vue are properly linked
-WORKDIR /app
-RUN npm install --legacy-peer-deps
-
-# Build the application (ensure we're in the frontend directory)
+# Copy frontend source and build it
+COPY apps/frontend/ ./apps/frontend/
 # Accept build args for environment variables
 ARG VITE_API_BASE_URL
 ARG VITE_FRONTEND_PORT=3000
