@@ -33,6 +33,7 @@ export default defineConfig({
   server: {
     port: frontendPort,
     host: true,
+    allowedHosts: true,
     proxy: {
       '/api': {
         // Use Docker service name if available, otherwise use apiBaseUrl

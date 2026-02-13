@@ -91,7 +91,7 @@
                 class="approval-now-button"
                 @click="handleApprovalNowClick(notification)"
               >
-                <span>Approval Now</span>
+                <span>Review detail</span>
               </button>
 
               <template
@@ -116,13 +116,7 @@
                 </button>
               </template>
 
-              <button
-                v-if="canPublishNow(notification)"
-                class="publish-now-button"
-                @click="handlePublishNowClick(notification)"
-              >
-                <span>Publish Now</span>
-              </button>
+
 
               <button
                 v-if="canSubmitNotification(notification)"
@@ -1416,17 +1410,18 @@ const canDeleteNotification = (notification: Notification) => {
     min-width: 130px;
     height: 56px;
     flex: 0 0 auto;
-    background: #10b981;
+    background: rgba(0, 19, 70, 0.05);
+    backdrop-filter: blur(64px);
     border-radius: 32px;
     border: none;
     cursor: pointer;
-    color: white;
+    color: #001346;
     font-size: 16px;
     font-weight: 500;
     transition: background-color 0.15s ease-in-out;
   }
   .approval-now-button:hover:not(:disabled) {
-    background: #059669;
+    background: rgba(0, 19, 70, 0.1);
   }
   .approval-now-button:disabled,
   .approval-now-button.disabled {

@@ -566,17 +566,19 @@
                 variant="primary"
                 size="medium"
                 height="56px"
+                :icon="approveIcon"
                 @click="handleApprovalFromView"
               />
               <Button
-                text="Reject Now"
+                text="Reject"
                 variant="danger"
                 size="medium"
                 height="56px"
+                :icon="rejectIcon"
                 @click="handleRejectFromView"
               />
               <Button
-                text="Cancel now"
+                text="Cancel"
                 variant="secondary"
                 size="medium"
                 height="56px"
@@ -663,6 +665,10 @@
     Button,
   } from '@/components/common';
   import ConfirmationDialog from '@/components/common/ConfirmationDialog.vue';
+
+  const approveIcon = new URL('@/assets/image/checkmark--outline.svg', import.meta.url).href;
+  const rejectIcon = new URL('@/assets/image/x.svg', import.meta.url).href;
+
   import {
     notificationApi,
     type CreateTemplateRequest,
@@ -771,8 +777,7 @@
   };
 
   const approvalButtonText = computed(() => {
-    if (!isApprovalViewMode.value) return 'Approve';
-    return formData.scheduleEnabled ? 'Approval Scheduled' : 'Approval Now';
+    return 'Approve';
   });
 
   const publishButtonText = computed(() => {
@@ -792,7 +797,7 @@
     if (userRole === UserRole.EDITOR || userRole === UserRole.ADMINISTRATOR) {
       return 'Submit now';
     }
-    return 'Publish now';
+    return 'Submit now';
   });
 
   const languages = [
@@ -4933,11 +4938,17 @@
     flex-shrink: 0;
     max-height: 200px;
     overflow-y: auto;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    width: 603px;
+    box-sizing: border-box;
   }
 
   .reject-reason-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
   }
 
@@ -4945,18 +4956,19 @@
     color: #e42323;
     font-size: 18px;
     font-weight: 800;
+    margin-top: 2px;
   }
 
   .reject-reason-label {
     font-size: 14px;
-    font-weight: 800;
-    color: #e42323;
+    font-weight: 700;
+    color: #991b1b;
+    line-height: 1.5;
   }
 
   .reject-reason-text {
-    font-weight: 600;
-    /* color: #333; */
-    color: #e42323;
+    font-weight: 500;
+    color: #b91c1c;
     word-wrap: break-word;
     display: inline;
   }
@@ -4987,31 +4999,37 @@
     outline: none;
   }
 
+  .expired-time-container {
+    background-color: #fffbeb !important;
+    border-color: #fde68a !important;
+  }
+
   .expired-time-container .reject-reason-header {
     gap: 10px;
   }
 
   .expired-time-container .reject-reason-icon {
-    color: #e0ab0e;
+    color: #eab308;
     font-size: 18px;
   }
 
   .expired-time-container .reject-reason-label {
-    color: #e0ab0e;
+    color: #92400e;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1.5;
   }
 
   .expired-time-container .reject-reason-text {
-    font-weight: 600;
-    color: #e0ab0e;
+    font-weight: 500;
+    color: #b45309;
     word-wrap: break-word;
     display: inline;
   }
 
   .expired-time-container .reject-reason-text strong {
     font-weight: 800;
-    color: #e0ab0e;
+    color: #92400e;
   }
+
 </style>

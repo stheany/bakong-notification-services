@@ -35,30 +35,17 @@
       <button
         v-if="showApprovalButton(n)"
         :disabled="!canUseButtons()"
-        class="mt-2 w-[123px] h-[56px] rounded-[32px] text-white text-[16px] font-semibold leading-[150%] transition-colors"
+        class="mt-2 w-[123px] h-[56px] rounded-[32px] text-[#001346] text-[16px] font-semibold leading-[150%] transition-colors backdrop-blur-[64px]"
         :class="
           canUseButtons()
-            ? 'bg-[#10B981] hover:bg-[#059669] cursor-pointer'
+            ? 'bg-[rgba(0,19,70,0.05)] hover:bg-[rgba(0,19,70,0.1)] cursor-pointer'
             : 'bg-gray-400 cursor-not-allowed opacity-60'
         "
         @click="canUseButtons() && $emit('approve-navigate', n)"
       >
-        Approval
+        Review detail
       </button>
 
-      <button
-        v-else-if="showButton(n)"
-        :disabled="!canUseButtons()"
-        class="mt-2 w-[123px] h-[56px] rounded-[32px] text-white text-[16px] font-semibold leading-[150%] transition-colors"
-        :class="
-          canUseButtons()
-            ? 'bg-[#0F4AEA] hover:bg-[#0d3bc7] cursor-pointer'
-            : 'bg-gray-400 cursor-not-allowed opacity-60'
-        "
-        @click="canUseButtons() && $emit('send-now', n)"
-      >
-        Publish now
-      </button>
     </div>
   </div>
 </template>
