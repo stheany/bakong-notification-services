@@ -5,7 +5,7 @@
         >Schedule</span
       >
       <span class="breadcrumb-separator">/</span>
-      <span class="breadcrumb-current">View detail</span>
+      <span class="breadcrumb-current">Review detail</span>
     </div>
     <h1 class="page-title">Schedule Detail</h1>
     <div class="schedule-content">
@@ -31,13 +31,7 @@
         </p>
       </div>
       <div class="action-buttons">
-        <el-button
-          type="primary"
-          :loading="publishing"
-          @click="handlePublishNow"
-        >
-          Publish now
-        </el-button>
+
         <el-button @click="handleEdit"> Edit </el-button>
         <el-button type="danger" @click="handleDelete"> Delete </el-button>
       </div>

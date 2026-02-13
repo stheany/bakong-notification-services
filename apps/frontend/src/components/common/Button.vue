@@ -136,8 +136,8 @@
   }
   .button-icon-left img,
   .button-icon-right img {
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
   }
   .button-text {
     white-space: nowrap;
