@@ -357,7 +357,7 @@ export const notificationApi = {
               status: template.isSent
                 ? 'published'
                 : template.sendType === 'SEND_SCHEDULE' ||
-                  template.sendType === 'SEND_INTERVAL'
+                    template.sendType === 'SEND_INTERVAL'
                   ? 'scheduled'
                   : 'draft',
               type: template.notificationType,
@@ -550,13 +550,13 @@ export const notificationApi = {
         response.data.data.files ||
         (response.data.data.fileId
           ? [
-            {
-              language: languages[0],
-              fileId: response.data.data.fileId,
-              mimeType: normalized[0].file.type,
-              originalFileName: normalized[0].file.name,
-            },
-          ]
+              {
+                language: languages[0],
+                fileId: response.data.data.fileId,
+                mimeType: normalized[0].file.type,
+                originalFileName: normalized[0].file.name,
+              },
+            ]
           : [])
       );
     } catch (error) {
@@ -584,8 +584,14 @@ export const notificationApi = {
         throw new Error('Failed to delete notification');
       }
       // If backend returns a response code, check it
-      if (response.data && response.data.responseCode && response.data.responseCode !== 'SUCCESS') {
-        throw new Error(response.data.responseMessage || 'Failed to delete notification');
+      if (
+        response.data &&
+        response.data.responseCode &&
+        response.data.responseCode !== 'SUCCESS'
+      ) {
+        throw new Error(
+          response.data.responseMessage || 'Failed to delete notification'
+        );
       }
       // Deletion succeeded
     } catch (error) {

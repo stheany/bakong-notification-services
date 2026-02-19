@@ -116,8 +116,6 @@
                 </button>
               </template>
 
-
-
               <button
                 v-if="canSubmitNotification(notification)"
                 class="submit-button"
@@ -227,26 +225,31 @@
   const isApprover = computed(() => {
     return (authStore.user?.role as any) === UserRole.APPROVAL;
   });
-const canDeleteNotification = (notification: Notification) => {
-  const role = authStore.user?.role as any;
-  // Viewers: never see delete button
-  if (role === UserRole.VIEW_ONLY) {
+  const canDeleteNotification = (notification: Notification) => {
+    const role = authStore.user?.role as any;
+    // Viewers: never see delete button
+    if (role === UserRole.VIEW_ONLY) {
+      return false;
+    }
+    // Editors: can only delete in 'pending' and 'draft' tabs
+    if (role === UserRole.EDITOR) {
+      return props.activeTab === 'pending' || props.activeTab === 'draft';
+    }
+    // Admin: can delete everywhere
+    if (role === UserRole.ADMINISTRATOR) {
+      return true;
+    }
+    // Approval: can delete in 'pending' and 'draft' tabs
+    if (role === UserRole.APPROVAL) {
+      return (
+        props.activeTab === 'pending' ||
+        props.activeTab === 'draft' ||
+        props.activeTab === 'published' ||
+        props.activeTab === 'scheduled'
+      );
+    }
     return false;
-  }
-  // Editors: can only delete in 'pending' and 'draft' tabs
-  if (role === UserRole.EDITOR) {
-    return props.activeTab === 'pending' || props.activeTab === 'draft';
-  }
-  // Admin: can delete everywhere
-  if (role === UserRole.ADMINISTRATOR) {
-    return true;
-  }
-  // Approval: can delete in 'pending' and 'draft' tabs
-  if (role === UserRole.APPROVAL) {
-    return props.activeTab === 'pending' || props.activeTab === 'draft' || props.activeTab === 'published' || props.activeTab === 'scheduled';
-  }
-  return false;
-};
+  };
   const canEditNotification = (notification: Notification) => {
     const role = authStore.user?.role as any;
 
@@ -449,7 +452,9 @@ const canDeleteNotification = (notification: Notification) => {
     const confirmed = await showDeleteDialog('notification');
     if (confirmed) {
       try {
-        await notificationApi.deleteNotification(Number(notification.templateId || notification.id));
+        await notificationApi.deleteNotification(
+          Number(notification.templateId || notification.id)
+        );
         ElNotification({
           title: 'Success',
           message: 'Notification deleted successfully',
@@ -460,7 +465,10 @@ const canDeleteNotification = (notification: Notification) => {
       } catch (error: any) {
         ElNotification({
           title: 'Error',
-          message: error?.response?.data?.responseMessage || error?.message || 'Failed to delete notification',
+          message:
+            error?.response?.data?.responseMessage ||
+            error?.message ||
+            'Failed to delete notification',
           type: 'error',
           duration: 2000,
         });
@@ -506,8 +514,6 @@ const canDeleteNotification = (notification: Notification) => {
           // [console.log removed]
 
           if (scheduledTime < oneMinuteAgo) {
-    
-
             try {
               await notificationApi.approveTemplate(Number(templateId));
             } catch (error: any) {
@@ -651,7 +657,6 @@ const canDeleteNotification = (notification: Notification) => {
         errorMessage.includes('No users match');
 
       if (isNoUsersError) {
-
         ElNotification({
           title: 'Warning',
           message: formatNoUsersFoundMessage(errorMessage),

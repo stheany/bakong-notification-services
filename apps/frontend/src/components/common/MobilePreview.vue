@@ -39,14 +39,17 @@
             class="title-container"
             :class="[
               { 'lang-khmer': props.titleHasKhmer },
-              { 'empty-title': !displayTitle }
+              { 'empty-title': !displayTitle },
             ]"
             :data-content-lang="props.titleHasKhmer ? 'km' : ''"
           >
             {{
               displayTitle ||
-              (props.activeLanguage === 'JP' ? 'タイトルなし' :
-                props.activeLanguage === 'KM' ? 'គ្មានចំណងជើង' : 'No title')
+              (props.activeLanguage === 'JP'
+                ? 'タイトルなし'
+                : props.activeLanguage === 'KM'
+                  ? 'គ្មានចំណងជើង'
+                  : 'No title')
             }}
           </div>
           <div class="flex items-center w-full gap-2 h-[18px]">
@@ -57,7 +60,10 @@
             />
             <div
               v-if="displayCategory"
-              :class="['text-[12px] leading-[18px] text-black flex items-center overflow-hidden', props.activeLanguage === 'KM' ? 'category-khmer' : '']"
+              :class="[
+                'text-[12px] leading-[18px] text-black flex items-center overflow-hidden',
+                props.activeLanguage === 'KM' ? 'category-khmer' : '',
+              ]"
             >
               {{ formatCategoryType(displayCategory) }}
             </div>
@@ -67,14 +73,17 @@
             ></div>
           </div>
           <div
-            :class="['text-[14px] leading-[18px] text-black h-[18px] flex items-center pb-2', props.activeLanguage === 'KM' ? 'date-khmer' : '']"
+            :class="[
+              'text-[14px] leading-[18px] text-black h-[18px] flex items-center pb-2',
+              props.activeLanguage === 'KM' ? 'date-khmer' : '',
+            ]"
           >
             {{ currentDate }}
           </div>
           <div
             v-if="displayDescription"
             class="description-container-relative overflow-y-auto overflow-x-hidden"
-            style="max-height: 180px; width: 95%;"
+            style="max-height: 180px; width: 95%"
             :class="{ 'lang-khmer': props.descriptionHasKhmer }"
             :data-content-lang="props.descriptionHasKhmer ? 'km' : ''"
           >
@@ -93,36 +102,64 @@
           <template v-if="props.linkToSeeMore && props.linkToSeeMore.trim()">
             <div
               class="rounded-[12.08px] bg-[#DB1A1A] text-white font-semibold text-[16px] select-none flex items-center justify-center text-center flex-1"
-              style="height: 42.15px; min-width: 0; user-select: none; padding-left: 5px; padding-right: 5px;"
+              style="
+                height: 42.15px;
+                min-width: 0;
+                user-select: none;
+                padding-left: 5px;
+                padding-right: 5px;
+              "
               @click.stop.prevent
               disabled
             >
               {{
-                props.activeLanguage === 'JP' ? '近い' :
-                props.activeLanguage === 'KM' ? 'បិទ' : 'Close'
+                props.activeLanguage === 'JP'
+                  ? '近い'
+                  : props.activeLanguage === 'KM'
+                    ? 'បិទ'
+                    : 'Close'
               }}
             </div>
             <div
               :href="props.linkToSeeMore"
               class="rounded-[12.08px] bg-[#DB1A1A] text-white font-semibold text-[16px] select-none flex items-center justify-center text-center flex-1"
-              style="height: 42.15px; min-width: 0; user-select: none; padding-left: 5px; padding-right: 5px; text-decoration: none;"
+              style="
+                height: 42.15px;
+                min-width: 0;
+                user-select: none;
+                padding-left: 5px;
+                padding-right: 5px;
+                text-decoration: none;
+              "
               target="_blank"
               rel="noopener noreferrer"
             >
               {{
-                props.activeLanguage === 'JP' ? '続きを読む' :
-                props.activeLanguage === 'KM' ? 'អានបន្ថែម' : 'Read more'
+                props.activeLanguage === 'JP'
+                  ? '続きを読む'
+                  : props.activeLanguage === 'KM'
+                    ? 'អានបន្ថែម'
+                    : 'Read more'
               }}
             </div>
           </template>
           <template v-else>
             <div
               class="rounded-[12.08px] p-[12.08px] bg-[#DB1A1A] text-white font-semibold text-[16px] select-none flex items-center justify-center text-center align-center"
-              style="width: 307.92px; height: 42.15px; pointer-events: none; cursor: default; user-select: none;"
+              style="
+                width: 307.92px;
+                height: 42.15px;
+                pointer-events: none;
+                cursor: default;
+                user-select: none;
+              "
             >
               {{
-                props.activeLanguage === 'JP' ? '近い' :
-                props.activeLanguage === 'KM' ? 'បិទ' : 'Close'
+                props.activeLanguage === 'JP'
+                  ? '近い'
+                  : props.activeLanguage === 'KM'
+                    ? 'បិទ'
+                    : 'Close'
               }}
             </div>
           </template>
@@ -213,15 +250,29 @@
     if (props.activeLanguage === 'KM') {
       // Khmer date format: ៩ កុម្ភៈ ២០២៦
       const khmerMonths = [
-        'មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា',
-        'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'
+        'មករា',
+        'កុម្ភៈ',
+        'មីនា',
+        'មេសា',
+        'ឧសភា',
+        'មិថុនា',
+        'កក្កដា',
+        'សីហា',
+        'កញ្ញា',
+        'តុលា',
+        'វិច្ឆិកា',
+        'ធ្នូ',
       ];
       const day = now.getDate().toString();
       const month = khmerMonths[now.getMonth()];
       const year = now.getFullYear().toString();
       // Convert day and year to Khmer numerals
-      const khmerDigits = ['០','១','២','៣','៤','៥','៦','៧','៨','៩'];
-      const toKhmerNum = (num: string) => num.split('').map(d => khmerDigits[+d] || d).join('');
+      const khmerDigits = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
+      const toKhmerNum = (num: string) =>
+        num
+          .split('')
+          .map((d) => khmerDigits[+d] || d)
+          .join('');
       return `${toKhmerNum(day)} ${month} ${toKhmerNum(year)}`;
     } else if (props.activeLanguage === 'JP') {
       // Japanese date format: 2026年2月9日
@@ -255,11 +306,11 @@
     word-break: keep-all;
     white-space: normal;
   }
-  
+
   .title-container.empty-title {
     min-height: 0px;
   }
-  
+
   .title-container.lang-khmer,
   .text-khmer,
   .category-khmer,
@@ -269,7 +320,7 @@
     width: 98%;
     font-family: 'Battambang', 'IBM Plex Sans', sans-serif !important;
     -webkit-line-clamp: 3;
-    line-clamp: 3 ;
+    line-clamp: 3;
   }
   .description-container-relative {
     width: 290.92px;
@@ -320,12 +371,12 @@
     flex-direction: column;
     gap: 4px;
   }
-    .description-container-relative::-webkit-scrollbar {
+  .description-container-relative::-webkit-scrollbar {
     display: none; /* Chrome, Safari, Opera */
   }
   .description-container-relative {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
   }
   .line-clamp-2 {
     display: -webkit-box;

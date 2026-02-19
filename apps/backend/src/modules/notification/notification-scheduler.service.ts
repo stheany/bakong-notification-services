@@ -342,9 +342,8 @@ export class NotificationSchedulerService {
           );
         }
       } else {
-        const sentCount = await this.notificationService.sendWithTemplate(
-          template
-        );
+        const sentCount =
+          await this.notificationService.sendWithTemplate(template);
         if (typeof sentCount === 'number' && sentCount > 0) {
           this.logger.log(
             `✅ Scheduled notification sent successfully for template ${template.id} to ${sentCount} users`

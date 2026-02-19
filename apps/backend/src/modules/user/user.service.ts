@@ -262,19 +262,19 @@ export class UserService {
       failLoginAttempt:
         updates.failLoginAttempt !== undefined
           ? updates.failLoginAttempt
-          : currentSyncStatus.failLoginAttempt ?? 0,
+          : (currentSyncStatus.failLoginAttempt ?? 0),
       login_at:
         updates.login_at !== undefined
           ? updates.login_at
-          : currentSyncStatus.login_at ?? null,
+          : (currentSyncStatus.login_at ?? null),
       changePassword_count:
         updates.changePassword_count !== undefined
           ? updates.changePassword_count
-          : currentSyncStatus.changePassword_count ?? 0,
+          : (currentSyncStatus.changePassword_count ?? 0),
       tempPasswordLoginAttempts:
         updates.tempPasswordLoginAttempts !== undefined
           ? updates.tempPasswordLoginAttempts
-          : currentSyncStatus.tempPasswordLoginAttempts ?? 0,
+          : (currentSyncStatus.tempPasswordLoginAttempts ?? 0),
     };
     if (user) {
       user.syncStatus = updatedSyncStatus;

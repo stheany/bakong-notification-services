@@ -155,9 +155,8 @@ export class AuthService implements OnModuleInit {
         responseMessage: 'Please enter a valid email address.',
       });
     }
-    const user = await this.userService.findByEmailWithPassword(
-      normalizedEmail
-    );
+    const user =
+      await this.userService.findByEmailWithPassword(normalizedEmail);
     if (!user) {
       throw new BaseResponseDto({
         responseCode: 1,

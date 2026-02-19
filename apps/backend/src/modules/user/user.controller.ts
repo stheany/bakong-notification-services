@@ -50,9 +50,8 @@ export class UserController {
   ): Promise<BaseResponseDto<GetUsersResponseDto>> {
     try {
       const { page = 1, size = 10 } = query;
-      const { users, totalCount } = await this.userService.findAllPaginated(
-        query
-      );
+      const { users, totalCount } =
+        await this.userService.findAllPaginated(query);
       const paginationMeta = PaginationUtils.calculatePaginationMeta(
         page,
         size,

@@ -190,10 +190,10 @@ export class EmailService implements OnModuleInit {
             <div class="footer">
               <p>You can also verify your account by visiting:</p>
               <p><a href="${API_BASE_URL}/v1/auth/verify?token=${
-        verificationLink.split('token=')[1] || ''
-      }" class="footer-link">${API_BASE_URL}/v1/auth/verify?token=${
-        verificationLink.split('token=')[1] || ''
-      }</a></p>
+                verificationLink.split('token=')[1] || ''
+              }" class="footer-link">${API_BASE_URL}/v1/auth/verify?token=${
+                verificationLink.split('token=')[1] || ''
+              }</a></p>
             </div>
           </div>
         </body>

@@ -31,7 +31,6 @@
         </p>
       </div>
       <div class="action-buttons">
-
         <el-button @click="handleEdit"> Edit </el-button>
         <el-button type="danger" @click="handleDelete"> Delete </el-button>
       </div>
