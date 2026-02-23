@@ -56,6 +56,7 @@ services:
       - TYPEORM_SYNCHRONIZE=false
     volumes:
       # SIT Firebase service account files for all platforms
+      - ./apps/backend/dist:/opt/bk_notification_service/apps/backend/dist
       - ./bakong-sit-firebase-service-account.json:/opt/bk_notification_service/bakong-sit-firebase-service-account.json:ro
       - ./bakong-junior-sit-firebase-service-account.json:/opt/bk_notification_service/bakong-junior-sit-firebase-service-account.json:ro
       - ./bakong-tourists-sit-firebase-service-account.json:/opt/bk_notification_service/bakong-tourists-sit-firebase-service-account.json:ro
