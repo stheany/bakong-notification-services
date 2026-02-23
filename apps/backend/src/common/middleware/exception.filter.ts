@@ -13,17 +13,23 @@ import { HttpAdapterHost } from '@nestjs/core';
 import { QueryFailedError } from 'typeorm';
 import { ErrorCode, ResponseMessage } from '@bakong/shared';
 import { ValidationHelper } from '../util/validation.helper';
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
   constructor(private readonly httpAdapterHost: HttpAdapterHost) {}
-  catch(exception: any, host: ArgumentsHost): void {
+
+  catch(exception: unknown, host: ArgumentsHost): void {
     const { httpAdapter } = this.httpAdapterHost;
     const ctx = host.switchToHttp();
     let responseBody: BaseResponseDto;
     let httpStatus: number;
+
     if (exception instanceof QueryFailedError) {
-      const driverError: any = exception.driverError || {};
+      const driverError = (exception.driverError || {}) as {
+        code?: string;
+        constraint?: string;
+      };
       const code = driverError.code;
       const constraint = driverError.constraint;
 
@@ -41,8 +47,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
 
       if (code === '23505') {
-        const constraint = driverError.constraint;
-
         responseBody = new BaseResponseDto({
           responseCode: 1,
           responseMessage: 'Duplicate value. Please use a different value.',
@@ -117,7 +121,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
         responseCode: 1,
         responseMessage: ResponseMessage.SERVICE_UNHEALTHY,
         errorCode: ErrorCode.SERVICE_UNHEALTHY,
-        data: exception.getResponse(),
+        data:
+          exception instanceof HttpException ? exception.getResponse() : null,
       });
       httpStatus = HttpStatus.SERVICE_UNAVAILABLE;
     } else if (exception instanceof BaseResponseDto) {
@@ -134,10 +139,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
         responseBody.errorCode
       );
     } else {
-      responseBody = ValidationHelper.createErrorResponse(
+      const errorResponse = ValidationHelper.createErrorResponse(
         exception,
         'Exception Filter'
       );
+      responseBody = new BaseResponseDto({
+        responseCode: errorResponse.responseCode,
+        responseMessage: errorResponse.responseMessage,
+        errorCode: errorResponse.errorCode,
+        data: null,
+      });
       httpStatus = ValidationHelper.getHttpStatusFromErrorCode(
         responseBody.errorCode
       );

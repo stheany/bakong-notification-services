@@ -19,7 +19,7 @@ import {
 } from '@bakong/shared';
 import { ValidationHelper } from 'src/common/util/validation.helper';
 function IsStringOrStringArray(validationOptions?: ValidationOptions) {
-  return function (object: Object, propertyName: string) {
+  return function (object: object, propertyName: string) {
     registerDecorator({
       name: 'isStringOrStringArray',
       target: object.constructor,

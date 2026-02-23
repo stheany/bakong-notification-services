@@ -18,6 +18,7 @@
     "start": "cd apps/backend && npm run start",
     "lint": "cd apps/backend && npm run lint && cd ../frontend && npm run lint",
     "lint:check": "cd apps/backend && npm run lint:check && cd ../frontend && npm run lint:check",
+    "lint:fix": "cd apps/backend && npm run lint:fix && cd ../frontend && npm run lint:fix",
     "format": "prettier --write \"**/*.{ts,js,vue,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,js,vue,json,md}\"",
     "type-check": "npm run build:shared && cd apps/backend && npm run type-check && cd ../frontend && npm run type-check && cd ../packages/shared && npm run type-check",
@@ -56,9 +57,10 @@
     "@types/stack-utils": "^2.0.3",
     "@types/superagent": "^8.1.9",
     "@types/supertest": "^6.0.3",
-    "@typescript-eslint/eslint-plugin": "^8.46.4",
-    "@typescript-eslint/parser": "^8.46.4",
-    "localtunnel": "^2.0.2"
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "eslint": "^8.57.1",
+    "typescript": "^5.1.6"
   },
   "engines": {
     "node": ">=16.0.0",
@@ -66,8 +68,16 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
+    "@nestjs/cli": "^11.0.16",
+    "@nestjs/common": "^9.4.3",
+    "@nestjs/core": "^9.4.3",
+    "@nestjs/terminus": "^9.1.2",
+    "@vue/eslint-config-prettier": "3.0.5",
+    "@vue/eslint-config-typescript": "^14.7.0",
+    "@vue/language-core": "3.2.4",
     "class-validator": "0.14.3",
     "element-plus": "^2.11.4",
+    "jest": "^30.2.0",
     "lucide-vue-next": "^0.545.0",
     "luxon": "^3.7.2",
     "nestjs": "^0.0.1",
@@ -75,7 +85,9 @@
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
     "pinia": "^3.0.3",
+    "ts-jest": "29.4.6",
     "typeorm": "^0.3.10",
-    "u": "^0.1.0"
+    "u": "^0.1.0",
+    "vue-eslint-parser": "^10.0.0"
   }
 }

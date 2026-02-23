@@ -2,7 +2,7 @@ import { DataSource, Logger } from 'typeorm';
 import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
 import k from './constant';
 class TruncatedLogger implements Logger {
-  private truncateValue(value: any): any {
+  private truncateValue(value: unknown): unknown {
     if (Buffer.isBuffer(value)) {
       return `<Buffer[${value.length} bytes] (truncated)>`;
     }
@@ -29,7 +29,7 @@ class TruncatedLogger implements Logger {
     return value;
   }
 
-  logQuery(query: string, parameters?: any[]) {
+  logQuery(query: string, parameters?: unknown[]) {
     const safeParameters = parameters?.map((param) =>
       this.truncateValue(param)
     );
@@ -45,34 +45,25 @@ class TruncatedLogger implements Logger {
     );
   }
 
-  logQueryError(error: string, query: string, parameters?: any[]) {
+  logQueryError(error: string, query: string, parameters?: unknown[]) {
     const safeParameters = parameters?.map((param) =>
       this.truncateValue(param)
     );
-    let safeQuery = query;
-    if (query.length > 1000) {
-      safeQuery = query.substring(0, 1000) + '... (query truncated)';
-    }
     console.error(
       `[QUERY ERROR] ${error}`,
-      `[QUERY] ${safeQuery}`,
+      `[QUERY] ${query}`,
       safeParameters?.length
         ? `[PARAMETERS] ${JSON.stringify(safeParameters)}`
         : ''
     );
   }
 
-  logQuerySlow(time: number, query: string, parameters?: any[]) {
+  logQuerySlow(time: number, query: string, parameters?: unknown[]) {
     const safeParameters = parameters?.map((param) =>
       this.truncateValue(param)
     );
-    let safeQuery = query;
-    if (query.length > 1000) {
-      safeQuery = query.substring(0, 1000) + '... (query truncated)';
-    }
     console.warn(
-      `[SLOW QUERY] ${time}ms`,
-      `[QUERY] ${safeQuery}`,
+      `[SLOW QUERY: ${time}ms] ${query}`,
       safeParameters?.length
         ? `[PARAMETERS] ${JSON.stringify(safeParameters)}`
         : ''
@@ -80,58 +71,28 @@ class TruncatedLogger implements Logger {
   }
 
   logSchemaBuild(message: string) {
-    console.log(`[SCHEMA] ${message}`);
+    console.log(`[SCHEMA BUILD] ${message}`);
   }
 
   logMigration(message: string) {
     console.log(`[MIGRATION] ${message}`);
   }
 
-  log(level: 'log' | 'info' | 'warn', message: any) {
-    const safeMessage = this.truncateValue(message);
-    if (level === 'log' || level === 'info') {
-      console.log(`[TYPEORM]`, safeMessage);
-    } else {
-      console.warn(`[TYPEORM]`, safeMessage);
-    }
+  log(level: 'log' | 'info' | 'warn', message: unknown) {
+    console[level](`[${level.toUpperCase()}] ${message}`);
   }
 }
-const isDevelopment =
-  process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
-const entityPath = isDevelopment
-  ? ['src/**/*.entity.ts']
-  : ['dist/**/*.entity.{ts,js}'];
-const shouldSynchronize = process.env.TYPEORM_SYNCHRONIZE === 'true';
-if (shouldSynchronize) {
-  console.warn(
-    '⚠️  TypeORM synchronize is enabled - this should not be used in production!'
-  );
-} else {
-  console.log(
-    'TypeORM synchronize is disabled - using migrations for schema changes'
-  );
-}
-const options: PostgresConnectionOptions = {
+
+const dataSourceOptions: PostgresConnectionOptions = {
   type: 'postgres',
-  host: k.POSTGRES_HOST,
-  port: k.POSTGRES_PORT,
-  username: k.POSTGRES_USER,
-  password: k.POSTGRES_PASSWORD,
-  database: k.POSTGRES_DB,
-  synchronize: shouldSynchronize,
-  useUTC: true,
-  entities: entityPath,
-  migrations: ['dist/migrations/*.{ts,js}'],
+  host: k.POSTGRES_HOST, // Updated to use POSTGRES_HOST
+  port: k.POSTGRES_PORT, // Updated to use POSTGRES_PORT
+  username: k.POSTGRES_USER, // Updated to use POSTGRES_USER
+  password: k.POSTGRES_PASSWORD, // Updated to use POSTGRES_PASSWORD
+  database: k.POSTGRES_DB, // Updated to use POSTGRES_DB
+  synchronize: false,
   logging: true,
   logger: new TruncatedLogger(),
-  extra: {
-    max: 20,
-    min: 5,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
-  },
-  connectTimeoutMS: 10000,
 };
-const datasource = new DataSource(options);
-export { options };
-export default datasource;
+
+export const AppDataSource = new DataSource(dataSourceOptions);
