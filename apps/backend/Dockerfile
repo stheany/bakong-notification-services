@@ -42,6 +42,9 @@ RUN set -eux; \
 # Install rimraf globally to ensure availability for prebuild script
 RUN npm install -g rimraf
 
+# Ensure typeorm is installed during the build process
+RUN npm install typeorm --legacy-peer-deps --prefix /opt/bk_notification_service/apps/backend
+
 # -----------------------------------------------------
 # Build process
 # -----------------------------------------------------
@@ -121,6 +124,9 @@ ENV NODE_PATH=/opt/bk_notification_service/apps/backend/node_modules:/opt/bk_not
 
 # Debug reflect-metadata installation
 RUN ls -la /opt/bk_notification_service/apps/backend/node_modules/reflect-metadata
+
+# Ensure typeorm is included in the production dependencies
+RUN npm install typeorm --legacy-peer-deps --prefix /opt/bk_notification_service/apps/backend
 
 # Consolidate dependency installation and debug steps
 RUN npm install --legacy-peer-deps --prefix /opt/bk_notification_service/apps/backend reflect-metadata
