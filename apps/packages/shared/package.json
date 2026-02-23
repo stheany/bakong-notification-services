@@ -23,29 +23,13 @@
     "format:all": "npm run format && npm run lint"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
     "rimraf": "^5.0.0",
-    "typescript": "^5.0.0"
+    "@types/node": "^20.0.0"
   },
   "dependencies": {
-    "@nestjs/cli": "^11.0.16",
-    "@nestjs/terminus": "^9.1.2",
-    "@typescript-eslint/eslint-plugin": "8.56.0",
-    "@typescript-eslint/parser": "8.56.0",
-    "@vue/eslint-config-prettier": "^3.0.5",
-    "@vue/eslint-config-typescript": "^14.7.0",
-    "@vue/language-core": "3.2.4",
-    "@vue/test-utils": "2.2.7",
-    "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
-    "eslint": "^4.0.0",
-    "eslint-config-prettier": "6.15.0",
-    "eslint-plugin-prettier": "2.7.0",
-    "eslint-plugin-vue": "4.7.1",
-    "jest": "^30.2.0",
-    "localtunnel": "^1.8.3",
-    "ts-jest": "29.4.6",
-    "vue-eslint-parser": "2.0.3"
+    "class-transformer": "^0.5.1"
   },
   "peerDependencies": {
     "typescript": ">=4.0.0"

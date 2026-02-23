@@ -96,3 +96,5 @@ const dataSourceOptions: PostgresConnectionOptions = {
 };
 
 export const AppDataSource = new DataSource(dataSourceOptions);
+const options = dataSourceOptions;
+export { options }; // Exporting options explicitly

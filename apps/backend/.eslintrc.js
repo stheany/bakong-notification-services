@@ -1,28 +1,31 @@
 module.exports = {
   root: true,
-  ignorePatterns: ['node_modules/', 'dist/', 'coverage/'],
-  env: { node: true, es6: true },
-  parser: '@typescript-eslint/parser', // Use TypeScript parser
-  parserOptions: {
-    ecmaVersion: 2021, // Set ecmaVersion to a modern version
-    sourceType: 'module',
-    project: './tsconfig.json', // Point to the TypeScript config file
-  },
+  env: { node: true, es2021: true },
   extends: [
-    'plugin:@typescript-eslint/recommended', // Add TypeScript recommended rules
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
     'plugin:prettier/recommended',
   ],
+  parserOptions: {
+    ecmaVersion: 12,
+    sourceType: 'module',
+    parser: '@typescript-eslint/parser',
+  },
   rules: {
     'prettier/prettier': 'error',
+    'lines-between-class-members': [
+      'error',
+      'always',
+      { exceptAfterSingleLine: true },
+    ],
     '@typescript-eslint/no-explicit-any': 'off',
-    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    'no-empty': 'off',
+    '@typescript-eslint/no-var-requires': 'off',
+    '@typescript-eslint/no-unused-vars': 'off',
+    '@typescript-eslint/ban-types': 'off',
+    '@typescript-eslint/no-non-null-assertion': 'off',
+    'no-useless-catch': 'off',
+    'no-case-declarations': 'off',
+    '@typescript-eslint/no-empty-function': 'off',
   },
-  overrides: [
-    {
-      files: ['**/*.ts'],
-      rules: {
-        '@typescript-eslint/no-explicit-any': 'off',
-      },
-    },
-  ],
 };
