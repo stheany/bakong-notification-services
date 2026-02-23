@@ -54,6 +54,9 @@ RUN npm run build:shared
 COPY apps/backend/ ./apps/backend/
 RUN cd apps/backend && npm run build
 
+# Debug step to verify the dist folder in the builder stage
+RUN ls -la /opt/bk_notification_service/apps/backend/dist
+
 # Fix remaining src/ paths that tsc-alias might have missed
 RUN node apps/backend/fix-paths.js
 
