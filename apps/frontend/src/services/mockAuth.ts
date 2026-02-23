@@ -22,7 +22,7 @@ const mockUsers = [
     username: 'user',
     email: 'user@bakong.com',
     displayName: 'Normal User',
-    role: 'NORMAL_USER' as UserRole,
+    role: 'VIEW_ONLY' as UserRole,
     password: 'user123',
   },
   {
