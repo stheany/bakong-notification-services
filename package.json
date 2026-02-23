@@ -88,6 +88,7 @@
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
     "pinia": "^3.0.3",
+    "reflect-metadata": "^0.2.2",
     "sharp": "^0.34.5",
     "typeorm": "^0.3.10",
     "u": "^0.1.0"

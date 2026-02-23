@@ -103,10 +103,41 @@ RUN set -eux; \
   done; \
   if [ $status -ne 0 ]; then echo "❌ Production npm ci failed after 3 attempts"; exit 1; fi
 
-# Verify @nestjs/core is actually installed and can be required
-WORKDIR /opt/bk_notification_service
-RUN NODE_PATH=/opt/bk_notification_service/node_modules:/opt/bk_notification_service/apps/backend/node_modules:$NODE_PATH \
-  node -e "try { const core = require('@nestjs/core'); console.log('✅ @nestjs/core found, version:', core.VERSION || 'unknown'); } catch(e) { console.error('❌ @nestjs/core NOT FOUND - this will cause runtime errors!'); console.error('   Error:', e.message); console.error('   Searching for @nestjs...'); require('child_process').exec('find . -name \"@nestjs\" -type d 2>/dev/null | head -5', (err, stdout) => { console.log(stdout || '  No @nestjs directories found'); process.exit(1); }); }"
+# Install dependencies in the backend directory
+WORKDIR /opt/bk_notification_service/apps/backend
+RUN npm install --legacy-peer-deps
+
+# Force install reflect-metadata in the backend directory
+RUN npm install reflect-metadata --legacy-peer-deps --prefix /opt/bk_notification_service/apps/backend
+
+# Verify reflect-metadata installation
+RUN ls -la /opt/bk_notification_service/apps/backend/node_modules/reflect-metadata
+
+# Adjust NODE_PATH to include backend node_modules
+ENV NODE_PATH=/opt/bk_notification_service/apps/backend/node_modules:/opt/bk_notification_service/node_modules
+
+# Debug reflect-metadata installation
+RUN ls -la /opt/bk_notification_service/apps/backend/node_modules/reflect-metadata
+
+# Consolidate dependency installation and debug steps
+RUN npm install --legacy-peer-deps --prefix /opt/bk_notification_service/apps/backend reflect-metadata
+RUN npm install --legacy-peer-deps --prefix /opt/bk_notification_service/apps/backend @nestjs/core
+
+# Verify installation of reflect-metadata and @nestjs/core
+RUN node -e "try { require('reflect-metadata'); console.log('✅ reflect-metadata is available'); } catch (e) { console.error('❌ reflect-metadata is missing:', e.message); process.exit(1); }"
+RUN node -e "try { require('@nestjs/core'); console.log('✅ @nestjs/core is available'); } catch (e) { console.error('❌ @nestjs/core is missing:', e.message); process.exit(1); }"
+
+# Debug NODE_PATH configuration
+RUN echo "NODE_PATH is set to: $NODE_PATH"
+RUN node -e "console.log('NODE_PATH:', process.env.NODE_PATH);"
+
+# Remove unnecessary debug step for root node_modules
+# Verify NODE_PATH configuration
+RUN echo "NODE_PATH is set to: $NODE_PATH"
+
+# Log the full directory structure of node_modules
+RUN find /opt/bk_notification_service/apps/backend/node_modules -type d | head -n 50
+RUN find /opt/bk_notification_service/node_modules -type d | head -n 50
 
 # Remove build dependencies to reduce image size (keep only runtime dependencies)
 RUN apk del py3-setuptools build-base
