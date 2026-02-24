@@ -64,5 +64,8 @@ COPY apps/backend/assets ./apps/backend/assets
 COPY package*.json ./
 RUN npm ci --only=production
 
+# Force reinstall all dependencies in the runtime stage
+RUN npm install --legacy-peer-deps
+
 # Start the application
 CMD ["node", "apps/backend/dist/main.js"]
