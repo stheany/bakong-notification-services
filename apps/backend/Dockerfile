@@ -96,8 +96,8 @@ RUN ls -la /opt/bk_notification_service/apps/backend/dist
 # Copy category type images (needed for seeding default category types)
 # These images are used by CategoryTypeService to seed default category types on startup
 # Copy to both root assets and apps/backend/assets for path compatibility
-COPY --from=builder /opt/bk_notification_service/apps/backend/assets ./assets
-COPY --from=builder /opt/bk_notification_service/apps/backend/assets ./apps/backend/assets
+COPY apps/backend/assets ./assets
+COPY apps/backend/assets ./apps/backend/assets
 
 # Install production dependencies
 WORKDIR /opt/bk_notification_service
