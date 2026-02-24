@@ -522,9 +522,9 @@ fi
 echo "🚀 Step 7: Starting services..."
 if ! docker compose -f "$COMPOSE_FILE" up -d; then
   echo ""
-  echo "❌ Failed to start services. Common cause: port $SIT_DB_PORT (DB) or 4002/80/443 already in use."
+  echo "❌ Failed to start services. Common cause: port $SIT_DB_PORT (DB) or 4002/8090/8443 already in use."
   echo "   Run: docker compose -f $COMPOSE_FILE down"
-  echo "   Check: ss -tlnp | grep -E '$SIT_DB_PORT|4002|80|443'  (or netstat -tlnp)"
+  echo "   Check: ss -tlnp | grep -E '$SIT_DB_PORT|4002|8090|8443'  (or netstat -tlnp)"
   echo "   Then free the port and run this script again."
   exit 1
 fi
