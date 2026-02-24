@@ -32,6 +32,9 @@ RUN set -eux; \
   done; \
   if [ $status -ne 0 ]; then echo "❌ npm ci failed after 3 attempts"; exit 1; fi
 
+# Ensure helmet is installed explicitly
+RUN npm install helmet --legacy-peer-deps
+
 # Build shared package
 COPY apps/packages/shared/ ./apps/packages/shared/
 RUN npm run build:shared
