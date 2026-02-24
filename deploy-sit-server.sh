@@ -431,34 +431,43 @@ docker rmi bakong-notification-services-backend 2>/dev/null || true
 echo ""
 
 # ============================================================================
-# Step 5.5: Ensure SIT DB port 5434 is free (avoid "address already in use")
+# Step 5.5: Ensure SIT DB port 5435 is free (avoid "address already in use")
 # ============================================================================
-_check_port_5434() {
+SIT_DB_PORT=5435
+_check_port_sit_db() {
   if command -v ss >/dev/null 2>&1; then
-    ss -tlnp 2>/dev/null | grep -q ':5434 ' && return 1
+    ss -tlnp 2>/dev/null | grep -q ":$SIT_DB_PORT " && return 1
   elif command -v netstat >/dev/null 2>&1; then
-    netstat -tlnp 2>/dev/null | grep -q ':5434 ' && return 1
+    netstat -tlnp 2>/dev/null | grep -q ":$SIT_DB_PORT " && return 1
   fi
   return 0
 }
 
-echo "🔍 Checking that port 5434 (SIT DB) is free..."
-if ! _check_port_5434; then
-  echo "   ⚠️  Port 5434 is in use - stopping SIT stack again and waiting 5s..."
+echo "🔍 Checking that port $SIT_DB_PORT (SIT DB) is free..."
+if ! _check_port_sit_db; then
+  echo "   ⚠️  Port $SIT_DB_PORT is in use - stopping SIT stack again and waiting 5s..."
   docker compose -f "$COMPOSE_FILE" down 2>/dev/null || true
   sleep 5
-  if ! _check_port_5434; then
+  if ! _check_port_sit_db; then
     echo ""
-    echo "❌ Port 5434 is still in use. Free it before deploying SIT."
-    echo "   On the SIT server run:"
-    echo "   • See what uses it: sudo ss -tlnp | grep 5434   (or: netstat -tlnp | grep 5434)"
-    echo "   • If it's another Docker stack: docker ps -a | grep 5434  then stop that stack"
-    echo "   • Or stop any other PostgreSQL using 5434"
+    echo "❌ Port $SIT_DB_PORT is still in use (often a host process, not Docker). What is using it:"
+    echo "---"
+    if command -v ss >/dev/null 2>&1; then
+      ss -tlnp 2>/dev/null | grep "$SIT_DB_PORT" || true
+      [ -z "$(ss -tlnp 2>/dev/null | grep "$SIT_DB_PORT")" ] && echo "   (run as root to see process: sudo ss -tlnp | grep $SIT_DB_PORT)"
+    fi
+    if command -v netstat >/dev/null 2>&1 && ! command -v ss >/dev/null 2>&1; then
+      netstat -tlnp 2>/dev/null | grep "$SIT_DB_PORT" || true
+      [ -z "$(netstat -tlnp 2>/dev/null | grep "$SIT_DB_PORT")" ] && echo "   (run as root to see process: sudo netstat -tlnp | grep $SIT_DB_PORT)"
+    fi
+    echo "---"
+    echo "   To see which process (PID) is using it: sudo ss -tlnp | grep $SIT_DB_PORT"
+    echo "   Then stop that process or change SIT DB port in docker-compose.sit.yml."
     echo ""
     exit 1
   fi
 fi
-echo "   ✅ Port 5434 is free"
+echo "   ✅ Port $SIT_DB_PORT is free"
 
 echo ""
 
@@ -503,19 +512,19 @@ if ! docker compose -f "$COMPOSE_FILE" build --no-cache frontend 2>&1 | tee /tmp
 fi
 
 echo ""
-echo "🔍 Re-checking port 5434 before starting (build may have taken a while)..."
-if ! _check_port_5434; then
-  echo "   ⚠️  Port 5434 is now in use. Run: docker compose -f $COMPOSE_FILE down"
-  echo "   Then free port 5434 (see above) and run this script again."
+echo "🔍 Re-checking port $SIT_DB_PORT before starting (build may have taken a while)..."
+if ! _check_port_sit_db; then
+  echo "   ⚠️  Port $SIT_DB_PORT is now in use. Run: docker compose -f $COMPOSE_FILE down"
+  echo "   Then free port $SIT_DB_PORT (see above) and run this script again."
   exit 1
 fi
 
 echo "🚀 Step 7: Starting services..."
 if ! docker compose -f "$COMPOSE_FILE" up -d; then
   echo ""
-  echo "❌ Failed to start services. Common cause: port 5434 (DB) or 4002/80/443 already in use."
+  echo "❌ Failed to start services. Common cause: port $SIT_DB_PORT (DB) or 4002/80/443 already in use."
   echo "   Run: docker compose -f $COMPOSE_FILE down"
-  echo "   Check: ss -tlnp | grep -E '5434|4002|80|443'  (or netstat -tlnp)"
+  echo "   Check: ss -tlnp | grep -E '$SIT_DB_PORT|4002|80|443'  (or netstat -tlnp)"
   echo "   Then free the port and run this script again."
   exit 1
 fi
