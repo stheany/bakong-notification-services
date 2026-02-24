@@ -63,12 +63,12 @@ RUN ls -la /opt/bk_notification_service/apps/backend/dist
 # Fix remaining src/ paths that tsc-alias might have missed
 RUN node apps/backend/fix-paths.js
 
-# -----------------------------------------------------
-# 🚀 Stage 2 — Runtime
-# -----------------------------------------------------
-FROM node:20-alpine AS runtime
-WORKDIR /opt/bk_notification_service
-# NODE_ENV is controlled by docker-compose.yml per environment (development/staging/production)
+# Install dependencies for shared package
+WORKDIR /opt/bk_notification_service/apps/packages/shared
+RUN npm install --legacy-peer-deps
+
+# Verify shared package build
+RUN npm run build
 
 # Install build dependencies needed for native modules (bcrypt, etc.)
 # py3-setuptools is required for node-gyp on Python 3.12
