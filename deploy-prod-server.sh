@@ -9,7 +9,9 @@
 
 set -e
 
-cd ~/bakong-notification-services
+# Run from script directory so it works from any clone path
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 ENVIRONMENT="production"
 COMPOSE_FILE="docker-compose.production.yml"
@@ -32,7 +34,7 @@ echo ""
 # ============================================================================
 echo "💾 Step 1: Creating backup before deployment (CRITICAL)..."
 if [ -f "utils-server.sh" ]; then
-    bash utils-server.sh db-backup || {
+    bash utils-server.sh db-backup production || {
         echo "⚠️  Backup failed - continuing anyway..."
         read -p "Continue with deployment? (yes/no): " confirm
         if [ "$confirm" != "yes" ]; then
@@ -72,13 +74,10 @@ echo ""
 # Step 3: Verify Dockerfile
 # ============================================================================
 echo "🔍 Step 3: Verifying Dockerfile..."
-if ! grep -q "npm exec -- tsc" apps/backend/Dockerfile; then
-    echo "🔨 Fixing Dockerfile..."
-    sed -i '/^RUN.*tsc.*tsconfig.json/d' apps/backend/Dockerfile
-    sed -i '/# Build TypeScript and fix paths/a RUN npm exec -- tsc -p tsconfig.json && npm exec -- tsc-alias -p tsconfig.json' apps/backend/Dockerfile
-    echo "✅ Dockerfile fixed"
+if ! grep -q "npm run build\|npm run build:shared" apps/backend/Dockerfile 2>/dev/null; then
+    echo "⚠️  Warning: Backend Dockerfile may have changed - ensure it builds shared and backend"
 else
-    echo "✅ Dockerfile is correct"
+    echo "✅ Dockerfile verified"
 fi
 
 echo ""
@@ -93,8 +92,9 @@ if docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
     echo "   ✅ Database container is running"
     DB_RUNNING=true
 elif docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
-    echo "   ⚠️  Database container exists but is stopped - starting it..."
-    docker start "$DB_CONTAINER"
+    echo "   ⚠️  Database container exists but is stopped - recreating with compose..."
+    docker rm -f "$DB_CONTAINER" 2>/dev/null || true
+    docker compose -f "$COMPOSE_FILE" up -d db
     echo "   ⏳ Waiting for database to be ready (30 seconds)..."
     sleep 30
     
@@ -399,7 +399,24 @@ echo ""
 # Step 6: Build and Start Services
 # ============================================================================
 echo "🏗️  Step 6: Building backend (this will take a few minutes)..."
-docker compose -f "$COMPOSE_FILE" build --no-cache backend
+if ! docker compose -f "$COMPOSE_FILE" build --no-cache backend 2>&1 | tee /tmp/docker-build-prod.log; then
+    echo "   ⚠️  Build failed, checking for network error..."
+    if grep -q "ECONNRESET\|network\|ETIMEDOUT" /tmp/docker-build-prod.log 2>/dev/null; then
+        echo "   🔄 Network error detected - waiting 10 seconds and retrying..."
+        sleep 10
+        docker compose -f "$COMPOSE_FILE" build --no-cache backend || { echo "   ❌ Build failed again"; exit 1; }
+    else
+        echo "   ❌ Build failed - see error above"; exit 1
+    fi
+fi
+
+echo ""
+echo "🏗️  Step 6.5: Building frontend with --no-cache..."
+if ! docker compose -f "$COMPOSE_FILE" build --no-cache frontend 2>&1 | tee /tmp/docker-build-frontend-prod.log; then
+    echo "   ⚠️  Frontend build failed, retrying once..."
+    sleep 10
+    docker compose -f "$COMPOSE_FILE" build --no-cache frontend || { echo "   ❌ Frontend build failed"; exit 1; }
+fi
 
 echo ""
 echo "🚀 Step 7: Starting all services..."
@@ -516,6 +533,6 @@ echo "   • View logs: docker-compose -f $COMPOSE_FILE logs -f"
 echo "   • Restart: docker-compose -f $COMPOSE_FILE restart"
 echo "   • Stop: docker-compose -f $COMPOSE_FILE down"
 echo "   • Verify migration: docker exec -i $DB_CONTAINER psql -U $DB_USER -d $DB_NAME -f apps/backend/scripts/verify-migration.sql"
-echo "   • Restore backup: bash utils-server.sh db-restore production backups/backup_production_latest.sql"
+echo "   • Restore backup: bash utils-server.sh db-restore backups/backup_production_latest.sql production"
 echo ""
 

@@ -18,10 +18,7 @@
     "strictNullChecks": false,
     "noImplicitAny": false,
     "paths": {
-      "@/*": ["./src/*"],
-      "@shared/*": ["../../packages/shared/src/*"],
-      "@bakong/shared": ["../../packages/shared/src/index.ts"],
-      "@bakong/shared/*": ["../../packages/shared/src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src/**/*"],

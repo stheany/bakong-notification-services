@@ -10,7 +10,7 @@ ENV CACHE_BUST=${CACHE_BUST}
 # -----------------------------------------------------
 # Copy workspace configuration and package files
 # -----------------------------------------------------
-COPY package*.json ./
+COPY package.json package-lock.json ./
 COPY apps/frontend/package*.json ./apps/frontend/
 COPY apps/packages/shared/package*.json ./apps/packages/shared/
 

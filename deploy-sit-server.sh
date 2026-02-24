@@ -128,8 +128,9 @@ if docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
     echo "   ✅ Database container is running"
     DB_RUNNING=true
 elif docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
-    echo "   ⚠️  Database container exists but is stopped - starting it..."
-    docker start "$DB_CONTAINER"
+    echo "   ⚠️  Database container exists but is stopped - recreating with compose..."
+    docker rm -f "$DB_CONTAINER" 2>/dev/null || true
+    docker compose -f "$COMPOSE_FILE" up -d db
     echo "   ⏳ Waiting for database to be ready (15 seconds)..."
     sleep 15
     
@@ -556,7 +557,7 @@ echo ""
 echo "✅ SIT deployment complete!"
 echo ""
 echo "🔒 Data Safety Summary:"
-echo "   ✅ Backup created before deployment: backups/backup_sit_latest.sql"
+echo "   ✅ Backup created before deployment: backups/backup_staging_latest.sql"
 echo "   ✅ Data stored in Docker volume (persistent)"
 echo "   ✅ Migration only adds schema changes (no data deletion)"
 echo ""
@@ -568,7 +569,7 @@ echo ""
 echo "💡 Useful commands:"
 echo "   • Follow logs: docker compose -f $COMPOSE_FILE logs -f"
 echo "   • Verify migration: docker exec -i $DB_CONTAINER psql -U $DB_USER -d $DB_NAME -f apps/backend/scripts/verify-migration.sql"
-echo "   • Restore backup: bash utils-server.sh db-restore sit backups/backup_sit_latest.sql"
+echo "   • Restore backup: bash utils-server.sh db-restore backups/backup_staging_latest.sql sit"
 echo "   • Restart: docker compose -f $COMPOSE_FILE restart"
 echo "   • Stop: docker compose -f $COMPOSE_FILE down"
 echo ""
