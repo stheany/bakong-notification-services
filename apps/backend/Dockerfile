@@ -161,7 +161,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 ENV NODE_PATH=/opt/bk_notification_service/node_modules:/opt/bk_notification_service/apps/backend/node_modules
 
 # Copy runtime path resolver (handles src/ paths at runtime as fallback)
-COPY --from=builder /opt/bk_notification_service/apps/backend/runtime-path-resolver.js ./runtime-path-resolver.js
+COPY apps/backend/runtime-path-resolver.js ./runtime-path-resolver.js
 
 # Use runtime resolver to handle any remaining src/ paths
 CMD ["node", "-r", "./runtime-path-resolver.js", "dist/main.js"]
