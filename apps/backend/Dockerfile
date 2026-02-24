@@ -55,7 +55,7 @@ RUN npm run build:shared
 
 # Copy backend source and build it
 COPY apps/backend/ ./apps/backend/
-RUN cd apps/backend && npm run build
+RUN cd apps/backend && npm run build && ls -la /opt/bk_notification_service/apps/backend/dist
 
 # Debug step to verify the dist folder in the builder stage
 RUN ls -la /opt/bk_notification_service/apps/backend/dist
@@ -90,8 +90,8 @@ COPY apps/backend/package*.json ./apps/backend/
 COPY apps/packages/shared/package*.json ./apps/packages/shared/
 
 # Copy built code
-COPY --from=builder /opt/bk_notification_service/apps/backend/dist ./dist
-COPY --from=builder /opt/bk_notification_service/apps/packages/shared/dist ./apps/packages/shared/dist
+COPY --from=builder /opt/bk_notification_service/apps/backend/dist /opt/bk_notification_service/apps/backend/dist
+RUN ls -la /opt/bk_notification_service/apps/backend/dist
 
 # Copy category type images (needed for seeding default category types)
 # These images are used by CategoryTypeService to seed default category types on startup
