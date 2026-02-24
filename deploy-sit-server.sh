@@ -431,6 +431,38 @@ docker rmi bakong-notification-services-backend 2>/dev/null || true
 echo ""
 
 # ============================================================================
+# Step 5.5: Ensure SIT DB port 5434 is free (avoid "address already in use")
+# ============================================================================
+_check_port_5434() {
+  if command -v ss >/dev/null 2>&1; then
+    ss -tlnp 2>/dev/null | grep -q ':5434 ' && return 1
+  elif command -v netstat >/dev/null 2>&1; then
+    netstat -tlnp 2>/dev/null | grep -q ':5434 ' && return 1
+  fi
+  return 0
+}
+
+echo "🔍 Checking that port 5434 (SIT DB) is free..."
+if ! _check_port_5434; then
+  echo "   ⚠️  Port 5434 is in use - stopping SIT stack again and waiting 5s..."
+  docker compose -f "$COMPOSE_FILE" down 2>/dev/null || true
+  sleep 5
+  if ! _check_port_5434; then
+    echo ""
+    echo "❌ Port 5434 is still in use. Free it before deploying SIT."
+    echo "   On the SIT server run:"
+    echo "   • See what uses it: sudo ss -tlnp | grep 5434   (or: netstat -tlnp | grep 5434)"
+    echo "   • If it's another Docker stack: docker ps -a | grep 5434  then stop that stack"
+    echo "   • Or stop any other PostgreSQL using 5434"
+    echo ""
+    exit 1
+  fi
+fi
+echo "   ✅ Port 5434 is free"
+
+echo ""
+
+# ============================================================================
 # Step 6: Build and Start Services
 # ============================================================================
 echo "🏗️  Step 6: Building backend (this will take a few minutes)..."
@@ -471,8 +503,22 @@ if ! docker compose -f "$COMPOSE_FILE" build --no-cache frontend 2>&1 | tee /tmp
 fi
 
 echo ""
+echo "🔍 Re-checking port 5434 before starting (build may have taken a while)..."
+if ! _check_port_5434; then
+  echo "   ⚠️  Port 5434 is now in use. Run: docker compose -f $COMPOSE_FILE down"
+  echo "   Then free port 5434 (see above) and run this script again."
+  exit 1
+fi
+
 echo "🚀 Step 7: Starting services..."
-docker compose -f "$COMPOSE_FILE" up -d
+if ! docker compose -f "$COMPOSE_FILE" up -d; then
+  echo ""
+  echo "❌ Failed to start services. Common cause: port 5434 (DB) or 4002/80/443 already in use."
+  echo "   Run: docker compose -f $COMPOSE_FILE down"
+  echo "   Check: ss -tlnp | grep -E '5434|4002|80|443'  (or netstat -tlnp)"
+  echo "   Then free the port and run this script again."
+  exit 1
+fi
 
 echo ""
 
