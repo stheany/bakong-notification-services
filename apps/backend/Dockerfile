@@ -35,6 +35,9 @@ RUN set -eux; \
 # Ensure helmet is installed explicitly
 RUN npm install helmet --legacy-peer-deps
 
+# Debug step to verify @nestjs/common installation
+RUN ls -la /opt/bk_notification_service/node_modules/@nestjs/common || echo "@nestjs/common not found"
+
 # Build shared package
 COPY apps/packages/shared/ ./apps/packages/shared/
 RUN npm run build:shared
