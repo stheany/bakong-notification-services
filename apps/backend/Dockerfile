@@ -76,5 +76,11 @@ RUN npm install helmet --legacy-peer-deps
 # Debug step to verify helmet installation in the runtime stage
 RUN ls -la /opt/bk_notification_service/node_modules/helmet || echo "helmet not found"
 
+# Debug step to verify the presence of the '@nestjs/common' package in the runtime container
+RUN ls -la /opt/bk_notification_service/node_modules/@nestjs/common || echo "@nestjs/common not found"
+
+# Add a debug step to list the contents of the node_modules directory
+RUN ls -la /opt/bk_notification_service/node_modules
+
 # Start the application
 CMD ["node", "apps/backend/dist/main.js"]
