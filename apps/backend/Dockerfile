@@ -70,5 +70,11 @@ RUN npm ci --only=production
 # Force reinstall all dependencies in the runtime stage
 RUN npm install --legacy-peer-deps
 
+# Add the following line to ensure the helmet package is installed in the production environment
+RUN npm install helmet --legacy-peer-deps
+
+# Debug step to verify helmet installation in the runtime stage
+RUN ls -la /opt/bk_notification_service/node_modules/helmet || echo "helmet not found"
+
 # Start the application
 CMD ["node", "apps/backend/dist/main.js"]
