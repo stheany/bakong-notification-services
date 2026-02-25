@@ -54,6 +54,7 @@ services:
       - CORS_ORIGIN=https://sit-bakong-notification.nbc.gov.kh,http://10.20.6.57
       - LOG_LEVEL=info
       - TYPEORM_SYNCHRONIZE=false
+    command: ["node", "/opt/bk_notification_service/apps/backend/dist/main.js"]
     volumes:
       # SIT Firebase service account files for all platforms
       - ./apps/backend/dist:/opt/bk_notification_service/apps/backend/dist
