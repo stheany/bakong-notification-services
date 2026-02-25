@@ -49,6 +49,15 @@ RUN cd apps/backend && npm run build && ls -la /opt/bk_notification_service/apps
 # Debug step to verify the dist folder in the builder stage
 RUN ls -la /opt/bk_notification_service/apps/backend/dist
 
+# Add explicit build step to ensure dist directory is generated
+RUN npm run build:prod
+
+# Verify dist/main exists after build
+RUN ls -la /opt/bk_notification_service/dist/main || echo "dist/main not found"
+
+# Verify @nestjs/common is installed
+RUN ls -la /opt/bk_notification_service/node_modules/@nestjs/common || echo "@nestjs/common not found"
+
 # -----------------------------------------------------
 # 🏗️ Stage 2 — Final runtime image
 # -----------------------------------------------------
@@ -82,8 +91,17 @@ RUN ls -la /opt/bk_notification_service/node_modules/@nestjs/common || echo "@ne
 # Add a debug step to list the contents of the node_modules directory
 RUN ls -la /opt/bk_notification_service/node_modules
 
-# Ensure all dependencies are installed in the runtime environment
+# Ensure all dependencies are installed
 RUN npm install --legacy-peer-deps
+
+# Build the application to generate the dist directory
+RUN npm run build:prod
+
+# Verify the dist/main file exists
+RUN ls -la /opt/bk_notification_service/dist/main || echo "dist/main not found"
+
+# Verify @nestjs/common is installed
+RUN ls -la /opt/bk_notification_service/node_modules/@nestjs/common || echo "@nestjs/common not found"
 
 # Start the application
 CMD ["node", "apps/backend/dist/main.js"]

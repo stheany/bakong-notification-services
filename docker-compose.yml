@@ -45,7 +45,7 @@ services:
       - CORS_ORIGIN=http://localhost:3001
       - GOOGLE_APPLICATION_CREDENTIALS=/opt/bk_notification_service/firebase-service-account.json
       - TYPEORM_SYNCHRONIZE=false
-    command: []
+    command: ["npm", "run", "start:prod"]
     volumes:
       - ./firebase-service-account.json:/opt/bk_notification_service/firebase-service-account.json:ro
       - ./apps/backend/env.development:/opt/bk_notification_service/env.development:ro
