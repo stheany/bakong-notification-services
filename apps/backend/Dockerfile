@@ -82,5 +82,8 @@ RUN ls -la /opt/bk_notification_service/node_modules/@nestjs/common || echo "@ne
 # Add a debug step to list the contents of the node_modules directory
 RUN ls -la /opt/bk_notification_service/node_modules
 
+# Ensure all dependencies are installed in the runtime environment
+RUN npm install --legacy-peer-deps
+
 # Start the application
 CMD ["node", "apps/backend/dist/main.js"]
