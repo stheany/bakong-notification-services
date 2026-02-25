@@ -77,8 +77,8 @@ docker compose -f docker-compose.sit.yml up -d
 echo "   Waiting for services (30s)..."
 sleep 30
 
-SIT_BACKEND="http://localhost:4002"
-SIT_FRONTEND="http://localhost:8090"
+SIT_BACKEND="http://localhost:4003"
+SIT_FRONTEND="http://localhost:8091"
 
 if curl -s --connect-timeout 5 "${SIT_BACKEND}/api/v1/health" > /dev/null 2>&1; then
   echo "   ✅ SIT Backend health OK (${SIT_BACKEND}/api/v1/health)"

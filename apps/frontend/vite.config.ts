@@ -23,6 +23,7 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
+    extensions: ['.ts', '.js', '.json'],
   },
   optimizeDeps: {
     include: ['@bakong/shared'],

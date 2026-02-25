@@ -83,18 +83,23 @@ class TruncatedLogger implements Logger {
   }
 }
 
+// Ensure TYPEORM_SYNCHRONIZE is set to false for production
+const isProduction = process.env.NODE_ENV === 'production';
+const synchronize = isProduction ? false : true;
+
+// Define dataSourceOptions explicitly for TypeORM configuration
 const dataSourceOptions: PostgresConnectionOptions = {
   type: 'postgres',
-  host: k.POSTGRES_HOST, // Updated to use POSTGRES_HOST
-  port: k.POSTGRES_PORT, // Updated to use POSTGRES_PORT
-  username: k.POSTGRES_USER, // Updated to use POSTGRES_USER
-  password: k.POSTGRES_PASSWORD, // Updated to use POSTGRES_PASSWORD
-  database: k.POSTGRES_DB, // Updated to use POSTGRES_DB
-  synchronize: false,
-  logging: true,
-  logger: new TruncatedLogger(),
+  host: process.env.POSTGRES_HOST,
+  port: parseInt(process.env.POSTGRES_PORT, 10),
+  username: process.env.POSTGRES_USER,
+  password: process.env.POSTGRES_PASSWORD,
+  database: process.env.POSTGRES_DB,
+  synchronize: synchronize,
+  logging: !isProduction,
+  entities: [__dirname + '/entities/**/*.{ts,js}'],
+  migrations: [__dirname + '/migrations/**/*.{ts,js}'],
 };
 
-export const AppDataSource = new DataSource(dataSourceOptions);
 const options = dataSourceOptions;
 export { options }; // Exporting options explicitly

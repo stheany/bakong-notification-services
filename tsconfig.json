@@ -18,6 +18,11 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "incremental": true,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "baseUrl": "./",
+    "paths": {
+      "src/*": ["apps/backend/src/*"],
+      "@/*": ["apps/backend/src/*"]
+    }
   }
 }

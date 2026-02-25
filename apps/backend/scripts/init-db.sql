@@ -4,7 +4,15 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role_enum') THEN
-        CREATE TYPE user_role_enum AS ENUM ('ADMIN_USER', 'NORMAL_USER', 'API_USER');
+        CREATE TYPE user_role_enum AS ENUM (
+            'ADMINISTRATOR',
+            'APPROVAL',
+            'EDITOR',
+            'VIEW_ONLY',
+            'ADMIN_USER',
+            'NORMAL_USER',
+            'API_USER'
+        );
     END IF;
     
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'send_type_enum') THEN
@@ -23,6 +31,14 @@ BEGIN
         CREATE TYPE bakong_platform_enum AS ENUM ('BAKONG', 'BAKONG_TOURIST', 'BAKONG_JUNIOR');
     END IF;
 END$$;
+
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'ADMINISTRATOR';
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'APPROVAL';
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'EDITOR';
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'VIEW_ONLY';
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'ADMIN_USER';
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'NORMAL_USER';
+ALTER TYPE user_role_enum ADD VALUE IF NOT EXISTS 'API_USER';
 
 -- Grant privileges to bkns_dev user (created by Docker via POSTGRES_USER)
 -- Note: Docker automatically creates the user specified in POSTGRES_USER

@@ -17,8 +17,8 @@ COMPOSE_FILE="docker-compose.sit.yml"
 DB_CONTAINER="bakong-notification-services-db-sit"
 DB_USER="bkns_sit"
 DB_NAME="bakong_notification_services_sit"
-BACKEND_PORT="4002"
-FRONTEND_PORT="8090"
+BACKEND_PORT="4003"
+FRONTEND_PORT="8091"
 SERVER_IP="10.20.6.57"
 
 echo "🚀 SIT Server Deployment"
@@ -431,9 +431,9 @@ docker rmi bakong-notification-services-backend 2>/dev/null || true
 echo ""
 
 # ============================================================================
-# Step 5.5: Ensure SIT DB port 5435 is free (avoid "address already in use")
+# Step 5.5: Ensure SIT DB port 5436 is free (avoid "address already in use")
 # ============================================================================
-SIT_DB_PORT=5435
+SIT_DB_PORT=5436
 _check_port_sit_db() {
   if command -v ss >/dev/null 2>&1; then
     ss -tlnp 2>/dev/null | grep -q ":$SIT_DB_PORT " && return 1
@@ -522,9 +522,9 @@ fi
 echo "🚀 Step 7: Starting services..."
 if ! docker compose -f "$COMPOSE_FILE" up -d; then
   echo ""
-  echo "❌ Failed to start services. Common cause: port $SIT_DB_PORT (DB) or 4002/8090/8443 already in use."
+    echo "❌ Failed to start services. Common cause: port $SIT_DB_PORT (DB) or 4003/8091/8444 already in use."
   echo "   Run: docker compose -f $COMPOSE_FILE down"
-  echo "   Check: ss -tlnp | grep -E '$SIT_DB_PORT|4002|8090|8443'  (or netstat -tlnp)"
+    echo "   Check: ss -tlnp | grep -E '$SIT_DB_PORT|4003|8091|8444'  (or netstat -tlnp)"
   echo "   Then free the port and run this script again."
   exit 1
 fi

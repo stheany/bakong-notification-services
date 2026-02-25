@@ -18,6 +18,7 @@
     "strictNullChecks": false,
     "noImplicitAny": false,
     "paths": {
+      "src/*": ["./src/*"],
       "@/*": ["./src/*"]
     }
   },

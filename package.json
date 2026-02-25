@@ -15,6 +15,7 @@
     "build:frontend": "cd apps/frontend && npm run build",
     "build:shared": "cd apps/packages/shared && npm run build",
     "build:all": "npm run build:shared && npm run build && npm run build:frontend",
+    "build:prod": "cross-env NODE_ENV=production npx nest build",
     "start": "cd apps/backend && npm run start",
     "format": "prettier --write \"**/*.{ts,js,vue,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,js,vue,json,md}\"",
@@ -41,6 +42,7 @@
     "update:project-structure": "node .cursor/scripts/update-project-structure.js"
   },
   "devDependencies": {
+    "@nestjs/cli": "^11.0.16",
     "@nestjs/testing": "^11.1.14",
     "@types/babel__core": "^7.20.5",
     "@types/babel__template": "^7.4.4",

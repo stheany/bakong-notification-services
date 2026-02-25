@@ -4,7 +4,11 @@
 FROM node:20-alpine AS builder
 
 # Add build dependencies for native modules and shared packages
-RUN apk add --no-cache tar python3 py3-setuptools build-base
+RUN set -eux; \
+    apk update && apk add --no-cache tar python3 py3-setuptools build-base || { \
+        echo "Retrying apk add due to transient error..."; \
+        apk update && apk add --no-cache tar python3 py3-setuptools build-base; \
+    }
 
 WORKDIR /opt/bk_notification_service
 
@@ -42,18 +46,9 @@ RUN ls -la /opt/bk_notification_service/node_modules/@nestjs/common || echo "@ne
 COPY apps/packages/shared/ ./apps/packages/shared/
 RUN npm run build:shared
 
-# Build backend package
+# Build backend package (runs tsc + tsc-alias + fix-paths.js)
 COPY apps/backend/ ./apps/backend/
 RUN cd apps/backend && npm run build && ls -la /opt/bk_notification_service/apps/backend/dist
-
-# Debug step to verify the dist folder in the builder stage
-RUN ls -la /opt/bk_notification_service/apps/backend/dist
-
-# Add explicit build step to ensure dist directory is generated
-RUN npm run build:prod
-
-# Verify dist/main exists after build
-RUN ls -la /opt/bk_notification_service/dist/main || echo "dist/main not found"
 
 # Verify @nestjs/common is installed
 RUN ls -la /opt/bk_notification_service/node_modules/@nestjs/common || echo "@nestjs/common not found"
@@ -63,45 +58,24 @@ RUN ls -la /opt/bk_notification_service/node_modules/@nestjs/common || echo "@ne
 # -----------------------------------------------------
 FROM node:20-alpine AS runtime
 
-WORKDIR /opt/bk_notification_service
+WORKDIR /opt/bk_notification_service/apps/backend
 
 # Copy built artifacts from the builder stage
 COPY --from=builder /opt/bk_notification_service/apps/backend/dist /opt/bk_notification_service/apps/backend/dist
+COPY --from=builder /opt/bk_notification_service/apps/packages/shared /opt/bk_notification_service/apps/packages/shared
 
 # Copy category type images (needed for seeding default category types)
 COPY apps/backend/assets ./assets
-COPY apps/backend/assets ./apps/backend/assets
 
-# Install production dependencies
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Force reinstall all dependencies in the runtime stage
-RUN npm install --legacy-peer-deps
-
-# Add the following line to ensure the helmet package is installed in the production environment
-RUN npm install helmet --legacy-peer-deps
-
-# Debug step to verify helmet installation in the runtime stage
-RUN ls -la /opt/bk_notification_service/node_modules/helmet || echo "helmet not found"
-
-# Debug step to verify the presence of the '@nestjs/common' package in the runtime container
-RUN ls -la /opt/bk_notification_service/node_modules/@nestjs/common || echo "@nestjs/common not found"
-
-# Add a debug step to list the contents of the node_modules directory
-RUN ls -la /opt/bk_notification_service/node_modules
-
-# Ensure all dependencies are installed
-RUN npm install --legacy-peer-deps
-
-# Build the application to generate the dist directory
-RUN npm run build:prod
-
-# Verify the dist/main file exists
-RUN ls -la /opt/bk_notification_service/dist/main || echo "dist/main not found"
-
-# Verify @nestjs/common is installed
-RUN ls -la /opt/bk_notification_service/node_modules/@nestjs/common || echo "@nestjs/common not found"
+# Install production dependencies for backend service
+COPY apps/backend/package*.json ./
+RUN set -eux; \
+    status=0; \
+    for i in 1 2 3; do \
+      npm install --omit=dev --legacy-peer-deps && status=0 && break || status=$?; \
+      echo "⚠️  runtime npm install attempt $i failed (exit code $status), retrying..." && sleep 5; \
+    done; \
+    if [ $status -ne 0 ]; then echo "❌ runtime npm install failed after 3 attempts"; exit 1; fi
 
 # Start the application
-CMD ["node", "apps/backend/dist/main.js"]
+CMD ["node", "dist/main.js"]
