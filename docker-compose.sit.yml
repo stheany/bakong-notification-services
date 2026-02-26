@@ -16,7 +16,7 @@ services:
       retries: 5
       start_period: 30s
     ports:
-      - "5434:5432"
+      - "5436:5432"
     volumes:
       - postgres_data_sit:/var/lib/postgresql/data
       - ./apps/backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
@@ -36,7 +36,7 @@ services:
     # When switching to Bakong account, change 'stheany' to new org/username
     container_name: bakong-notification-services-api-sit
     ports:
-      - "4002:8080"
+      - "4003:8080"
     environment:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
@@ -54,8 +54,10 @@ services:
       - CORS_ORIGIN=https://sit-bakong-notification.nbc.gov.kh,http://10.20.6.57
       - LOG_LEVEL=info
       - TYPEORM_SYNCHRONIZE=false
+    command: ["node", "/opt/bk_notification_service/apps/backend/dist/main.js"]
     volumes:
       # SIT Firebase service account files for all platforms
+      - ./apps/backend/dist:/opt/bk_notification_service/apps/backend/dist
       - ./bakong-sit-firebase-service-account.json:/opt/bk_notification_service/bakong-sit-firebase-service-account.json:ro
       - ./bakong-junior-sit-firebase-service-account.json:/opt/bk_notification_service/bakong-junior-sit-firebase-service-account.json:ro
       - ./bakong-tourists-sit-firebase-service-account.json:/opt/bk_notification_service/bakong-tourists-sit-firebase-service-account.json:ro
@@ -90,11 +92,9 @@ services:
     # When switching to Bakong account, change 'stheany' to new org/username
     container_name: bakong-notification-services-frontend-sit
     ports:
-      - "80:80"      # Default HTTP port - allows http://10.20.6.57/ without port number
-      - "443:443"    # Default HTTPS port
-      # Alternative: Keep 8090 for backward compatibility
-      # - "8090:80"
-      # - "8443:443"
+      # Use non-default ports to avoid conflicts with host nginx/apache
+      - "8091:80"
+      - "8444:443"
     depends_on:
       - backend
     restart: unless-stopped

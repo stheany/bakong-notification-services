@@ -17,6 +17,7 @@ import { CreateUserDto } from '../user/dto/create-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import moment from 'moment';
 import { BaseResponseDto } from 'src/common/base-response.dto';
+
 @Injectable()
 export class AuthService implements OnModuleInit {
   constructor(
@@ -40,7 +41,8 @@ export class AuthService implements OnModuleInit {
       if (createdAdmin.status !== UserStatus.ACTIVE) {
         await this.userService.update(createdAdmin.id, {
           status: UserStatus.ACTIVE,
-        } as any);
+          phoneNumber: createdAdmin.phoneNumber,
+        });
       }
     } else {
       if (
@@ -50,12 +52,13 @@ export class AuthService implements OnModuleInit {
         await this.userService.update(admin.id, {
           status: UserStatus.ACTIVE,
           role: UserRole.ADMINISTRATOR,
-        } as any);
+          phoneNumber: admin.phoneNumber,
+        });
       }
     }
   }
 
-  async login(user: User, req?: any) {
+  async login(user: User, req?: unknown) {
     try {
       if (user.mustChangePassword) {
         const tempPasswordAttempts =
@@ -67,6 +70,7 @@ export class AuthService implements OnModuleInit {
             errorCode: ErrorCode.ACCOUNT_TIMEOUT,
             responseMessage:
               'You have exceeded the maximum number of login attempts with the temporary password. Your account has been locked. Please contact an administrator to reset your password.',
+            data: null,
           });
         }
 
@@ -82,10 +86,10 @@ export class AuthService implements OnModuleInit {
       let userWithImage = null;
       try {
         userWithImage = await this.userService.findById(user.id);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.warn(
           'Failed to fetch user with imageId, using basic user data:',
-          error.message
+          (error as { message?: string }).message
         );
         userWithImage = {
           id: user.id,
@@ -125,15 +129,17 @@ export class AuthService implements OnModuleInit {
           },
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
       if (error instanceof BaseResponseDto) {
         throw error;
       }
       throw new BaseResponseDto({
         responseCode: 1,
-        responseMessage: error.message || 'Login failed',
+        responseMessage:
+          (error as { message?: string }).message || 'Login failed',
         errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+        data: null,
       });
     }
   }
@@ -145,6 +151,7 @@ export class AuthService implements OnModuleInit {
         responseCode: 1,
         errorCode: ErrorCode.VALIDATION_FAILED,
         responseMessage: 'Email is required.',
+        data: null,
       });
     }
     const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
@@ -153,17 +160,18 @@ export class AuthService implements OnModuleInit {
         responseCode: 1,
         errorCode: ErrorCode.VALIDATION_FAILED,
         responseMessage: 'Please enter a valid email address.',
+        data: null,
       });
     }
-    const user = await this.userService.findByEmailWithPassword(
-      normalizedEmail
-    );
+    const user =
+      await this.userService.findByEmailWithPassword(normalizedEmail);
     if (!user) {
       throw new BaseResponseDto({
         responseCode: 1,
         errorCode: ErrorCode.INVALID_USERNAME_OR_PASSWORD,
         responseMessage:
           'Invalid email or password. Please check your credentials and try again.',
+        data: null,
       });
     }
     if (user.status !== UserStatus.ACTIVE) {
@@ -172,6 +180,7 @@ export class AuthService implements OnModuleInit {
         errorCode: ErrorCode.NO_PERMISSION,
         responseMessage:
           'Your account has been deactivated. Please contact administrator to reactivate your account.',
+        data: null,
       });
     }
     const failLoginAttempt = user.syncStatus?.failLoginAttempt ?? 0;
@@ -180,6 +189,7 @@ export class AuthService implements OnModuleInit {
         responseCode: 1,
         errorCode: ErrorCode.ACCOUNT_TIMEOUT,
         responseMessage: `Account locked due to ${failLoginAttempt} failed login attempts. Please contact administrator to unlock your account.`,
+        data: null,
       });
     }
     if (await bcrypt.compare(password, user.password)) {
@@ -198,6 +208,7 @@ export class AuthService implements OnModuleInit {
         responseCode: 1,
         errorCode: ErrorCode.ACCOUNT_TIMEOUT,
         responseMessage: `Account locked due to ${updatedFailAttempts} failed login attempts. Please contact administrator to unlock your account.`,
+        data: null,
       });
     }
     throw new BaseResponseDto({
@@ -206,6 +217,7 @@ export class AuthService implements OnModuleInit {
       responseMessage: `Invalid password. ${remainingAttempts} attempt${
         remainingAttempts > 1 ? 's' : ''
       } remaining before account lockout.`,
+      data: null,
     });
   }
 
@@ -349,7 +361,7 @@ export class AuthService implements OnModuleInit {
       mimeType: string;
       originalFileName?: string | null;
     },
-    req?: any
+    req?: unknown
   ) {
     const imageResult = await this.imageService.create({
       file: imageData.file,

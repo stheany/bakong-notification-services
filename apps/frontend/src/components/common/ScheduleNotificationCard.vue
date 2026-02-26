@@ -45,7 +45,6 @@
       >
         Review detail
       </button>
-
     </div>
   </div>
 </template>

@@ -55,7 +55,7 @@ export class TemplateService implements OnModuleInit {
     private readonly schedulerRegistry: SchedulerRegistry,
     private readonly imageService: ImageService,
     private readonly baseFunctionHelper?: BaseFunctionHelper
-  ) { }
+  ) {}
 
   async onModuleInit() {
     await this.pickPendingSchedule();
@@ -111,7 +111,9 @@ export class TemplateService implements OnModuleInit {
       if (scheduledTime.isBefore(now)) {
         return {
           responseCode: 2,
-          responseMessage: `Warning: The request was not approved in time, and the scheduled time ${scheduledTime.format('M/D/YYYY [at] HH:mm')} has already passed. Please update the schedule and resubmit.`,
+          responseMessage: `Warning: The request was not approved in time, and the scheduled time ${scheduledTime.format(
+            'M/D/YYYY [at] HH:mm'
+          )} has already passed. Please update the schedule and resubmit.`,
           errorCode: 0,
           data: {
             scheduledTime: scheduledTime.format('M/D/YYYY [at] HH:mm'),
@@ -213,8 +215,9 @@ export class TemplateService implements OnModuleInit {
       } as Template;
       const hasMatchingUsers = await this.validateMatchingUsers(tempTemplate);
       if (!hasMatchingUsers) {
-        const platformInfo = `OS platform: ${tempTemplate.platforms?.join(', ') || 'ALL'
-          }, Bakong platform: ${tempTemplate.bakongPlatform}`;
+        const platformInfo = `OS platform: ${
+          tempTemplate.platforms?.join(', ') || 'ALL'
+        }, Bakong platform: ${tempTemplate.bakongPlatform}`;
         const platformName =
           tempTemplate.bakongPlatform === 'BAKONG_TOURIST'
             ? 'Bakong Tourist'
@@ -262,10 +265,10 @@ export class TemplateService implements OnModuleInit {
         : null,
       sendInterval: dto.sendInterval
         ? {
-          ...dto.sendInterval,
-          startAt: moment(dto.sendInterval.startAt).toDate(),
-          endAt: moment(dto.sendInterval.endAt).toDate(),
-        }
+            ...dto.sendInterval,
+            startAt: moment(dto.sendInterval.startAt).toDate(),
+            endAt: moment(dto.sendInterval.endAt).toDate(),
+          }
         : null,
       showPerDay: dto.showPerDay !== undefined ? dto.showPerDay : 1,
       maxDayShowing: dto.maxDayShowing !== undefined ? dto.maxDayShowing : 1,
@@ -333,11 +336,11 @@ export class TemplateService implements OnModuleInit {
       }
       const translationsToProcess = isDraft
         ? dto.translations.filter((t) => {
-          const hasTitle = t.title && String(t.title).trim() !== '';
-          const hasContent = t.content && String(t.content).trim() !== '';
-          const hasImage = t.image && String(t.image).trim() !== '';
-          return hasTitle || hasContent || hasImage;
-        })
+            const hasTitle = t.title && String(t.title).trim() !== '';
+            const hasContent = t.content && String(t.content).trim() !== '';
+            const hasImage = t.image && String(t.image).trim() !== '';
+            return hasTitle || hasContent || hasImage;
+          })
         : dto.translations;
       for (const translation of translationsToProcess) {
         const existingTranslation = await this.translationRepo.findOne({
@@ -351,7 +354,8 @@ export class TemplateService implements OnModuleInit {
           (!translation.title || String(translation.title).trim() === '') &&
           (!translation.content || String(translation.content).trim() === '') &&
           (!translation.image || String(translation.image).trim() === '') &&
-          (!translation.linkPreview || String(translation.linkPreview).trim() === '');
+          (!translation.linkPreview ||
+            String(translation.linkPreview).trim() === '');
         if (allEmpty) {
           if (existingTranslation) {
             this.logger.log(
@@ -383,9 +387,8 @@ export class TemplateService implements OnModuleInit {
           if (template.isSent === false) {
             imageId = imageValue;
           } else {
-            const imageExists = await this.imageService.validateImageExists(
-              imageValue
-            );
+            const imageExists =
+              await this.imageService.validateImageExists(imageValue);
             if (imageExists) {
               imageId = imageValue;
             }
@@ -395,9 +398,8 @@ export class TemplateService implements OnModuleInit {
           if (template.isSent === false) {
             imageId = dtoImageValue;
           } else {
-            const imageExists = await this.imageService.validateImageExists(
-              dtoImageValue
-            );
+            const imageExists =
+              await this.imageService.validateImageExists(dtoImageValue);
             if (imageExists) {
               imageId = dtoImageValue;
             }
@@ -734,7 +736,8 @@ export class TemplateService implements OnModuleInit {
     console.log(`\n🔵 [UPDATE] ========== START UPDATE REQUEST ==========`);
     console.log(`🔵 [UPDATE] Template ID: ${id}`);
     console.log(
-      `🔵 [UPDATE] Current User: ${currentUser?.username || 'NO USER'} (Role: ${currentUser?.role || 'NO ROLE'
+      `🔵 [UPDATE] Current User: ${currentUser?.username || 'NO USER'} (Role: ${
+        currentUser?.role || 'NO ROLE'
       })`
     );
     console.log(`🔵 [UPDATE] Request DTO:`, {
@@ -848,7 +851,9 @@ export class TemplateService implements OnModuleInit {
 
             return {
               responseCode: 2,
-              responseMessage: `The request was not approved in time, and the scheduled time <strong>${scheduledTime.format('M/D/YYYY [at] HH:mm')}</strong> has already passed. Please update the schedule and resubmit.`,
+              responseMessage: `The request was not approved in time, and the scheduled time <strong>${scheduledTime.format(
+                'M/D/YYYY [at] HH:mm'
+              )}</strong> has already passed. Please update the schedule and resubmit.`,
               errorCode: 0,
               data: {
                 scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
@@ -925,7 +930,8 @@ export class TemplateService implements OnModuleInit {
               existingTemplate.isSent === true && !existingIsScheduled;
             if (isScheduledTemplate || isPublishedTemplate) {
               console.log(
-                `🔄 [UPDATE] Editing APPROVED template ${id} from ${isScheduledTemplate ? 'Scheduled' : 'Published'
+                `🔄 [UPDATE] Editing APPROVED template ${id} from ${
+                  isScheduledTemplate ? 'Scheduled' : 'Published'
                 } tab - preserving APPROVED status`
               );
               updateFields.reasonForRejection = null;
@@ -976,9 +982,11 @@ export class TemplateService implements OnModuleInit {
           });
           const allEmpty =
             (!translation.title || String(translation.title).trim() === '') &&
-            (!translation.content || String(translation.content).trim() === '') &&
+            (!translation.content ||
+              String(translation.content).trim() === '') &&
             (!translation.image || String(translation.image).trim() === '') &&
-            (!translation.linkPreview || String(translation.linkPreview).trim() === '');
+            (!translation.linkPreview ||
+              String(translation.linkPreview).trim() === '');
           if (allEmpty && existingTranslation) {
             console.log(
               `🗑️ [UPDATE] Translation for template ${id}, language ${translation.language} is empty and exists in DB. Deleting it.`
@@ -1091,14 +1099,14 @@ export class TemplateService implements OnModuleInit {
             const oldImageId = item.imageId;
             if (translation.image !== undefined) {
               if (image && String(image).trim() !== '') {
-                const imageExists = await this.imageService.validateImageExists(
-                  image
-                );
+                const imageExists =
+                  await this.imageService.validateImageExists(image);
                 if (imageExists) {
                   imageId = image;
                   if (oldImageId !== imageId) {
                     this.logger.log(
-                      `🖼️ [Template Update] Updating imageId for template ${id}, language ${language}: ${oldImageId || 'null'
+                      `🖼️ [Template Update] Updating imageId for template ${id}, language ${language}: ${
+                        oldImageId || 'null'
                       } -> ${imageId}`
                     );
                   }
@@ -1132,7 +1140,8 @@ export class TemplateService implements OnModuleInit {
               });
               if (oldImageId !== imageId) {
                 this.logger.log(
-                  `✅ [Template Update] Successfully updated imageId for template ${id}, language ${language}: ${oldImageId || 'null'
+                  `✅ [Template Update] Successfully updated imageId for template ${id}, language ${language}: ${
+                    oldImageId || 'null'
                   } -> ${imageId || 'null'}`
                 );
               }
@@ -1181,8 +1190,9 @@ export class TemplateService implements OnModuleInit {
         } as Template;
         const hasMatchingUsers = await this.validateMatchingUsers(tempTemplate);
         if (!hasMatchingUsers) {
-          const platformInfo = `OS platform: ${tempTemplate.platforms?.join(', ') || 'ALL'
-            }, Bakong platform: ${tempTemplate.bakongPlatform}`;
+          const platformInfo = `OS platform: ${
+            tempTemplate.platforms?.join(', ') || 'ALL'
+          }, Bakong platform: ${tempTemplate.bakongPlatform}`;
           const platformName =
             tempTemplate.bakongPlatform === 'BAKONG_TOURIST'
               ? 'Bakong Tourist'
@@ -1261,7 +1271,7 @@ export class TemplateService implements OnModuleInit {
               : updatedTemplate.approvalStatus === ApprovalStatus.PENDING
                 ? 'PENDING status - waiting for approval'
                 : updatedTemplate.sendType === SendType.SEND_NOW &&
-                  updatedTemplate.isSent === true
+                    updatedTemplate.isSent === true
                   ? 'SEND_NOW with isSent=true'
                   : 'Conditions not met',
           approvalStatus: updatedTemplate.approvalStatus,
@@ -1477,14 +1487,18 @@ export class TemplateService implements OnModuleInit {
             const wasApproverAction =
               isApproverPublishNow && sendResult.successfulCount === 0;
             console.log(
-              `[UPDATE] ✅ Template ${updatedTemplate.id
-              } published successfully - sent to ${sendResult.successfulCount
-              } user(s)${sendResult.failedCount > 0
-                ? ` (${sendResult.failedCount} failed)`
-                : ''
-              }${wasApproverAction
-                ? ' (Approver published, marking as published)'
-                : ''
+              `[UPDATE] ✅ Template ${
+                updatedTemplate.id
+              } published successfully - sent to ${
+                sendResult.successfulCount
+              } user(s)${
+                sendResult.failedCount > 0
+                  ? ` (${sendResult.failedCount} failed)`
+                  : ''
+              }${
+                wasApproverAction
+                  ? ' (Approver published, marking as published)'
+                  : ''
               }`
             );
             console.log(
@@ -1570,14 +1584,16 @@ export class TemplateService implements OnModuleInit {
             });
             if (sendResult.failedCount > 0 && sendResult.failedUsers?.length) {
               console.warn(
-                `[UPDATE] All ${sendResult.failedCount
+                `[UPDATE] All ${
+                  sendResult.failedCount
                 } user(s) failed: ${sendResult.failedUsers.join(
                   ', '
                 )}. Users may need to update their FCM tokens via mobile app.`
               );
             } else {
               console.warn(
-                `[UPDATE] No matching users found. Check platform filters and ensure users exist for bakongPlatform: ${templateWithTranslations.bakongPlatform || 'ALL'
+                `[UPDATE] No matching users found. Check platform filters and ensure users exist for bakongPlatform: ${
+                  templateWithTranslations.bakongPlatform || 'ALL'
                 }`
               );
             }
@@ -1811,8 +1827,9 @@ export class TemplateService implements OnModuleInit {
     );
     const hasMatchingUsers = await this.validateMatchingUsers(template);
     if (!hasMatchingUsers) {
-      const platformInfo = `OS platform: ${template.platforms?.join(', ') || 'ALL'
-        }, Bakong platform: ${template.bakongPlatform}`;
+      const platformInfo = `OS platform: ${
+        template.platforms?.join(', ') || 'ALL'
+      }, Bakong platform: ${template.bakongPlatform}`;
       const platformName =
         template.bakongPlatform === 'BAKONG_TOURIST'
           ? 'Bakong Tourist'
@@ -1892,9 +1909,9 @@ export class TemplateService implements OnModuleInit {
             .format(
               'YYYY-MM-DD HH:mm:ss'
             )} Cambodia) has passed (current: ${now.toISOString()} / ${now
-              .clone()
-              .utcOffset(7)
-              .format('YYYY-MM-DD HH:mm:ss')} Cambodia). Marking as expired.`
+            .clone()
+            .utcOffset(7)
+            .format('YYYY-MM-DD HH:mm:ss')} Cambodia). Marking as expired.`
         );
         const expiredReason =
           'Scheduled time has passed. Please contact team member to update the schedule first.';
@@ -1978,19 +1995,20 @@ export class TemplateService implements OnModuleInit {
           `📤 [APPROVE] Template ${id} is ready to send after approval - sending automatically`
         );
         this.logger.log(
-          `📤 [APPROVE] Template ${id} platform info: OS platforms: ${updatedTemplate.platforms?.join(', ') || 'ALL'
+          `📤 [APPROVE] Template ${id} platform info: OS platforms: ${
+            updatedTemplate.platforms?.join(', ') || 'ALL'
           }, Bakong platform: ${updatedTemplate.bakongPlatform}`
         );
         try {
-          const sendResult = await this.notificationService.sendWithTemplate(
-            updatedTemplate
-          );
+          const sendResult =
+            await this.notificationService.sendWithTemplate(updatedTemplate);
           this.logger.log(
             `📤 [APPROVE] Template ${id} send result: successfulCount: ${sendResult.successfulCount}, failedCount: ${sendResult.failedCount}`
           );
           if (sendResult.successfulCount === 0) {
-            const platformInfo = `OS platform: ${updatedTemplate.platforms?.join(', ') || 'ALL'
-              }, Bakong platform: ${updatedTemplate.bakongPlatform}`;
+            const platformInfo = `OS platform: ${
+              updatedTemplate.platforms?.join(', ') || 'ALL'
+            }, Bakong platform: ${updatedTemplate.bakongPlatform}`;
             const rejectionReason =
               sendResult.failedCount === 0
                 ? `No users found matching the platform requirements (${platformInfo}). Please ensure there are registered users for the specified platforms before approving.`
@@ -2174,7 +2192,9 @@ export class TemplateService implements OnModuleInit {
 
             return {
               responseCode: 2,
-              responseMessage: `The request was not approved in time, and the scheduled time <strong>${scheduledTime.format('M/D/YYYY [at] HH:mm')}</strong> has already passed. Please update the schedule and resubmit.`,
+              responseMessage: `The request was not approved in time, and the scheduled time <strong>${scheduledTime.format(
+                'M/D/YYYY [at] HH:mm'
+              )}</strong> has already passed. Please update the schedule and resubmit.`,
               errorCode: 0,
               data: {
                 scheduledTime: scheduledTime.format('h:mm A MMM D, YYYY'),
@@ -2213,9 +2233,11 @@ export class TemplateService implements OnModuleInit {
           });
           const allEmpty =
             (!translation.title || String(translation.title).trim() === '') &&
-            (!translation.content || String(translation.content).trim() === '') &&
+            (!translation.content ||
+              String(translation.content).trim() === '') &&
             (!translation.image || String(translation.image).trim() === '') &&
-            (!translation.linkPreview || String(translation.linkPreview).trim() === '');
+            (!translation.linkPreview ||
+              String(translation.linkPreview).trim() === '');
           if (allEmpty && existingTranslation) {
             console.log(
               `🗑️ [editPublishedNotification] Translation for template ${id}, language ${translation.language} is empty and exists in DB. Deleting it.`
@@ -2263,9 +2285,8 @@ export class TemplateService implements OnModuleInit {
           let imageId = null;
           if (translation.image !== undefined) {
             if (image && String(image).trim() !== '') {
-              const imageExists = await this.imageService.validateImageExists(
-                image
-              );
+              const imageExists =
+                await this.imageService.validateImageExists(image);
               if (imageExists) {
                 imageId = image;
               }
@@ -2362,10 +2383,12 @@ export class TemplateService implements OnModuleInit {
                   await this.markAsPublished(id);
                 }
                 console.log(
-                  `✅ [editPublishedNotification] Template ${id} sent immediately to ${sendResult.successfulCount
-                  } user(s)${sendResult.failedCount > 0
-                    ? ` (${sendResult.failedCount} failed)`
-                    : ''
+                  `✅ [editPublishedNotification] Template ${id} sent immediately to ${
+                    sendResult.successfulCount
+                  } user(s)${
+                    sendResult.failedCount > 0
+                      ? ` (${sendResult.failedCount} failed)`
+                      : ''
                   }`
                 );
               } else {
@@ -2392,9 +2415,8 @@ export class TemplateService implements OnModuleInit {
             `Scheduling updated notification for template ${id} at ${updatedTemplate.sendSchedule}`
           );
           if (updatedTemplate.isSent === true) {
-            const hasMatchingUsers = await this.validateMatchingUsers(
-              updatedTemplate
-            );
+            const hasMatchingUsers =
+              await this.validateMatchingUsers(updatedTemplate);
             if (!hasMatchingUsers) {
               console.log(
                 `🔵 [EDIT PUBLISHED] ⚠️ No matching users found for scheduled notification - keeping as draft`
@@ -2699,19 +2721,19 @@ export class TemplateService implements OnModuleInit {
       notificationType: template.notificationType,
       categoryType: isV2
         ? InboxResponseDto.getCategoryDisplayName(
-          template.categoryTypeEntity,
-          language
-        ) || 'Other'
+            template.categoryTypeEntity,
+            language
+          ) || 'Other'
         : template.categoryTypeEntity?.name,
       categoryTypeId: template.categoryTypeId,
       categoryIcon: categoryIcon,
       priority: template.priority,
       sendInterval: template.sendInterval
         ? {
-          cron: template.sendInterval.cron,
-          startAt: moment(template.sendInterval.startAt).toISOString(),
-          endAt: moment(template.sendInterval.endAt).toISOString(),
-        }
+            cron: template.sendInterval.cron,
+            startAt: moment(template.sendInterval.startAt).toISOString(),
+            endAt: moment(template.sendInterval.endAt).toISOString(),
+          }
         : null,
       isSent: template.isSent,
       sendSchedule: template.sendSchedule
@@ -2741,29 +2763,29 @@ export class TemplateService implements OnModuleInit {
           (template as any).failedCount === 0),
       translations: template.translations
         ? template.translations.map((translation) => ({
-          id: translation.id,
-          language: translation.language,
-          title: translation.title,
-          content: translation.content,
-          linkPreview: translation.linkPreview,
-          image: translation.image
-            ? {
-              fileId: translation.image.fileId,
-              mimeType: translation.image.mimeType
-                ? translation.image.mimeType.substring(0, 100)
-                : null,
-              originalFileName: translation.image.originalFileName
-                ? translation.image.originalFileName.substring(0, 100)
-                : null,
-            }
-            : translation.imageId
+            id: translation.id,
+            language: translation.language,
+            title: translation.title,
+            content: translation.content,
+            linkPreview: translation.linkPreview,
+            image: translation.image
               ? {
-                fileId: translation.imageId,
-                mimeType: null,
-                originalFileName: null,
-              }
-              : null,
-        }))
+                  fileId: translation.image.fileId,
+                  mimeType: translation.image.mimeType
+                    ? translation.image.mimeType.substring(0, 100)
+                    : null,
+                  originalFileName: translation.image.originalFileName
+                    ? translation.image.originalFileName.substring(0, 100)
+                    : null,
+                }
+              : translation.imageId
+                ? {
+                    fileId: translation.imageId,
+                    mimeType: null,
+                    originalFileName: null,
+                  }
+                : null,
+          }))
         : [],
     };
     if (
@@ -2831,11 +2853,11 @@ export class TemplateService implements OnModuleInit {
     const date = isDraftWithoutSchedule
       ? datePart
       : `${datePart} | ${dateToShow.toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Phnom_Penh',
-      })}`;
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Phnom_Penh',
+        })}`;
     const platforms = ValidationHelper.parsePlatforms(template.platforms);
     return {
       id: template.id,
@@ -2855,13 +2877,13 @@ export class TemplateService implements OnModuleInit {
       updatedAt: template.updatedAt,
       scheduledTime: template.sendSchedule
         ? (() => {
-          const scheduleDate =
-            template.sendSchedule instanceof Date
-              ? template.sendSchedule
-              : new Date(template.sendSchedule);
-          const utcISOString = scheduleDate.toISOString();
-          return TimezoneUtils.formatCambodiaTime(utcISOString);
-        })()
+            const scheduleDate =
+              template.sendSchedule instanceof Date
+                ? template.sendSchedule
+                : new Date(template.sendSchedule);
+            const utcISOString = scheduleDate.toISOString();
+            return TimezoneUtils.formatCambodiaTime(utcISOString);
+          })()
         : null,
       platforms: platforms,
       bakongPlatform: template.bakongPlatform || null,
@@ -3007,7 +3029,8 @@ export class TemplateService implements OnModuleInit {
         const job = new CronJob(scheduledDate, async () => {
           try {
             console.log(
-              `[CronJob] Executing scheduled notification for template ${template.id
+              `[CronJob] Executing scheduled notification for template ${
+                template.id
               } at ${new Date()}`
             );
             const updateResult = await this.repo
@@ -3074,7 +3097,8 @@ export class TemplateService implements OnModuleInit {
         this.schedulerRegistry.addCronJob(template.id.toString(), job);
         job.start();
         console.log(
-          `Scheduled notification CronJob created for template ${template.id
+          `Scheduled notification CronJob created for template ${
+            template.id
           } at ${scheduledDate.toISOString()} (${minutesUntilSchedule.toFixed(
             2
           )} minutes from now)`
@@ -3248,13 +3272,16 @@ export class TemplateService implements OnModuleInit {
       const createdAt = new Date(notif.createdAt);
       return createdAt >= todayStart && createdAt <= todayEnd;
     });
-    const templateViewCounts = todayNotifications.reduce((acc, notif) => {
-      const templateId = notif.templateId;
-      if (templateId) {
-        acc[templateId] = (acc[templateId] || 0) + 1;
-      }
-      return acc;
-    }, {} as Record<number, number>);
+    const templateViewCounts = todayNotifications.reduce(
+      (acc, notif) => {
+        const templateId = notif.templateId;
+        if (templateId) {
+          acc[templateId] = (acc[templateId] || 0) + 1;
+        }
+        return acc;
+      },
+      {} as Record<number, number>
+    );
     const templateDaysCounts = new Map<number, Set<string>>();
     userNotifications.forEach((notif) => {
       if (notif.templateId) {
@@ -3325,7 +3352,8 @@ export class TemplateService implements OnModuleInit {
       );
     }
     console.log(
-      `📋 [findBestTemplateForUser] Excluding templates due to limits: ${excludedTemplateIds.length > 0 ? excludedTemplateIds.join(', ') : 'none'
+      `📋 [findBestTemplateForUser] Excluding templates due to limits: ${
+        excludedTemplateIds.length > 0 ? excludedTemplateIds.join(', ') : 'none'
       }`
     );
     console.log(
@@ -3380,7 +3408,8 @@ export class TemplateService implements OnModuleInit {
           );
           if (translation) {
             console.log(
-              `📋 [findBestTemplateForUser] Using fallback template ${selectedTemplate.id
+              `📋 [findBestTemplateForUser] Using fallback template ${
+                selectedTemplate.id
               } (bakongPlatform: ${selectedTemplate.bakongPlatform || 'NULL'})`
             );
             return { template: selectedTemplate, translation };
@@ -3396,7 +3425,8 @@ export class TemplateService implements OnModuleInit {
     const translation = this.findBestTranslation(selectedTemplate, language);
     if (!translation) return null;
     console.log(
-      `✅ [findBestTemplateForUser] Found template ${selectedTemplate.id
+      `✅ [findBestTemplateForUser] Found template ${
+        selectedTemplate.id
       } with bakongPlatform: ${selectedTemplate.bakongPlatform || 'NULL'}`
     );
     return { template: selectedTemplate, translation };

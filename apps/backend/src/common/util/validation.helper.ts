@@ -162,8 +162,9 @@ export class ValidationHelper {
     }
     if (errorCode === ErrorCode.DATABASE_QUERY_FAILED) {
       specificMessage = ResponseMessage.DATABASE_QUERY_FAILED;
-      errorLocation = `Table: ${table || 'unknown'}, Operation: ${context || 'unknown'
-        }`;
+      errorLocation = `Table: ${table || 'unknown'}, Operation: ${
+        context || 'unknown'
+      }`;
     }
     return new BaseResponseDto({
       responseCode: 1,
@@ -481,7 +482,8 @@ export class ValidationHelper {
         const normalizedPlatform = platformValidation.normalizedValue;
         if (user.platform !== normalizedPlatform) {
           console.log(
-            `🔄 [updateUserFields] platform changed for user ${user.accountId
+            `🔄 [updateUserFields] platform changed for user ${
+              user.accountId
             }: ${user.platform || 'NULL'} -> ${normalizedPlatform}`
           );
         }
@@ -495,7 +497,8 @@ export class ValidationHelper {
         const normalizedLanguage = languageValidation.normalizedValue;
         if (user.language !== normalizedLanguage) {
           console.log(
-            `🔄 [updateUserFields] language changed for user ${user.accountId
+            `🔄 [updateUserFields] language changed for user ${
+              user.accountId
             }: ${user.language || 'NULL'} -> ${normalizedLanguage}`
           );
         }
@@ -506,7 +509,8 @@ export class ValidationHelper {
     if (updates.participantCode !== undefined) {
       if (user.participantCode !== updates.participantCode) {
         console.log(
-          `🔄 [updateUserFields] participantCode changed for user ${user.accountId
+          `🔄 [updateUserFields] participantCode changed for user ${
+            user.accountId
           }: ${user.participantCode || 'NULL'} -> ${updates.participantCode}`
         );
       }
@@ -516,7 +520,8 @@ export class ValidationHelper {
     if (updates.bakongPlatform !== undefined) {
       if (user.bakongPlatform !== updates.bakongPlatform) {
         console.log(
-          `🔄 [updateUserFields] bakongPlatform changed for user ${user.accountId
+          `🔄 [updateUserFields] bakongPlatform changed for user ${
+            user.accountId
           }: ${user.bakongPlatform || 'NULL'} -> ${updates.bakongPlatform}`
         );
       }

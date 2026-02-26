@@ -84,7 +84,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role_enum') THEN
-        CREATE TYPE user_role_enum AS ENUM ('ADMIN_USER', 'NORMAL_USER', 'API_USER', 'ADMINISTRATOR');
+        CREATE TYPE user_role_enum AS ENUM ('ADMIN_USER', 'VIEW_ONLY', 'API_USER', 'ADMINISTRATOR');
         RAISE NOTICE '✅ Created user_role_enum';
     ELSE
         -- Add ADMINISTRATOR if it doesn't exist in existing enum
@@ -196,7 +196,7 @@ CREATE TABLE IF NOT EXISTS "user" (
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     "displayName" VARCHAR(255) NOT NULL,
-    role user_role_enum DEFAULT 'NORMAL_USER',
+    role user_role_enum DEFAULT 'VIEW_ONLY',
     "mustChangePassword" BOOLEAN NOT NULL DEFAULT true,
     "syncStatus" JSONB DEFAULT '{"failLoginAttempt": 0, "login_at": null, "changePassword_count": 0}'::jsonb,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),

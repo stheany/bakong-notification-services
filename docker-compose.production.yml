@@ -54,6 +54,7 @@ services:
       - LOG_LEVEL=warn
       - API_JWT_KEY=010110bkns
       - TYPEORM_SYNCHRONIZE=false
+    command: ["node", "/opt/bk_notification_service/apps/backend/dist/main.js"]
     volumes:
       # Production Firebase service account files for all platforms
       - ./bakong-uat-firebase-service-account.json:/opt/bk_notification_service/bakong-uat-firebase-service-account.json:ro

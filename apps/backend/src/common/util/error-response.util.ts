@@ -12,8 +12,7 @@ export class ErrorResponseUtil {
   static createErrorResponse(
     errorCode: number,
     message?: string,
-    data?: any,
-    _context?: ErrorContext
+    data?: unknown
   ): BaseResponseDto {
     const responseMessage = message || this.getDefaultMessage(errorCode);
     return new BaseResponseDto({
@@ -24,43 +23,52 @@ export class ErrorResponseUtil {
     });
   }
 
-  static createFromException(
-    exception: any,
-    _context?: ErrorContext
-  ): { response: BaseResponseDto; httpStatus: number } {
+  static createFromException(exception: unknown): {
+    response: BaseResponseDto;
+    httpStatus: number;
+  } {
     let errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
     let message = 'An unexpected error occurred';
     let httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
-    if (exception.name === 'ValidationError') {
-      errorCode = ErrorCode.VALIDATION_FAILED;
-      message = 'Validation failed';
-      httpStatus = HttpStatus.BAD_REQUEST;
-    } else if (exception.name === 'UnauthorizedError') {
-      errorCode = ErrorCode.FAILED_AUTHENTICATION;
-      message = 'Authentication failed';
-      httpStatus = HttpStatus.UNAUTHORIZED;
-    } else if (exception.name === 'ForbiddenError') {
-      errorCode = ErrorCode.NO_PERMISSION;
-      message = 'Insufficient permissions';
-      httpStatus = HttpStatus.FORBIDDEN;
-    } else if (exception.name === 'NotFoundError') {
-      errorCode = ErrorCode.RECORD_NOT_FOUND;
-      message = 'Resource not found';
-      httpStatus = HttpStatus.NOT_FOUND;
-    } else if (exception.name === 'ConflictError') {
-      errorCode = ErrorCode.DATABASE_UNIQUE_CONSTRAINT_VIOLATION;
-      message = 'Resource already exists';
-      httpStatus = HttpStatus.CONFLICT;
-    } else if (exception.code === 'ECONNREFUSED') {
-      errorCode = ErrorCode.DATABASE_CONNECTION_ERROR;
-      message = 'Database connection failed';
-      httpStatus = HttpStatus.SERVICE_UNAVAILABLE;
+
+    if (typeof exception === 'object' && exception !== null) {
+      const exceptionName = (exception as { name?: string }).name;
+      const exceptionCode = (exception as { code?: string }).code;
+      const exceptionMessage = (exception as { message?: string }).message;
+
+      if (exceptionName === 'ValidationError') {
+        errorCode = ErrorCode.VALIDATION_FAILED;
+        message = 'Validation failed';
+        httpStatus = HttpStatus.BAD_REQUEST;
+      } else if (exceptionName === 'UnauthorizedError') {
+        errorCode = ErrorCode.FAILED_AUTHENTICATION;
+        message = 'Authentication failed';
+        httpStatus = HttpStatus.UNAUTHORIZED;
+      } else if (exceptionName === 'ForbiddenError') {
+        errorCode = ErrorCode.NO_PERMISSION;
+        message = 'Insufficient permissions';
+        httpStatus = HttpStatus.FORBIDDEN;
+      } else if (exceptionName === 'NotFoundError') {
+        errorCode = ErrorCode.RECORD_NOT_FOUND;
+        message = 'Resource not found';
+        httpStatus = HttpStatus.NOT_FOUND;
+      } else if (exceptionName === 'ConflictError') {
+        errorCode = ErrorCode.DATABASE_UNIQUE_CONSTRAINT_VIOLATION;
+        message = 'Resource already exists';
+        httpStatus = HttpStatus.CONFLICT;
+      } else if (exceptionCode === 'ECONNREFUSED') {
+        errorCode = ErrorCode.DATABASE_CONNECTION_ERROR;
+        message = 'Database connection failed';
+        httpStatus = HttpStatus.SERVICE_UNAVAILABLE;
+      }
+
+      if (exceptionMessage) {
+        message = exceptionMessage;
+      }
     }
-    if (exception.message) {
-      message = exception.message;
-    }
+
     return {
-      response: this.createErrorResponse(errorCode, message, null, _context),
+      response: this.createErrorResponse(errorCode, message, null),
       httpStatus,
     };
   }
@@ -134,13 +142,17 @@ export class ErrorResponseUtil {
     }
   }
 
-  static logError(error: any, context: ErrorContext, logger: any): void {
+  static logError(
+    error: unknown,
+    context: ErrorContext,
+    logger: { error: (message: string, data: unknown) => void }
+  ): void {
     const logData = {
       error: {
-        name: error?.name || 'Unknown',
-        message: error?.message || 'No message',
-        stack: error?.stack,
-        code: error?.code,
+        name: (error as { name?: string })?.name || 'Unknown',
+        message: (error as { message?: string })?.message || 'No message',
+        stack: (error as { stack?: string })?.stack,
+        code: (error as { code?: string })?.code,
       },
       context: {
         ...context,

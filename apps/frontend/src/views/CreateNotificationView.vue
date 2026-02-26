@@ -28,9 +28,7 @@
         <!-- Expired Time Display: Only show for expired templates in draft tab -->
         <div
           v-if="
-            (isEditMode || isViewMode) &&
-            isTemplateExpired &&
-            !rejectReasonText
+            (isEditMode || isViewMode) && isTemplateExpired && !rejectReasonText
           "
           class="reject-reason-container expired-time-container"
         >
@@ -39,7 +37,12 @@
             <div class="reject-reason-label">
               Expired Time:
               <span class="reject-reason-text">
-                The request was not approved in time, and the <template v-if="expiredScheduleTime">scheduled time <strong>{{ expiredScheduleTime }}</strong></template><template v-else>scheduled time</template> has already passed. Please update the schedule and resubmit.
+                The request was not approved in time, and the
+                <template v-if="expiredScheduleTime"
+                  >scheduled time
+                  <strong>{{ expiredScheduleTime }}</strong></template
+                ><template v-else>scheduled time</template> has already passed.
+                Please update the schedule and resubmit.
               </span>
             </div>
           </div>
@@ -598,7 +601,11 @@
             languageFormData[activeLanguage]?.imageUrl) ||
           undefined
         "
-        :categoryTypeObject="categoryTypes.find((ct: CategoryTypeData) => ct.id === formData.categoryTypeId) || null"
+        :categoryTypeObject="
+          categoryTypes.find(
+            (ct: CategoryTypeData) => ct.id === formData.categoryTypeId
+          ) || null
+        "
         :activeLanguage="activeLanguage"
         :title-has-khmer="titleHasKhmer"
         :description-has-khmer="descriptionHasKhmer"
@@ -666,7 +673,10 @@
   } from '@/components/common';
   import ConfirmationDialog from '@/components/common/ConfirmationDialog.vue';
 
-  const approveIcon = new URL('@/assets/image/checkmark--outline.svg', import.meta.url).href;
+  const approveIcon = new URL(
+    '@/assets/image/checkmark--outline.svg',
+    import.meta.url
+  ).href;
   const rejectIcon = new URL('@/assets/image/x.svg', import.meta.url).href;
 
   import {
@@ -1391,7 +1401,6 @@
           originalLanguageFormData[lang].imageFile = null;
 
           existingTranslationIds[lang] = t.id || null;
-
         }
       }
 
@@ -1590,7 +1599,6 @@
   watch(
     () => formData.scheduleEnabled,
     (isEnabled, wasEnabled) => {
-
       if (hasLoadedScheduleTime.value && formData.scheduleTime) {
         return; // Always preserve loaded schedule time, never overwrite
       }
@@ -1797,7 +1805,10 @@
       try {
         const originalScheduleDate = new Date(originalSendSchedule.value);
         const nowUTC = new Date();
-        if (originalScheduleDate.getTime() <= nowUTC.getTime() && !isEditingPublished.value) {
+        if (
+          originalScheduleDate.getTime() <= nowUTC.getTime() &&
+          !isEditingPublished.value
+        ) {
           if (
             formData.scheduleEnabled &&
             formData.scheduleDate &&
@@ -2388,7 +2399,12 @@
 
       for (const [langKey, langData] of Object.entries(languageFormData)) {
         // LOG: Check language and form data
-        console.log('[Translation Filter] langKey:', langKey, 'langData:', langData);
+        console.log(
+          '[Translation Filter] langKey:',
+          langKey,
+          'langData:',
+          langData
+        );
         try {
           if (
             formData.platform === BakongApp.BAKONG_TOURIST &&
@@ -2399,22 +2415,32 @@
         } catch (e) {}
         const allEmpty =
           (!langData.title || String(langData.title).trim() === '') &&
-          (!langData.description || String(langData.description).trim() === '') &&
-          (!langData.linkToSeeMore || String(langData.linkToSeeMore).trim() === '') &&
-          !langData.imageFile && !langData.imageUrl;
+          (!langData.description ||
+            String(langData.description).trim() === '') &&
+          (!langData.linkToSeeMore ||
+            String(langData.linkToSeeMore).trim() === '') &&
+          !langData.imageFile &&
+          !langData.imageUrl;
 
         if (allEmpty) {
           console.log('[Translation Filter] EMPTY:', langKey);
           // If it was an existing translation, we MUST include it (as empty) so the backend can delete it
           if (isEditMode.value && existingTranslationIds[langKey]) {
-            console.log('[Translation Filter] Including empty translation for deletion:', langKey);
+            console.log(
+              '[Translation Filter] Including empty translation for deletion:',
+              langKey
+            );
           } else {
-            console.log('[Translation Filter] Skipping new empty translation:', langKey);
+            console.log(
+              '[Translation Filter] Skipping new empty translation:',
+              langKey
+            );
             continue;
           }
         }
 
-        const isExisting = isEditMode.value && !!existingTranslationIds[langKey];
+        const isExisting =
+          isEditMode.value && !!existingTranslationIds[langKey];
 
         const shouldInclude = !allEmpty || isExisting;
 
@@ -2600,10 +2626,12 @@
         // Only push fallbackTranslationData if at least one field is not empty
         const allEmptyFallback =
           (!currentTitle.value || String(currentTitle.value).trim() === '') &&
-          (!currentDescription.value || String(currentDescription.value).trim() === '') &&
-          (!currentLinkToSeeMore.value || String(currentLinkToSeeMore.value).trim() === '') &&
-          (!currentImageFile.value) &&
-          (!fallbackImageId);
+          (!currentDescription.value ||
+            String(currentDescription.value).trim() === '') &&
+          (!currentLinkToSeeMore.value ||
+            String(currentLinkToSeeMore.value).trim() === '') &&
+          !currentImageFile.value &&
+          !fallbackImageId;
         if (!allEmptyFallback) {
           const fallbackTranslationData: any = {
             language: mapLanguageToEnum(activeLanguage.value),
@@ -2612,7 +2640,10 @@
             linkPreview: currentLinkToSeeMore.value || undefined,
             image: fallbackImageId,
           };
-          if (isEditMode.value && existingTranslationIds[activeLanguage.value]) {
+          if (
+            isEditMode.value &&
+            existingTranslationIds[activeLanguage.value]
+          ) {
             fallbackTranslationData.id =
               existingTranslationIds[activeLanguage.value];
           }
@@ -2640,9 +2671,7 @@
         (templateData as any).removeOtherTranslations = true;
       }
 
-      if (
-        formData.scheduleEnabled
-      ) {
+      if (formData.scheduleEnabled) {
         const dateStr = String(formData.scheduleDate);
         const timeStr = String(formData.scheduleTime);
 
@@ -5031,5 +5060,4 @@
     font-weight: 800;
     color: #92400e;
   }
-
 </style>

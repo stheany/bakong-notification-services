@@ -69,8 +69,34 @@ if docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
     echo "✅ Database container is running"
     DB_RUNNING=true
 elif docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
-    echo "   ⚠️  Database container exists but is stopped - starting it..."
-    docker start "$DB_CONTAINER"
+    echo "   ⚠️  Database container exists but is stopped."
+    echo "   Recreating container with docker compose (max 120s)..."
+    docker rm -f "$DB_CONTAINER" 2>/dev/null || true
+    docker compose -f "$COMPOSE_FILE" up -d db &
+    COMPOSE_PID=$!
+    COMPOSE_DEADLINE=$(($(date +%s) + 120))
+    while true; do
+        if docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+            wait "$COMPOSE_PID" 2>/dev/null || true
+            break
+        fi
+        if ! kill -0 "$COMPOSE_PID" 2>/dev/null; then
+            wait "$COMPOSE_PID" 2>/dev/null || true
+            break
+        fi
+        if [ "$(date +%s)" -ge "$COMPOSE_DEADLINE" ]; then
+            kill "$COMPOSE_PID" 2>/dev/null || true
+            wait "$COMPOSE_PID" 2>/dev/null || true
+            echo "   ❌ docker compose timed out after 120s. Try: docker compose -f $COMPOSE_FILE up -d db"
+            exit 1
+        fi
+        echo "   ⏳ Waiting for container... ($((COMPOSE_DEADLINE - $(date +%s)))s left)"
+        sleep 5
+    done
+    if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+        echo "   ❌ Container did not start. Run: docker compose -f $COMPOSE_FILE up -d db"
+        exit 1
+    fi
     echo "   ⏳ Waiting for database to be ready (15 seconds)..."
     sleep 15
 
@@ -90,8 +116,32 @@ elif docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
         DB_RUNNING=true
     fi
 else
-    echo "   ⚠️  Database container not found - starting with docker-compose..."
-    docker compose -f "$COMPOSE_FILE" up -d db
+    echo "   ⚠️  Database container not found - starting with docker-compose (max 120s)..."
+    docker compose -f "$COMPOSE_FILE" up -d db &
+    COMPOSE_PID=$!
+    COMPOSE_DEADLINE=$(($(date +%s) + 120))
+    while true; do
+        if docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+            wait "$COMPOSE_PID" 2>/dev/null || true
+            break
+        fi
+        if ! kill -0 "$COMPOSE_PID" 2>/dev/null; then
+            wait "$COMPOSE_PID" 2>/dev/null || true
+            break
+        fi
+        if [ "$(date +%s)" -ge "$COMPOSE_DEADLINE" ]; then
+            kill "$COMPOSE_PID" 2>/dev/null || true
+            wait "$COMPOSE_PID" 2>/dev/null || true
+            echo "   ❌ docker compose timed out after 120s. Try: docker compose -f $COMPOSE_FILE up -d db"
+            exit 1
+        fi
+        echo "   ⏳ Waiting for container... ($((COMPOSE_DEADLINE - $(date +%s)))s left)"
+        sleep 5
+    done
+    if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+        echo "   ❌ Container did not start. Run: docker compose -f $COMPOSE_FILE up -d db"
+        exit 1
+    fi
     echo "   ⏳ Waiting for database to start (15 seconds)..."
     sleep 15
 

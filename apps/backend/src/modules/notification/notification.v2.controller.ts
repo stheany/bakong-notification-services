@@ -40,8 +40,8 @@ export class NotificationControllerV2 {
       fcmToken: dto.fcmToken
         ? `${dto.fcmToken.substring(0, 30)}...`
         : dto.fcmToken === ''
-        ? 'EMPTY (explicitly cleared)'
-        : 'NOT PROVIDED',
+          ? 'EMPTY (explicitly cleared)'
+          : 'NOT PROVIDED',
     });
     try {
       /**

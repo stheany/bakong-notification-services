@@ -389,8 +389,8 @@ export class NotificationService {
           template.bakongPlatform === 'BAKONG_TOURIST'
             ? 'Bakong Tourist'
             : template.bakongPlatform === 'BAKONG_JUNIOR'
-            ? 'Bakong Junior'
-            : 'Bakong';
+              ? 'Bakong Junior'
+              : 'Bakong';
         throw new Error(
           `No users found for ${platformName} app. Please ensure there are registered users for this platform before sending notifications.`
         );
@@ -810,9 +810,8 @@ export class NotificationService {
         singleAccountId &&
         dto.notificationType === NotificationType.FLASH_NOTIFICATION
       ) {
-        const user = await this.baseFunctionHelper.findUserByAccountId(
-          singleAccountId
-        );
+        const user =
+          await this.baseFunctionHelper.findUserByAccountId(singleAccountId);
         if (user && user.bakongPlatform) {
           userBakongPlatform = user.bakongPlatform;
           console.log(
@@ -933,9 +932,8 @@ export class NotificationService {
         template.bakongPlatform &&
         !userBakongPlatform
       ) {
-        const user = await this.baseFunctionHelper.findUserByAccountId(
-          singleAccountId
-        );
+        const user =
+          await this.baseFunctionHelper.findUserByAccountId(singleAccountId);
         if (user && !user.bakongPlatform) {
           await this.baseFunctionHelper.updateUserData({
             accountId: singleAccountId,
@@ -971,8 +969,8 @@ export class NotificationService {
             template.bakongPlatform === 'BAKONG_TOURIST'
               ? 'Bakong Tourist'
               : template.bakongPlatform === 'BAKONG_JUNIOR'
-              ? 'Bakong Junior'
-              : 'Bakong';
+                ? 'Bakong Junior'
+                : 'Bakong';
           if (dto.templateId) {
             try {
               await this.templateRepo.update(dto.templateId, { isSent: false });
@@ -1017,8 +1015,8 @@ export class NotificationService {
             template.bakongPlatform === 'BAKONG_TOURIST'
               ? 'Bakong Tourist'
               : template.bakongPlatform === 'BAKONG_JUNIOR'
-              ? 'Bakong Junior'
-              : 'Bakong';
+                ? 'Bakong Junior'
+                : 'Bakong';
           if (dto.templateId) {
             try {
               await this.templateRepo.update(dto.templateId, { isSent: false });
@@ -2349,8 +2347,8 @@ export class NotificationService {
       typeof dto.accountId === 'string' && dto.accountId.trim()
         ? dto.accountId.trim()
         : Array.isArray(dto.accountId) && dto.accountId.length > 0
-        ? String(dto.accountId[0]).trim()
-        : undefined;
+          ? String(dto.accountId[0]).trim()
+          : undefined;
     if (!accountId) {
       return BaseResponseDto.error({
         errorCode: ErrorCode.USER_NOT_FOUND,
@@ -2438,12 +2436,15 @@ export class NotificationService {
           const createdAt = new Date(notif.createdAt);
           return createdAt >= last24Hours && createdAt <= now;
         });
-        const templateCounts = todayNotifications.reduce((acc, notif) => {
-          if (notif.templateId) {
-            acc[notif.templateId] = (acc[notif.templateId] || 0) + 1;
-          }
-          return acc;
-        }, {} as Record<number, number>);
+        const templateCounts = todayNotifications.reduce(
+          (acc, notif) => {
+            if (notif.templateId) {
+              acc[notif.templateId] = (acc[notif.templateId] || 0) + 1;
+            }
+            return acc;
+          },
+          {} as Record<number, number>
+        );
         const templatesAtLimit = Object.entries(templateCounts)
           .filter(([_, count]) => count >= 2)
           .map(([templateId]) => parseInt(templateId));
@@ -2649,8 +2650,8 @@ export class NotificationService {
         fcmToken: fcmToken
           ? `${fcmToken.substring(0, 30)}...`
           : fcmToken === ''
-          ? 'EMPTY (explicitly cleared)'
-          : 'NOT PROVIDED',
+            ? 'EMPTY (explicitly cleared)'
+            : 'NOT PROVIDED',
         platform: platform || 'N/A',
         language: language || 'N/A',
         bakongPlatform: bakongPlatform || 'N/A',
@@ -2663,9 +2664,8 @@ export class NotificationService {
           data: { accountId },
         });
       }
-      const existingUser = await this.baseFunctionHelper.findUserByAccountId(
-        accountId
-      );
+      const existingUser =
+        await this.baseFunctionHelper.findUserByAccountId(accountId);
       if (existingUser) {
         console.log(
           `📋 [getNotificationCenter] Existing user found: ${accountId}, current fcmToken: ${
@@ -2683,8 +2683,8 @@ export class NotificationService {
         fcmTokenValue: fcmToken
           ? `${fcmToken.substring(0, 30)}... (length: ${fcmToken.length})`
           : fcmToken === ''
-          ? 'EMPTY STRING'
-          : 'UNDEFINED',
+            ? 'EMPTY STRING'
+            : 'UNDEFINED',
         fcmTokenType: typeof fcmToken,
       });
       console.log(`🔄 [getNotificationCenter] Calling updateUserData with:`, {
@@ -2694,8 +2694,8 @@ export class NotificationService {
               fcmToken.length
             }, type: ${typeof fcmToken})`
           : fcmToken === ''
-          ? 'EMPTY STRING'
-          : 'UNDEFINED',
+            ? 'EMPTY STRING'
+            : 'UNDEFINED',
         participantCode: participantCode || 'NOT PROVIDED',
         platform: platform || 'NOT PROVIDED',
         language: language || 'NOT PROVIDED',
@@ -2782,9 +2782,8 @@ export class NotificationService {
         console.log(
           `✅ [getNotificationCenter] Sync flow complete for ${accountId}, isNewUser: ${isNewUser}, dataUpdated: ${dataUpdated}`
         );
-        const syncedUser = await this.baseFunctionHelper.findUserByAccountId(
-          accountId
-        );
+        const syncedUser =
+          await this.baseFunctionHelper.findUserByAccountId(accountId);
         const syncStatus = syncedUser?.syncStatus || null;
         return InboxResponseDto.getSyncResponse(
           accountId,
@@ -3035,7 +3034,7 @@ export class NotificationService {
       console.log(
         `Deleting all notification records for template ID: ${templateId}`
       );
-        const result = await this.notiRepo.delete({ templateId });
+      const result = await this.notiRepo.delete({ templateId });
       console.log(
         `Deleted ${
           result.affected || 0

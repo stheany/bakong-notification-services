@@ -19,7 +19,7 @@ services:
       - '5437:5432'
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
-      - ./apps/backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - /c/Users/theany.so/Desktop/bakong-notification-services/apps/backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     restart: unless-stopped
     networks:
       - bakong-network
@@ -45,6 +45,7 @@ services:
       - CORS_ORIGIN=http://localhost:3001
       - GOOGLE_APPLICATION_CREDENTIALS=/opt/bk_notification_service/firebase-service-account.json
       - TYPEORM_SYNCHRONIZE=false
+    command: ["node", "/opt/bk_notification_service/apps/backend/dist/main.js"]
     volumes:
       - ./firebase-service-account.json:/opt/bk_notification_service/firebase-service-account.json:ro
       - ./apps/backend/env.development:/opt/bk_notification_service/env.development:ro

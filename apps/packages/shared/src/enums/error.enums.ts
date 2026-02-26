@@ -32,6 +32,7 @@ export enum ErrorCode {
   TEMPLATE_SEND_INTERVAL_INVAILD_DURATION = 30,
   NO_USERS_FOR_BAKONG_PLATFORM = 31,
   DATABASE_INVALID_INPUT_SYNTAX = 32,
+  ACCOUNT_DEACTIVATED = 33,
 }
 export enum ResponseMessage {
   REQUEST_SUCCESS = 'Request successfully',

@@ -17,8 +17,8 @@ COMPOSE_FILE="docker-compose.sit.yml"
 DB_CONTAINER="bakong-notification-services-db-sit"
 DB_USER="bkns_sit"
 DB_NAME="bakong_notification_services_sit"
-BACKEND_PORT="4002"
-FRONTEND_PORT="8090"
+BACKEND_PORT="4003"
+FRONTEND_PORT="8091"
 SERVER_IP="10.20.6.57"
 
 echo "🚀 SIT Server Deployment"
@@ -128,8 +128,9 @@ if docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
     echo "   ✅ Database container is running"
     DB_RUNNING=true
 elif docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
-    echo "   ⚠️  Database container exists but is stopped - starting it..."
-    docker start "$DB_CONTAINER"
+    echo "   ⚠️  Database container exists but is stopped - recreating with compose..."
+    docker rm -f "$DB_CONTAINER" 2>/dev/null || true
+    docker compose -f "$COMPOSE_FILE" up -d db
     echo "   ⏳ Waiting for database to be ready (15 seconds)..."
     sleep 15
     
@@ -430,6 +431,47 @@ docker rmi bakong-notification-services-backend 2>/dev/null || true
 echo ""
 
 # ============================================================================
+# Step 5.5: Ensure SIT DB port 5436 is free (avoid "address already in use")
+# ============================================================================
+SIT_DB_PORT=5436
+_check_port_sit_db() {
+  if command -v ss >/dev/null 2>&1; then
+    ss -tlnp 2>/dev/null | grep -q ":$SIT_DB_PORT " && return 1
+  elif command -v netstat >/dev/null 2>&1; then
+    netstat -tlnp 2>/dev/null | grep -q ":$SIT_DB_PORT " && return 1
+  fi
+  return 0
+}
+
+echo "🔍 Checking that port $SIT_DB_PORT (SIT DB) is free..."
+if ! _check_port_sit_db; then
+  echo "   ⚠️  Port $SIT_DB_PORT is in use - stopping SIT stack again and waiting 5s..."
+  docker compose -f "$COMPOSE_FILE" down 2>/dev/null || true
+  sleep 5
+  if ! _check_port_sit_db; then
+    echo ""
+    echo "❌ Port $SIT_DB_PORT is still in use (often a host process, not Docker). What is using it:"
+    echo "---"
+    if command -v ss >/dev/null 2>&1; then
+      ss -tlnp 2>/dev/null | grep "$SIT_DB_PORT" || true
+      [ -z "$(ss -tlnp 2>/dev/null | grep "$SIT_DB_PORT")" ] && echo "   (run as root to see process: sudo ss -tlnp | grep $SIT_DB_PORT)"
+    fi
+    if command -v netstat >/dev/null 2>&1 && ! command -v ss >/dev/null 2>&1; then
+      netstat -tlnp 2>/dev/null | grep "$SIT_DB_PORT" || true
+      [ -z "$(netstat -tlnp 2>/dev/null | grep "$SIT_DB_PORT")" ] && echo "   (run as root to see process: sudo netstat -tlnp | grep $SIT_DB_PORT)"
+    fi
+    echo "---"
+    echo "   To see which process (PID) is using it: sudo ss -tlnp | grep $SIT_DB_PORT"
+    echo "   Then stop that process or change SIT DB port in docker-compose.sit.yml."
+    echo ""
+    exit 1
+  fi
+fi
+echo "   ✅ Port $SIT_DB_PORT is free"
+
+echo ""
+
+# ============================================================================
 # Step 6: Build and Start Services
 # ============================================================================
 echo "🏗️  Step 6: Building backend (this will take a few minutes)..."
@@ -470,8 +512,22 @@ if ! docker compose -f "$COMPOSE_FILE" build --no-cache frontend 2>&1 | tee /tmp
 fi
 
 echo ""
+echo "🔍 Re-checking port $SIT_DB_PORT before starting (build may have taken a while)..."
+if ! _check_port_sit_db; then
+  echo "   ⚠️  Port $SIT_DB_PORT is now in use. Run: docker compose -f $COMPOSE_FILE down"
+  echo "   Then free port $SIT_DB_PORT (see above) and run this script again."
+  exit 1
+fi
+
 echo "🚀 Step 7: Starting services..."
-docker compose -f "$COMPOSE_FILE" up -d
+if ! docker compose -f "$COMPOSE_FILE" up -d; then
+  echo ""
+    echo "❌ Failed to start services. Common cause: port $SIT_DB_PORT (DB) or 4003/8091/8444 already in use."
+  echo "   Run: docker compose -f $COMPOSE_FILE down"
+    echo "   Check: ss -tlnp | grep -E '$SIT_DB_PORT|4003|8091|8444'  (or netstat -tlnp)"
+  echo "   Then free the port and run this script again."
+  exit 1
+fi
 
 echo ""
 
@@ -556,7 +612,7 @@ echo ""
 echo "✅ SIT deployment complete!"
 echo ""
 echo "🔒 Data Safety Summary:"
-echo "   ✅ Backup created before deployment: backups/backup_sit_latest.sql"
+echo "   ✅ Backup created before deployment: backups/backup_staging_latest.sql"
 echo "   ✅ Data stored in Docker volume (persistent)"
 echo "   ✅ Migration only adds schema changes (no data deletion)"
 echo ""
@@ -568,7 +624,7 @@ echo ""
 echo "💡 Useful commands:"
 echo "   • Follow logs: docker compose -f $COMPOSE_FILE logs -f"
 echo "   • Verify migration: docker exec -i $DB_CONTAINER psql -U $DB_USER -d $DB_NAME -f apps/backend/scripts/verify-migration.sql"
-echo "   • Restore backup: bash utils-server.sh db-restore sit backups/backup_sit_latest.sql"
+echo "   • Restore backup: bash utils-server.sh db-restore backups/backup_staging_latest.sql sit"
 echo "   • Restart: docker compose -f $COMPOSE_FILE restart"
 echo "   • Stop: docker compose -f $COMPOSE_FILE down"
 echo ""

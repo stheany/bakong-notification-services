@@ -341,8 +341,8 @@ export class InboxResponseDto implements NotificationData {
       lang === Language.KM
         ? 'ផ្សេងៗ'
         : lang === Language.JP
-        ? 'その他'
-        : 'Other';
+          ? 'その他'
+          : 'Other';
     if (!categoryType) return defaultOther;
     const safe = (v?: string) => (typeof v === 'string' ? v.trim() : '');
     if (lang === Language.KM)

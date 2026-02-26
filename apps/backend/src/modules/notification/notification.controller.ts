@@ -34,8 +34,8 @@ export class NotificationController {
       fcmToken: dto.fcmToken
         ? `${dto.fcmToken.substring(0, 30)}...`
         : dto.fcmToken === ''
-        ? 'EMPTY (explicitly cleared)'
-        : 'NOT PROVIDED',
+          ? 'EMPTY (explicitly cleared)'
+          : 'NOT PROVIDED',
     });
     try {
       const accountIdList = Array.isArray(dto.accountId)

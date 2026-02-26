@@ -1,4 +1,4 @@
-name: Docker Image (GHCR Test)
+name: Docker Image
 
 on:
   workflow_dispatch:
@@ -31,7 +31,8 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GHCR_PAT2 }}
+          logout: true
 
       - name: Build and Push with Bake
         uses: docker/bake-action@v6

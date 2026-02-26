@@ -19,7 +19,7 @@ export const useRegister = () => {
     password: '',
     confirmPassword: '',
     displayName: '',
-    role: UserRole.NORMAL_USER,
+    role: UserRole.VIEW_ONLY,
   });
 
   const passwordRule = () => passwordFormat(registerFormData.password, true);

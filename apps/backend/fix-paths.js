@@ -45,6 +45,55 @@ function fixPathsInFile(filePath) {
     return `require(${quote}${relative}${quote})`;
   });
 
+  const resolveRelativeSpecifier = (specifier) => {
+    if (!specifier.startsWith('./') && !specifier.startsWith('../')) {
+      return specifier;
+    }
+
+    if (/\.(mjs|cjs|js|json|node)$/.test(specifier)) {
+      return specifier;
+    }
+
+    const currentDir = path.dirname(filePath);
+    const absoluteBase = path.resolve(currentDir, specifier);
+
+    if (fs.existsSync(`${absoluteBase}.js`)) {
+      return `${specifier}.js`;
+    }
+
+    if (fs.existsSync(path.join(absoluteBase, 'index.js'))) {
+      return `${specifier}/index.js`;
+    }
+
+    return specifier;
+  };
+
+  const rewriteEsmSpecifier = (prefix, specifier, suffix) => {
+    const rewritten = resolveRelativeSpecifier(specifier);
+    if (rewritten !== specifier) {
+      modified = true;
+    }
+    return `${prefix}${rewritten}${suffix}`;
+  };
+
+  content = content.replace(
+    /(from\s+['"])(\.{1,2}\/[^'"]+)(['"])/g,
+    (match, prefix, specifier, suffix) =>
+      rewriteEsmSpecifier(prefix, specifier, suffix)
+  );
+
+  content = content.replace(
+    /(import\s+['"])(\.{1,2}\/[^'"]+)(['"])/g,
+    (match, prefix, specifier, suffix) =>
+      rewriteEsmSpecifier(prefix, specifier, suffix)
+  );
+
+  content = content.replace(
+    /(import\s*\(\s*['"])(\.{1,2}\/[^'"]+)(['"]\s*\))/g,
+    (match, prefix, specifier, suffix) =>
+      rewriteEsmSpecifier(prefix, specifier, suffix)
+  );
+
   if (modified && content !== originalContent) {
     fs.writeFileSync(filePath, content, 'utf8');
     console.log(`Fixed paths in: ${path.relative(distDir, filePath)}`);

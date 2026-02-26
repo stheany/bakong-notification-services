@@ -22,10 +22,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@bakong/shared': fileURLToPath(
-        new URL('../packages/shared/src', import.meta.url)
-      ),
     },
+    extensions: ['.ts', '.js', '.json'],
   },
   optimizeDeps: {
     include: ['@bakong/shared'],
@@ -66,6 +64,10 @@ export default defineConfig({
     },
   },
   build: {
+    commonjsOptions: {
+      include: [/node_modules/, /packages\/shared/],
+      transformMixedEsModules: true,
+    },
     rollupOptions: {
       external: [],
     },

@@ -39,8 +39,8 @@ export class BaseFunctionHelper {
       nodeEnv === 'development'
         ? 'http://localhost:4005'
         : nodeEnv === 'staging'
-        ? 'http://10.20.6.57:4002'
-        : 'https://10.20.6.58:8080';
+          ? 'http://10.20.6.57:4002'
+          : 'https://10.20.6.58:8080';
     let baseUrl = defaultBaseUrl;
     if (req) {
       let protocol = req.protocol || (req.secure ? 'https' : 'http');
@@ -204,8 +204,8 @@ export class BaseFunctionHelper {
                   updatesToApply.fcmToken.length
                 })`
               : updatesToApply.fcmToken === ''
-              ? 'EMPTY STRING'
-              : 'NOT IN updatesToApply',
+                ? 'EMPTY STRING'
+                : 'NOT IN updatesToApply',
             participantCode:
               updatesToApply.participantCode || 'NOT IN updatesToApply',
             platform: updatesToApply.platform || 'NOT IN updatesToApply',

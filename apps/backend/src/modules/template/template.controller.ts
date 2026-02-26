@@ -9,7 +9,7 @@ import { RejectTemplateDto } from './dto/reject-template.dto';
 import { TemplateService } from './template.service';
 @Controller('template')
 export class TemplateController {
-  constructor(private readonly templateService: TemplateService) { }
+  constructor(private readonly templateService: TemplateService) {}
   @Roles(UserRole.ADMINISTRATOR, UserRole.EDITOR)
   @Post('create')
   async create(@Body() dto: CreateTemplateDto, @Req() req: any) {

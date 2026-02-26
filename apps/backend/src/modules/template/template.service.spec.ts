@@ -6,7 +6,7 @@ import { Template } from 'src/entities/template.entity';
 import { TemplateTranslation } from 'src/entities/template-translation.entity';
 import { Image } from 'src/entities/image.entity';
 import { User } from 'src/entities/user.entity';
-import { BaseResponseDto } from 'src/common/base-response.dto';
+
 import {
   ErrorCode,
   ResponseMessage,
